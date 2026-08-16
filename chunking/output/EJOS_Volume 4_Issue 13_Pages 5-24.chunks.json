@@ -1,0 +1,640 @@
+{
+  "source_file": "D:\\Creativa\\data\\rew_data\\books\\EJOS_Volume 4_Issue 13_Pages 5-24.pdf",
+  "file_name": "EJOS_Volume 4_Issue 13_Pages 5-24.pdf",
+  "file_size_bytes": 601790,
+  "content_type": "application/pdf",
+  "extractor": "pypdf",
+  "language": "en",
+  "page_count": 20,
+  "total_chars": 24180,
+  "chunk_count": 68,
+  "chunk_params": {
+    "max_chunk_size": 500,
+    "overlap_size": 50,
+    "min_quality_score": 0.1
+  },
+  "cleaning": {
+    "pages_before": 20,
+    "pages_after": 20,
+    "chars_before": 27465,
+    "chars_after": 24180,
+    "page_number_lines_removed": 20,
+    "repeated_boilerplate_lines_removed": 40,
+    "footer_lines_removed": 0
+  },
+  "created_at": "2026-08-16T11:53:52.235017+00:00",
+  "chunks": [
+    {
+      "index": 0,
+      "page_number": 1,
+      "text": "Abstracts:\nDiabetes prevalence was 20.0% in urban Egypt.\nThere are new trend to use traditional natural medicines\nmainly originated in herbs, which is showing a bright future\nin the therapy of diabetes mellitus (DM) and its\ncomplications. Accordingly, this study aimed to study the\neffect of different doses of Stevia rebaudiana plants on\nblood glucose, lipid profile and kidney functio ns level in",
+      "char_count": 398,
+      "word_count": 63,
+      "quality_score": 0.679,
+      "language": "en"
+    },
+    {
+      "index": 1,
+      "page_number": 1,
+      "text": "lipid profile and kidney functio ns level ininduced diabetic rats. The results indicated that, after six\nweeks of injection with alloxan diabetic rats treated with\nhigh dose of stevia tended to have blood sugar close to\nhealthy group. Using the three levels from stevea 2.5%, 5%\nand 7.5% separately in treated diabetic rats led to significant\ndecreases in serum triglycerides, as compared to the positive\ncontrol group.\nThe high level from stevia induced significant",
+      "char_count": 466,
+      "word_count": 74,
+      "quality_score": 0.802,
+      "language": "en"
+    },
+    {
+      "index": 2,
+      "page_number": 1,
+      "text": "high level from stevia induced significantdecrease in serum triglycerides and cholesterol in diabetic\ngroups, as compa red to the treated groups with low and\nmedium levels from those materials. high -density\nlipoprotein of hyperglycemic groups which treated with\nhigh level from stevea increased significantly at p<0.05, as\ncompared to hyperglycemic groups which treated with\nmedium levels. Three levels from stevea -decreased serum\nLDL-c in rats suffering from hyperglycemia, as compared to",
+      "char_count": 491,
+      "word_count": 71,
+      "quality_score": 0.873,
+      "language": "en"
+    },
+    {
+      "index": 3,
+      "page_number": 1,
+      "text": "rats suffering from hyperglycemia, as compared topositive control group. All treated groups with different\ntested diets produced an improvement in serum urea",
+      "char_count": 157,
+      "word_count": 22,
+      "quality_score": 0.483,
+      "language": "en"
+    },
+    {
+      "index": 4,
+      "page_number": 2,
+      "text": "nitrogen and creatinine levels,  as compared to positive\ncontrol group. Dose of 7.5% of stevia have therapeutic\npotential. They possess hypolipidemic and hypoglycemic\nproperties.\nIntroduction:\nDiabetes is a chronic disease that occurs either when\nthe pancreas does not produce enough ins ulin or when the\nbody cannot effectively use the insulin it produces.\nHyperglycaemia, or raised blood sugar, is a common effect",
+      "char_count": 415,
+      "word_count": 62,
+      "quality_score": 0.676,
+      "language": "en"
+    },
+    {
+      "index": 5,
+      "page_number": 2,
+      "text": "or raised blood sugar, is a common effectof uncontrolled diabetes and over time leads to serious\ndamage to many of the body's systems, especially the nerves\nand blood vessels(WHO, 2013).\nIn 2014, 9% of adults 18 years and older had\ndiabetes. In 2012 diabetes was the direct cause of 1.5\nmillion deaths. More than 80% of diabetes deaths occur in\nlow- and middle-income countries.  Unfortunately, Egypt is\nclassified as one of middle-income countries(WHO, 2013).",
+      "char_count": 460,
+      "word_count": 74,
+      "quality_score": 0.857,
+      "language": "en"
+    },
+    {
+      "index": 6,
+      "page_number": 2,
+      "text": "as one of middle-income countries(WHO, 2013).Some region of Northern Africa including Morocco,\nAlgeria, Tunisia, Libya, Egypt,  Sudan, South Sudan and\nWestern Sahara are the most countries that dispersed this\ndisease (Bos  and Agyemang 2013). It is estimated that by\nthe year 2030, Egypt will have at least 8.6 million adults\nwith diabetes (Naglaa and Ghada, 2010).\nDiabetes prevalence was 20.0% in urban Egypt.\nUndiagnosed diabetes is common in Northern Africa with a",
+      "char_count": 468,
+      "word_count": 72,
+      "quality_score": 0.77,
+      "language": "en"
+    },
+    {
+      "index": 7,
+      "page_number": 2,
+      "text": "diabetes is common in Northern Africa with aprevalence ranging from 18% to 75%.  )Bos and Agyemang,\n2013).",
+      "char_count": 106,
+      "word_count": 17,
+      "quality_score": 0.491,
+      "language": "en"
+    },
+    {
+      "index": 8,
+      "page_number": 3,
+      "text": "The control and treatment of diabetes and its\ncomplications mainly depend on the chemical or\nbiochemical agents . There are new trend to use traditional\nnatural medicines mainly originated in herbs, that is\nshowing a bright future in the therapy of diabetes mellitus\n(DM) and its complications (Li et al, 2004).\nStevia rebaudiana (Bertoni) is an herb of the 950\ngenera of Asteraceae family. It is also known as sweet herb,",
+      "char_count": 422,
+      "word_count": 71,
+      "quality_score": 0.666,
+      "language": "en"
+    },
+    {
+      "index": 9,
+      "page_number": 3,
+      "text": "family. It is also known as sweet herb,sweet leaf, honey leaf, candy leaf an d honey yerba\n(Carakostas et al., 2008).\nStevia rebaudiana(Bertoni) has been used for the\ntreatment of diabetes in many countries. Although, a\npositive effect on antidiabetic and its complications has not\nbeen unequivocally demonstrated.This herb has been proven\nsafe and effective over hundreds of years.\nAccordingly, this study aimed to study the effect of",
+      "char_count": 435,
+      "word_count": 68,
+      "quality_score": 0.654,
+      "language": "en"
+    },
+    {
+      "index": 10,
+      "page_number": 3,
+      "text": "this study aimed to study the effect ofdifferent doses of Stevia rebaudianaplants on blood glucose,\nlipid profile, kidney and liver functions level in induced\ndiabetic rats.\nMaterials and Methods\nBiological Experiment:\nMale albino rats Sprague Dawley strainweighing 110 120g were maintained under standard conditions for one\nweek before starting the experimental for acclimatization.\nAfter acclimatization period for one week, rats will",
+      "char_count": 436,
+      "word_count": 61,
+      "quality_score": 0.633,
+      "language": "en"
+    },
+    {
+      "index": 11,
+      "page_number": 3,
+      "text": "acclimatization period for one week, rats willfeeding b alance diet and inject by aloxan150 mg/Kg body",
+      "char_count": 102,
+      "word_count": 16,
+      "quality_score": 0.484,
+      "language": "en"
+    },
+    {
+      "index": 12,
+      "page_number": 4,
+      "text": "weight of recrystallized alloxanexpect the negative group\n(non-diabetic rats ) to induce hyperglycemia Buko et al.,\n(1996).\nRats (n= 30) were divided into five main groups: each\ngroup contains 5 rats as following:\nGroup (1): Fed on the basal diet only and kept as negative\ncontrol group (healthy group).\nGroup (2): Injected with alloxan and Fed on the basal diet\nwithout any treatment and kept as positive control group.",
+      "char_count": 420,
+      "word_count": 69,
+      "quality_score": 0.726,
+      "language": "en"
+    },
+    {
+      "index": 13,
+      "page_number": 4,
+      "text": "any treatment and kept as positive control group.Group (3): Injected with alloxan and fed on the basal diet\ncontaining stevia at dose of 2.5g/100g of basal diet.\nGroup (4): Injected with alloxan and fed on the basal diet\ncontainingstevia at dose of 5g/100g of basal diet.\nGroup (5): Injected with alloxan and fed on the basal diet\ncontaining stevia at dose of 7.5g/100g of basal diet.\nAt the end of the experimental period (6weeks), rats\nwere fasted for 12 hours then sacrifice d. Blood samples",
+      "char_count": 494,
+      "word_count": 85,
+      "quality_score": 0.906,
+      "language": "en"
+    },
+    {
+      "index": 14,
+      "page_number": 4,
+      "text": "for 12 hours then sacrifice d. Blood sampleswere collected from eye.\nBiochemical analysis:Determination of serum glucose:\nFasting plasma glucose was analysis  according to\n(Tietz 1986)\nDetermination of serum lipids:\nSerum cholesterol, LDL-cholesterol, HDL-cholesterol\nand triglycerides were determined by kits according\nto(Knight et al.,1972) methods.\nDetermination of serum transaminases:",
+      "char_count": 389,
+      "word_count": 48,
+      "quality_score": 0.724,
+      "language": "en"
+    },
+    {
+      "index": 15,
+      "page_number": 5,
+      "text": "Serum aspartate transferase (AST) and serum alanine\ntransferase (ALT) and lipid peroxide (Malonaldehyde)\nactivities were measured colorimetrically according to\n(Reitman and Frankel., 1957).\nResults and Discussion:\nStevia possess the ability to increase the insulin effect\non cell membranes, increase insulin production, stabilize\nglucagon secretion and blood sugar levels, and improve",
+      "char_count": 384,
+      "word_count": 50,
+      "quality_score": 0.58,
+      "language": "en"
+    },
+    {
+      "index": 16,
+      "page_number": 5,
+      "text": "secretion and blood sugar levels, and improveglucose tolerance to ingested carbohydrates and lower post prandial blood sugar level s in both animals and\nhumans(Dyrskog, et al., 2005).\nTable (1): The effect of different doses of stevia on serum\nblood glucose of hyperglycemic rats.\nParameters\nGroups\nmg/dl.\nInitial blood\nglucose\nFinal blood\nGlucose\nHealthy rats. Control (-) 92.75a ±  3.31 86.73 a ±  3.30\nHyperglycemic rats. Control (+) 132.13b±18.2 154.80 c ±  2.35\nHyperglycemic",
+      "char_count": 480,
+      "word_count": 73,
+      "quality_score": 0.835,
+      "language": "en"
+    },
+    {
+      "index": 17,
+      "page_number": 5,
+      "text": "(+) 132.13b±18.2 154.80 c ±  2.35\nHyperglycemicrats fed on diet\nand treated\nwith stevia 2.5g/100g 128.02b±12.35 123.90 b ±  3.56\n5g/100g 133.18b±10.18 120.23b  ±  5.12\n7.5g /100g 130.10b±11.92 83.43 a ±  2.40\nValues are expressed as mean ± SD.Significance at p<0.05Values,\nwhich don’t share the same letter in each column, are significantly\ndifferent.",
+      "char_count": 351,
+      "word_count": 53,
+      "quality_score": 0.672,
+      "language": "en"
+    },
+    {
+      "index": 18,
+      "page_number": 6,
+      "text": "From the data illustrated in table (1), i t could be\nconcluded that, there was no significant statistical has been\nobserved on initial blood glucose between injected groups\nwith alloxan. On contrast, healthy group (control negative\ngroup) tended to have the lowerinitial blood glucosethan\ngroups injected with alloxan. It may be due to Alloxan is a\nspecific toxin that causes massive destruction of the\npancreatic beta cells(Singh, et al., 2013).",
+      "char_count": 446,
+      "word_count": 70,
+      "quality_score": 0.662,
+      "language": "en"
+    },
+    {
+      "index": 19,
+      "page_number": 6,
+      "text": "the\npancreatic beta cells(Singh, et al., 2013).After six weeks of injection with alloxan and treating\nwith different doses of stevia, there were significant change\nhas been observed between groups. Diabetic rats treated\nwith high dose of stevia tended to have blood sugar close to\nhealthy group, even no significant differ ence has been\nobserved between them. On the other hand all treated\ngroups with stevia had blood sugar lower than control",
+      "char_count": 443,
+      "word_count": 71,
+      "quality_score": 0.671,
+      "language": "en"
+    },
+    {
+      "index": 20,
+      "page_number": 6,
+      "text": "with stevia had blood sugar lower than controlpositive group. Groups treated with low and medium doses\nof stevia had blood sugar lower than control positive group\nbut still higher t han control negative group, even significant\nstatistical was observed between them. The current results\nwere within with the openion that Stevia is shown to\nprovide a comprehensive set of mechanisms that counter the\nmechanics of type II diabetes and its ev entual complications\n(Dyrskog, et al., 2005).",
+      "char_count": 484,
+      "word_count": 77,
+      "quality_score": 0.697,
+      "language": "en"
+    },
+    {
+      "index": 21,
+      "page_number": 6,
+      "text": "ev entual complications\n(Dyrskog, et al., 2005).The plasma sugar data illustrated in this study was\nagree with early study showed that 10 g % of powdered\nStevia leaves in high-carbohydrate diets given to rats caused",
+      "char_count": 215,
+      "word_count": 35,
+      "quality_score": 0.554,
+      "language": "en"
+    },
+    {
+      "index": 22,
+      "page_number": 7,
+      "text": "a significant reduction in blood glucose l evel following\n4weeks of treatment (Takahashi et al., 2001and Geuns,\n2003).treatment of diabetic micerats with dried steavia\nleaves for 6 months considerably lowered the blood sugar\nlevel. This could be due to the presence of some\nbiomolecules present in t he plant extract that may have\nstimulate the beta cells of langerhans to release insulin,\nleading to the improvement in the carbohydrate",
+      "char_count": 436,
+      "word_count": 69,
+      "quality_score": 0.659,
+      "language": "en"
+    },
+    {
+      "index": 23,
+      "page_number": 7,
+      "text": "to the improvement in the carbohydratemetabolizing enzymes and thus establishing normal blood\nglucose level. The previous openion was agree with\nHossain, et al. openion (Hossain, et al, 2011). Thus, sugars\ncan be replaced with steviol glycosides or stevioside of\nStevia leaf to support healthy gluco -regulation. Fortunately,\nall treated group with steiva with different concentrations\ntended to have blood glucose lower than control positive",
+      "char_count": 442,
+      "word_count": 64,
+      "quality_score": 0.682,
+      "language": "en"
+    },
+    {
+      "index": 24,
+      "page_number": 7,
+      "text": "to have blood glucose lower than control positivegroup. Accordingly, the oxidative stress will be reducing.\nThe previous opinion is within with opinion who reported\nthat, oxidative stress along with hyperglycemia, plays a\nmajor role in the parthenogenesis of DM (Ceriello et al .,\n1997 and Kasiviswanath. et al., 2005).\nWith regard to the effect of different levels from\nstevea on serum lipoprotein cholesterol and triglyceride of\ndiabetic rats are presented in table (2).Data in this table ( 2 )",
+      "char_count": 496,
+      "word_count": 79,
+      "quality_score": 0.693,
+      "language": "en"
+    },
+    {
+      "index": 25,
+      "page_number": 7,
+      "text": "presented in table (2).Data in this table ( 2 )revealed that, the mean value of tota l serum cholesterol in\nrats suffering from hyperglycemia decreased gradually with\nincreasing the level of stevea.",
+      "char_count": 198,
+      "word_count": 32,
+      "quality_score": 0.51,
+      "language": "en"
+    },
+    {
+      "index": 26,
+      "page_number": 8,
+      "text": "Treatments of diabetic rats with the lowest level from\nstevea recorded the lowest decrease in serum cholesterol, in\ncomparison with other two treated groups. While, the\nhighest decrease in the mean value of serum cholesterol was\nobserved in diabetic groups treated with the highest levels\nfrom stevia. The results indicated that, significant difference\nin serum cholesterol was observed between dia betic groups",
+      "char_count": 411,
+      "word_count": 62,
+      "quality_score": 0.643,
+      "language": "en"
+    },
+    {
+      "index": 27,
+      "page_number": 8,
+      "text": "cholesterol was observed between dia betic groupsfed on basal diet (control positive) and treated with different\nstevia doses.\nTable (2): The effect of different doses of stevia on\ncholesterol and triglycerides of hyperglycemic rats.\nParameters\nGroups\nmg/dl.\nCholesterol Triglycerides\nHealthy rats. Control (-)\n107.97d±9.19\n103.62d ±  2.47\nHyperglycemic rats. Control (+)\n150.90a±0.91\n150.90a ±  0.91\nHyperglycemic rats\nfed on diet and\ntreated with stevia\n2.5g/100g\n143.42b±3.00\n175.98b ±  2.91",
+      "char_count": 494,
+      "word_count": 69,
+      "quality_score": 0.802,
+      "language": "en"
+    },
+    {
+      "index": 28,
+      "page_number": 8,
+      "text": "stevia\n2.5g/100g\n143.42b±3.00\n175.98b ±  2.915g/100g\n141.48b±2.40\n163.40c ±  2.69\n7.5g /100g\n135.75c±2.93\n106.20d ±  2.66\nValues are expressed as mean ± SD. Significance at p<0.05 Values,\nwhich don’t share the same letter in each column, are significantly\ndifferent.",
+      "char_count": 266,
+      "word_count": 39,
+      "quality_score": 0.612,
+      "language": "en"
+    },
+    {
+      "index": 29,
+      "page_number": 9,
+      "text": "Treatments of diabetic rats with the lowest level from\nstevea recorded the lowest decrease in serum cholesterol, in\ncomparison with other two treated groups. While, the\nhighest decrease in the mean value of serum cholesterol was\nobserved in diabetic groups  treated with the highest levels\nfrom stevia. The results indicated that, significant difference\nin serum cholesterol was observed between diabetic groups",
+      "char_count": 411,
+      "word_count": 61,
+      "quality_score": 0.639,
+      "language": "en"
+    },
+    {
+      "index": 30,
+      "page_number": 9,
+      "text": "cholesterol was observed between diabetic groupsfed on basal diet (control positive) and treated with different\nstevia doses.\nOn the other hand, the best results in serum\ncholesterol observed for hyperglycemic group fed on basal\ndiet and treated with the high levels from stevea.\nUnfortunately, this group  still have total cholesterol higher\nthan control negative group (healthy group), even showed\nsignificant differences in serum cholesterol between them.",
+      "char_count": 458,
+      "word_count": 66,
+      "quality_score": 0.655,
+      "language": "en"
+    },
+    {
+      "index": 31,
+      "page_number": 9,
+      "text": "differences in serum cholesterol between them.Table ( 2 ) illustrated the effect of treating diabetic\nrats with different levels from stevia on serum\ntriglycerides.The data in this table showed that, triglycerides\nin serum diabetic rats (control po sitive) increased\nsignificantly at p <0.05, as compared to non -diabetic rats\n(healthy group).\nUsing the three levels from stevea 2.5%,5% and 7.5%\nseparately in treated diabetic rats led to significant decreases",
+      "char_count": 460,
+      "word_count": 69,
+      "quality_score": 0.851,
+      "language": "en"
+    },
+    {
+      "index": 32,
+      "page_number": 9,
+      "text": "diabetic rats led to significant decreasesin serum triglycerides, as compared to the positive control\ngroup. The high level from stevia induced significant\ndecrease in serum triglycerides in diabetic groups, as",
+      "char_count": 210,
+      "word_count": 30,
+      "quality_score": 0.514,
+      "language": "en"
+    },
+    {
+      "index": 33,
+      "page_number": 10,
+      "text": "compared to the treated groups with low and medium levels\nfrom those materials.\nResults in this table indicated that, significant\ndifferences in serum triglycerides was observed between\nhealthy group (control negative) and groups suffering from\nhyperglycemia and treated with (2.5% and 5%). Treating\ndiabetic groups with 7.5% levels from stevea achieved the\nbest results, because these groups did not differ significantly",
+      "char_count": 421,
+      "word_count": 61,
+      "quality_score": 0.747,
+      "language": "en"
+    },
+    {
+      "index": 34,
+      "page_number": 10,
+      "text": "because these groups did not differ significantlyin serum triglycerides, as compared to the negative control\ngroup.  The data in this table showed that injected rats with\n150 mg alloxan/kg body weight to induce hyperglycemia\n(control –ve group) led to significant incre ase (p<0.05) in\nthe serum, as compared to the negative control group. It\nshould be noted that, control positive group tented to have\ntotal cholesterol and triglyceride much higher than control",
+      "char_count": 462,
+      "word_count": 72,
+      "quality_score": 0.792,
+      "language": "en"
+    },
+    {
+      "index": 35,
+      "page_number": 10,
+      "text": "and triglyceride much higher than controlnegative group. It may be due to the main cause of the lipid\nchanges associated with diabetic dyslipidemia is the\nincreased free fatty -acid release from insulin -resistant fat\ncells (Chahil and Ginssberg, 2006).\nWith regard to the effect of different levels from\nstevea on serum lipoprotein (LDL -c, HDL -c and VLDL -c)\nof diabetic rats are presented in table (3). Results showed\nthat, treating hyperglycemic groups with the three levels",
+      "char_count": 479,
+      "word_count": 77,
+      "quality_score": 0.89,
+      "language": "en"
+    },
+    {
+      "index": 36,
+      "page_number": 10,
+      "text": "hyperglycemic groups with the three levelsfrom stevea resulted in significant increase at p<0.05 in\nserum HDL-c, as compared to the positive control group.",
+      "char_count": 155,
+      "word_count": 23,
+      "quality_score": 0.591,
+      "language": "en"
+    },
+    {
+      "index": 37,
+      "page_number": 11,
+      "text": "Table (3): Effect of different doses from stevia on serum\nlipoproteins of hyperglycemic rats.\nParameters mg/dl.\nGroups HDL-C LDL-c VLDL-c\nHealthy rats. Control (-)\n56.52ab ± 0.9\n30.73c ±\n8.52\n20.72d ±\n0.49\nHyperglycemic rats.\nControl (+)\n32.53d ±  8.6\n83.35a ±\n11.5\n37.08a ±\n0.45\nHyperglycemic\nrats fed on diet\nand treated\nwith stevia\n2.5g/100g\n46.40c ± 1.90\n61.92b ±\n4.2\n35.10b ±\n0.69\n5 g /100g\n61.58a ±  3.1\n52.93b ±\n5.2\n21.24d ±\n0.53\n7.5g/100g.",
+      "char_count": 447,
+      "word_count": 78,
+      "quality_score": 0.775,
+      "language": "en"
+    },
+    {
+      "index": 38,
+      "page_number": 11,
+      "text": "±  3.1\n52.93b ±\n5.2\n21.24d ±\n0.53\n7.5g/100g.50.54b±11.24\n56.41b\n±18.6\n29.36c ±\n7.12\nValues are expressed as mean ± SD. Significance at p<0.05Values,\nwhich don’t share the same letter in each column, are significantly\ndifferent.\nThe results indicated that, high-density lipoprotein of\nhyperglycemic groups which treated with high level from\nstevea decreased significantly at p<0.05, as compared to\nhyperglycemic groups which treated with medium levels.",
+      "char_count": 451,
+      "word_count": 66,
+      "quality_score": 0.791,
+      "language": "en"
+    },
+    {
+      "index": 39,
+      "page_number": 11,
+      "text": "groups which treated with medium levels.Rats suffering from hyperglycemic and treated with medium\nlevel of stevea tended to have the highest level of HDL-c\namong of all treated groups.\nResults in table (3) showed that the three levels from\nstevea -decreased serum LDL -c in rats suffering from\nhyperglycemia, as compared to positive control group. The",
+      "char_count": 351,
+      "word_count": 56,
+      "quality_score": 0.733,
+      "language": "en"
+    },
+    {
+      "index": 40,
+      "page_number": 12,
+      "text": "data in this table showed that, serum LDL -c is\napproximately the same in all treated grou ps, even no\nsignificant difference has been observed between them.\nThe highest decrease in serum LDL -c recorded for\nhyperglycemic group, which treated with level 5% 52.93b ±\n5.27 mg/dl, followed by the treated group 7.5 %  56.41 ±\n18.62 mg/dl, and the gr oup treated with 2.5% level from\n(stevea) 56.41 ±  18.62 mg/dl.",
+      "char_count": 410,
+      "word_count": 72,
+      "quality_score": 0.833,
+      "language": "en"
+    },
+    {
+      "index": 41,
+      "page_number": 12,
+      "text": "2.5% level from\n(stevea) 56.41 ±  18.62 mg/dl.The same table illustrated the effect of treating\ndiabetic rats with different levels from stevea on serum\nVLDL-c. The data showed compared to non -diabetic rats\n(healthy group).\nUsing the th ree levels from stevea in treated diabetic\nrats led to significant decrease in serum VLDL -c, as\ncompared to the positive control groupthat, VLDL -c in\nserum diabetic rats increased significantly at p <0.05, as.",
+      "char_count": 449,
+      "word_count": 73,
+      "quality_score": 0.86,
+      "language": "en"
+    },
+    {
+      "index": 42,
+      "page_number": 12,
+      "text": "rats increased significantly at p <0.05, as.Statistical analysis in this table showed that , significant\nchange in serum VLDL -c was observed between the groups\nwhich treated with different stevia doses.\nThe 5% level from stevea induced significant\ndecrease in serum VLDL -c in diabetic groups, as compared\nto the other treated groups.\nTreating dia betic groups with 5% levels from stevia\nachieved the best results, because these groups did not differ",
+      "char_count": 451,
+      "word_count": 72,
+      "quality_score": 0.872,
+      "language": "en"
+    },
+    {
+      "index": 43,
+      "page_number": 12,
+      "text": "best results, because these groups did not differsignificantly in serum VLDL-c, as compared to the negative\ncontrol group.  From the data presented in the tables (2 and\n3) appeared that, Alloxan adminis tration at the dose of",
+      "char_count": 225,
+      "word_count": 37,
+      "quality_score": 0.572,
+      "language": "en"
+    },
+    {
+      "index": 44,
+      "page_number": 13,
+      "text": "150mg/kg body weight resulted in significant increase in the\nlevel of serum Total cholesterol (TC), triglyceride (TG), low\ndensity lipoprotein (LDL) and Very low density lipoprotein\n(VLDL). The previous results were agreed with earli er\nstudy (Harrison, 2001).\nFrom the data present in the current study appeared\nthat all treated groups have lipid  profile lower than\nuntreated groups. It may be due to S. rebaudiana possess",
+      "char_count": 424,
+      "word_count": 66,
+      "quality_score": 0.68,
+      "language": "en"
+    },
+    {
+      "index": 45,
+      "page_number": 13,
+      "text": "groups. It may be due to S. rebaudiana possesssignificant anti-hyperglycemic, anti-hyperlipidemic and anti\noxidative properties. This opinion is completely agreed with\nthe previous Singh and Grag opinion (Singh and Grag,\n2014).\nFrom the above mentioned data, it be concluded that\nstevia leaves has anti -lipedemic affect. It may be due to\nleaves have bioactive component(s) such as phytochemical\nwhich responsible for the anti -lipidemic activities. It has",
+      "char_count": 456,
+      "word_count": 67,
+      "quality_score": 0.81,
+      "language": "en"
+    },
+    {
+      "index": 46,
+      "page_number": 13,
+      "text": "for the anti -lipidemic activities. It hasalso been reported earlier  that the leaves possess high\nphenols and flavanoid contents, which in turn are\nresponsible for its antioxidant activity(Harrison, 2001).\nEffect of some levels from stevia on kidney functions of\nhyperglycemic  rats:\nTable ( 4 ) illustrated the changes in s erum levels of\nurea nitrogen and creatinine (mg/dl) as a result of the\ntreatments with three levels from (stevia) for rats suffering\nfrom hyperglycemia.",
+      "char_count": 478,
+      "word_count": 74,
+      "quality_score": 0.758,
+      "language": "en"
+    },
+    {
+      "index": 47,
+      "page_number": 13,
+      "text": "(stevia) for rats suffering\nfrom hyperglycemia.From the presented data it could be observed that\nalloxan injection lead to abnormal changes in kidney",
+      "char_count": 149,
+      "word_count": 22,
+      "quality_score": 0.48,
+      "language": "en"
+    },
+    {
+      "index": 48,
+      "page_number": 14,
+      "text": "functions. Serum creatinine and urea nitrogen has been\nincreased significantly at p< 0.05 in diabetic group fed on\nbasal diet, as compared to healthy groupe fed on the same\ndiet.\nTable (4): Effect of some levels from stevia on kidney\nfunctions of hyperglycemic rats.\nValues are expressed as mean ± SD.Significance at p<0.05Values\nwhich don’t share the same letter in each column are significantly\ndifferent.",
+      "char_count": 407,
+      "word_count": 65,
+      "quality_score": 0.798,
+      "language": "en"
+    },
+    {
+      "index": 49,
+      "page_number": 14,
+      "text": "in each column are significantly\ndifferent.Data in table (4) showed the changes in serum urea\nnitrogen levels of diabetic rats as a result of administration\nof stevia in experimental diets. From the above mentioned\ndata, it could b e observed that all treated groups with\ndifferent doses of stevia produced an improvement in serum\nurea nitrogen and creatinine levels, as compared to positive\nParameters\nGroups\nmg/dl.\nCreatinine Urea nitrogen",
+      "char_count": 441,
+      "word_count": 69,
+      "quality_score": 0.708,
+      "language": "en"
+    },
+    {
+      "index": 50,
+      "page_number": 14,
+      "text": "Urea nitrogenHealthy rats. Control (-)  4.42b ±  0.33 6.03c ±  0.71\nHyperglycemic rats. Control (+) 6.35a ±  0.19 8.72a ±  0.60\nHyperglycemic\nrats fed on diet\nand treated with\nstevia\n2.5g/100g 7.45b ±  0.40 7.45b ±  0.40\n5 g /100g 6.50c ±  0.28 6.50c ±  0.28\n7.5g/100g. 4.45d ±  0.30 4.45d ±  0.30",
+      "char_count": 297,
+      "word_count": 53,
+      "quality_score": 0.653,
+      "language": "en"
+    },
+    {
+      "index": 51,
+      "page_number": 15,
+      "text": "control group. Even there are significant differences have\nbeen observed between them.\nThe findi ngs showed that, the increasing levels of\nstevia in the diets which prepared for treating rats led to\ngradual decrease in serum urea nitrogen.\nThe highest decrease in serum urea nitrogen in all\ntested groups recorded for the group which treated with the\nhighest levels from stevia 7.5% followed by the treated",
+      "char_count": 406,
+      "word_count": 66,
+      "quality_score": 0.696,
+      "language": "en"
+    },
+    {
+      "index": 52,
+      "page_number": 15,
+      "text": "levels from stevia 7.5% followed by the treatedgroups with (5% and 2.5%). The group fed in highest dose\nof stevia decreased serum urea nitrogen by about 48% than\nthat of the positive control group.\nThe mean value of serum creatininefor treated group\nhas been decreased, as compared to positive control group.\nIt should be noted that, all treated group with different doses\nof stevia tended to have similar serum creatinine, even no\nstatistical difference has been observed between them. From",
+      "char_count": 491,
+      "word_count": 80,
+      "quality_score": 0.862,
+      "language": "en"
+    },
+    {
+      "index": 53,
+      "page_number": 15,
+      "text": "difference has been observed between them. Fromthe above mentioned data, it could be concluded that, stevia\nimprove the kidney functions. It may be due tointravenous\ninfusion of crude extract of Stevia leaves increase both\nsodium and potassium excretion (El-Gengaihi etal.,2011).\nMoreover the previous author suggested that the\nextract may have a direct effect on salt and water transport\nin renal tubules. The fact that water and sodium excretion",
+      "char_count": 447,
+      "word_count": 68,
+      "quality_score": 0.699,
+      "language": "en"
+    },
+    {
+      "index": 54,
+      "page_number": 15,
+      "text": "tubules. The fact that water and sodium excretionincreased following sweet glycoside infusion in spite of an\nunchanged glomerular filtration rate  (Melis ,1992a ).\nAccordingly, stevia can improve the kidney functions.",
+      "char_count": 217,
+      "word_count": 30,
+      "quality_score": 0.5,
+      "language": "en"
+    },
+    {
+      "index": 55,
+      "page_number": 16,
+      "text": "Conclusion:\nOral administration of stevia caused significant\ndeclines in the blood levels of triglycerides, total\ncholesterols, and LDL -cholesterol, but increased HDL cholesterol. Moreover, it seeme d that stevia had\nhypolipidemic potential. This may be an indication of\nprogressive metabolic control of stevia on mechanisms\ninvolved in elimination of the lipids from the body, this\nhypolipidemic properties have been confirmed in many",
+      "char_count": 436,
+      "word_count": 62,
+      "quality_score": 0.68,
+      "language": "en"
+    },
+    {
+      "index": 56,
+      "page_number": 16,
+      "text": "properties have been confirmed in manyplant species and plant products in medicinal use.\nDose of 30 g/day of stevia have therapeutic potential.\nThey possess hypolipidemic and hypoglycemic properties,\nbut the hypoglycemic effect was more pronounced. Also,\nthey did not show any negative impact on kidney function.\nThis was only a preliminary study to prove the\nhypoglycemic and hypolipidemic effect of stevia. Further\ninvestigation should target determination the active",
+      "char_count": 469,
+      "word_count": 68,
+      "quality_score": 0.703,
+      "language": "en"
+    },
+    {
+      "index": 57,
+      "page_number": 16,
+      "text": "should target determination the activeconstituents of stevia and the mechanism of stevia and many\nfoods that have the hepatoprotective.",
+      "char_count": 135,
+      "word_count": 19,
+      "quality_score": 0.473,
+      "language": "en"
+    },
+    {
+      "index": 58,
+      "page_number": 17,
+      "text": "Referance:\nBukoV, LukivskayaO, NiktinV, TarasovY,ZavodnikL,\nBorodassky A, GorenS.B, JanzB,andGundermann, K.J.\n(1996): Hepatic and pancreatic effects of polyenoylphatidyl\ncholine in rats with alloxan -  induced diabetes14(2): 131 137.\nCarakostas MC, Curry LL, Boileau AC and Brusick DJ\n(2008). Overview: the history, technical function and safety\nof rebaudioside A, a naturally occurring steviol glycoside,",
+      "char_count": 405,
+      "word_count": 52,
+      "quality_score": 0.602,
+      "language": "en"
+    },
+    {
+      "index": 59,
+      "page_number": 17,
+      "text": "A, a naturally occurring steviol glycoside,for use in food and beverages. Food Chem. Toxicol. 46:S1 S10\nCeriello A, Bortolotti  N, Falleti E, Taboga C, Tonutti L,\nCrescentini        A,( 1997) radical -trapping antioxidant\nparameter in NIDDM patients. Diabetes Care,; 20: 194-197.\nChahil TJ and Ginsberg HN(2006). Diabetic dyslipidemia.\nEndocrinology and Metabolism Cli of N. Amer,;  35(3):\n491–510.\nDyrskog SE, Jeppesen PB, Colombo M,\nAbudulaR,andHermansen K (2005). \"Preventive effects of a",
+      "char_count": 491,
+      "word_count": 69,
+      "quality_score": 0.695,
+      "language": "en"
+    },
+    {
+      "index": 60,
+      "page_number": 17,
+      "text": "K (2005). \"Preventive effects of asoy-based diet supplemented with stevioside on the\ndevelopment of the metabolic syndrome and type 2 diabetes\nin Zucker diabetic fatty rats\". Meta b. Clin. Exp. 54 (9):\n1181–8.\nEl-Gengaihi, Souad, Ibrahim Nabaweya, Riad. Sahar, El Regal, S.N. and SheriefNaglaa(2011) Sweet ent kaurenediterpene glycosides of  Stevia rebaudiana Leaves\nBertoni and Biological Evaluation  J of Ame Scien,;7(6).",
+      "char_count": 423,
+      "word_count": 60,
+      "quality_score": 0.673,
+      "language": "en"
+    },
+    {
+      "index": 61,
+      "page_number": 18,
+      "text": "Geuns JMC ( 2003). Molecules of Interest: Stevioside.\nPhytochem., 64:913-921.\nHarrison. ( 2001) Principles of Internal Medicine,\nMcGrawHill Publisher; 15(2): 109-2137.\nHossain MS, Alam MS, Asadujjaman M, Islam MM,\nRahman MA, Islam MA and Islam A.( 2011)\nAntihyperglycemic and antihyperlipidemic effects of\ndifferent fractions of Stevia rebaudiana leaves in alloxan\ninduced diabetic rats. Intern J PharmaSci Res 2[7]: 1722 1729.",
+      "char_count": 427,
+      "word_count": 60,
+      "quality_score": 0.652,
+      "language": "en"
+    },
+    {
+      "index": 62,
+      "page_number": 18,
+      "text": "rats. Intern J PharmaSci Res 2[7]: 1722 1729.Kasiviswanath R, Ramesh A and Kumar KE.( 2005)\nHypoglycemic and Antihyperglycemic Effect of\nGmelinaasiatica Linn. In Normal and in Alloxan Induced\nDiabetic Rats. Bio and Pharmaceu Bulletin,;28(4): 729-732\nKnight, J.A.; Anderson, S. and Rowle, J.M. ( 1972):\nChemical bases of the sulpfo -phospho vanillin reaction for\nestimating total  serumlipids.J. Clin. Chem., 18 : 199.\nManoukBos and Charles Agyemang (2013) BMC Public",
+      "char_count": 466,
+      "word_count": 68,
+      "quality_score": 0.688,
+      "language": "en"
+    },
+    {
+      "index": 63,
+      "page_number": 18,
+      "text": "and Charles Agyemang (2013) BMC PublicHealth, 13:387 http://www.biomedcentral.com/14712458/13/387\nMelis, M S. (1992a). Stevioside effect on renal function of\nnormal and hypertensive rats. J. Ethnopharmacol.; 36: 213.",
+      "char_count": 216,
+      "word_count": 26,
+      "quality_score": 0.604,
+      "language": "en"
+    },
+    {
+      "index": 64,
+      "page_number": 19,
+      "text": "Naglaa A ShawkyArafaandGhada E. El Din.( 2010). The\nEpidemiology of Diabetes Mellitus in Egypt TheEgy. J of\nComm.Med.Vol. 28 No. 3 July.\nReitman, S. and Frankel, S. (1957): A colorimeteric method\nfor the determination of serum glutami c   oxaloacetic    and\nglutamic pyruvic transaminases. Am. J. Clin Path., 28 : 56 62.\nSunanda Singh, VeenaGargi and DeepakYadav (,\n2013).Antihyperglycemic and Antioxidative Ability of stvia",
+      "char_count": 424,
+      "word_count": 63,
+      "quality_score": 0.604,
+      "language": "en"
+    },
+    {
+      "index": 65,
+      "page_number": 19,
+      "text": "and Antioxidative Ability of stviarebaudiana (Bertoni)  Leaves in Diabetes Induced Mice\n.Intern J Pharma and PharmaceuSci ISSN - 0975-1491 Vol\n5, Suppl 2.\nSunanda Singh, and VeenaGargi (2014).\nAntibiabetic, Antidyslipidymic and Antioxidative   Potential\nof Methanolic Root Extract of stvia rebaudiana (Bertoni) on\nAlloxan INDUCED DIABETIC MICEWORLD J of pharm\nand PHARMACESCIEN, Vol. 3, Issue 7, 1859 -1872.\nResearch Article ISSN 2278 – 4357 .",
+      "char_count": 443,
+      "word_count": 64,
+      "quality_score": 0.727,
+      "language": "en"
+    },
+    {
+      "index": 66,
+      "page_number": 19,
+      "text": "1859 -1872.\nResearch Article ISSN 2278 – 4357 .Takahashi K. Matsuda, M. Ohashi, K. Taniguchi, K.\nNakagomi, O. Abe,Y. Mori, S. Sato, N.\nOkutaniK,andShigeta S (2001). Analysis of\nantirotavirusactivity of extract from Stevia rebaudiana.\nAntiviral Res.,49:15-24.\nTietz, N.W. (1986): \"Text book of Clinical Chemistry\".\nSaunders, W.B. Co., London- PhiladelphiaP.796.",
+      "char_count": 360,
+      "word_count": 49,
+      "quality_score": 0.668,
+      "language": "en"
+    },
+    {
+      "index": 67,
+      "page_number": 20,
+      "text": "World Health Organization. Retrieved 4 April 2014.\n\"Diabetes Fact sheet No:312\".\nW.L. Li, H.C. Zheng, BukuruN.and De Kimpeb (2004).\nNatural medicines used in the traditional Chinese medical\nsystem for therapy of diabetes mellitus. J Ethnopharmacol.\nMay; 92(1):1-21",
+      "char_count": 264,
+      "word_count": 37,
+      "quality_score": 0.526,
+      "language": "en"
+    }
+  ]
+}
