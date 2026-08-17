@@ -1,201 +1,228 @@
 # Diabetes RAG Assistant
 
-A fully grounded, bilingual (English + Arabic) RAG application that answers diabetes questions
-using **only** information retrieved from provided medical documents.
+A bilingual English/Arabic RAG application that answers diabetes questions from the medical documents in this repository. It supports local sentence-transformer embeddings for development and Gemini API embeddings for serverless deployment. PostgreSQL with pgvector stores and searches all embeddings.
 
-> ⚕️ **This is a research/educational tool. Not a substitute for professional medical advice.**
-
----
+> This is a research and educational tool, not a substitute for professional medical advice.
 
 ## Architecture
 
-```
-User Question (EN / AR / EGY-AR)
-    → Safety Check
-    → Query Rewriting (follow-up contextualisation)
-    → Category Routing (treatment / prevention / nutrition / all)
-    → Embedding (sentence-transformers multilingual)
-    → ChromaDB Semantic Search
-    → Relevance Threshold Filter
-    → Gemini LLM (grounded generation, context-only)
-    → Citation Builder
-    → Safety Disclaimer (if applicable)
-    → Final Answer + Sources
-```
+```text
+Documents
+  -> structure-aware parsing
+  -> language and category classification
+  -> chunking and quality filtering
+  -> local or Gemini embeddings
+  -> PostgreSQL + pgvector
 
-## Project Structure
-
-```
-├── app.py                  # Gradio UI entry point
-├── requirements.txt
-├── .env.example            # Configuration template
-├── README.md
-│
-├── data/                   # Place your PDF/DOCX documents here
-│   └── rew_data/books/     # Default data directory
-│
-├── src/
-│   ├── config.py           # Central configuration (all from .env)
-│   ├── embeddings.py       # sentence-transformers wrapper
-│   ├── vector_store.py     # ChromaDB client (3 collections)
-│   ├── retriever.py        # Semantic search + threshold filter
-│   ├── router.py           # Query category routing
-│   ├── rewriter.py         # Follow-up query contextualisation
-│   ├── prompts.py          # Gemini system + user prompt templates
-│   ├── generator.py        # Gemini API wrapper
-│   ├── citations.py        # Source citation builder
-│   ├── safety.py           # Safety classifier + disclaimers
-│   ├── memory.py           # Conversation history
-│   ├── context_builder.py  # Context formatting for LLM
-│   └── ingestion/
-│       ├── parser.py           # PyMuPDF structure-aware PDF parser
-│       ├── chunker_adapter.py  # SmartChunker → ChunkRecord
-│       ├── category_classifier.py  # Auto-assign category to chunks
-│       ├── pipeline.py         # Orchestrates parse→chunk→embed→store
-│       └── core/
-│           ├── chunker.py      # SmartChunker (word/sentence-safe)
-│           ├── language_detector.py
-│           └── quality_filter.py
-│
-├── scripts/
-│   ├── ingest.py           # CLI ingestion pipeline
-│   └── evaluate.py         # RAG evaluation with test cases
-│
-└── chroma_db/              # ChromaDB storage (auto-created)
+Question
+  -> medical safety check
+  -> follow-up query rewriting
+  -> treatment/prevention/nutrition routing
+  -> pgvector cosine search
+  -> grounded Gemini prompt
+  -> answer, disclaimer, and citations
 ```
 
----
+Embedding spaces are isolated with PostgreSQL partitions. The defaults create `local_384` and `gemini_384` namespaces, each with its own cosine HNSW index. This prevents vectors from different models from being compared accidentally.
 
-## Quick Start
+## Main modules
 
-### 1. Install dependencies
+```text
+app.py                      Gradio chat application
+compose.yaml                Local PostgreSQL 16 + pgvector service
+database/schema.sql         Partitioned vector schema
+pyproject.toml              UV dependency definitions
+uv.lock                     Reproducible dependency lock
+
+scripts/
+  bootstrap.py              Prepare the model and pgvector namespace
+  dry_run.py                Validate modules, embeddings, database, and UI
+  ingest.py                 Parse and ingest source documents
+  evaluate.py               Run retrieval and response evaluations
+
+src/
+  config.py                 Environment-based configuration
+  embeddings.py             Local/Gemini embedding providers
+  scoring.py                Cosine-distance conversion
+  vector_store.py           PostgreSQL/pgvector storage and search
+  retriever.py              Similarity filtering and result mapping
+  router.py                 Query category routing
+  rewriter.py               Follow-up query contextualization
+  safety.py                 Medical-risk classification and disclaimers
+  prompts.py                Grounded Gemini prompts
+  generator.py              Gemini generation client and retries
+  citations.py              Page- and section-aware citations
+  memory.py                 Bounded per-session conversation memory
+  ingestion/                Parsing, classification, chunking, and filtering
+
+tests/                      Focused pytest tests
+data/rew_data/books/        Default source-document directory
+```
+
+## Requirements
+
+- Python 3.11 or 3.12
+- [UV](https://docs.astral.sh/uv/)
+- PostgreSQL with the pgvector extension
+- A Gemini API key for generation and online embeddings
+
+## Local setup
+
+Install the locked dependencies including the local embedding model runtime:
 
 ```bash
-pip install -r requirements.txt
+uv sync --extra local
 ```
 
-### 2. Configure environment
+Create local configuration:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+On macOS/Linux:
 
 ```bash
-copy .env.example .env
-# Edit .env and add your GEMINI_API_KEY
+cp .env.example .env
 ```
 
-### 3. Place your documents
+Set `GEMINI_API_KEY` in `.env`. Never commit `.env`.
 
-Put PDF/DOCX files into `data/rew_data/books/` (or configure `DATA_DIR` in `.env`).
-
-### 4. Run ingestion
+Start PostgreSQL with pgvector:
 
 ```bash
-python scripts/ingest.py
+docker compose up -d postgres
 ```
 
-Expected output:
-```
-Documents processed : 12
-Successful          : 12
-Pages processed     : 847
-Chunks created      : 3241
-  treatment          982
-  prevention         1105
-  nutrition          743
-  general            411
-```
-
-### 5. Launch the application
+Download the local embedding model and create its database partition/index:
 
 ```bash
-python app.py
+uv run python scripts/bootstrap.py
 ```
 
-Open http://localhost:7860 in your browser.
+## Online embeddings
 
----
+For API-based embeddings, set:
 
-## Configuration (`.env`)
+```dotenv
+EMBEDDING_PROVIDER=gemini
+ONLINE_EMBEDDING_MODEL=gemini-embedding-2
+EMBEDDING_DIMENSION=384
+```
 
-| Variable | Default | Description |
-|---|---|---|
-| `GEMINI_API_KEY` | *(required)* | Your Google Gemini API key |
-| `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini model name |
-| `EMBEDDING_MODEL` | `paraphrase-multilingual-MiniLM-L12-v2` | sentence-transformers model |
-| `TOP_K` | `5` | Number of chunks to retrieve |
-| `SIMILARITY_THRESHOLD` | `0.30` | Minimum similarity score (0–1) |
-| `CHUNK_SIZE` | `2000` | Max characters per chunk |
-| `CHUNK_OVERLAP` | `200` | Overlap between chunks |
-| `DATA_DIR` | `data/rew_data/books` | Document directory |
-| `CHROMA_DB_DIR` | `chroma_db` | ChromaDB storage directory |
-| `DEBUG` | `false` | Show retrieval debug info in UI |
+The serverless environment does not need the local model extra:
 
----
+```bash
+uv sync
+uv run python scripts/bootstrap.py --verify-online
+```
+
+The online provider adds retrieval instructions to document and query inputs, requests 384-dimensional vectors, and normalizes the returned vectors before pgvector storage.
+
+Changing providers selects a separate database namespace. Run ingestion once for each provider you intend to use.
+
+## Tests and consistency checks
+
+Run pytest:
+
+```bash
+uv run python -m pytest
+```
+
+Run the integration dry run:
+
+```bash
+uv run python scripts/dry_run.py
+```
+
+Exercise real pgvector writes, nearest-neighbor search, and cleanup:
+
+```bash
+uv run python scripts/database_smoke.py
+```
+
+The dry run validates:
+
+- Required files and environment keys
+- Runtime library imports
+- Routing, rewriting, safety, classification, and chunking
+- Active local or Gemini embeddings
+- PostgreSQL connectivity and pgvector availability
+- The active namespace and cosine query path
+- Gradio UI construction
+
+It does not ingest documents or call Gemini generation. When `EMBEDDING_PROVIDER=gemini`, it does make embedding API requests.
+
+## Ingest documents
+
+Place PDF, DOCX, or TXT files in `data/rew_data/books/`, then run:
+
+```bash
+uv run python scripts/ingest.py
+```
+
+Options:
+
+```text
+--data-dir PATH    Use another document directory
+--file PATH        Ingest one document
+--force            Replace an already-ingested document
+--reset            Delete chunks in the active embedding namespace
+--stats            Print category counts without ingesting
+--verbose, -v      Enable debug logging
+```
+
+Without `--force`, an existing document is skipped. With `--force`, old chunks are removed only after parsing, chunking, and embedding succeed.
+
+## Run the application
+
+```bash
+uv run python app.py
+```
+
+Open [http://localhost:7860](http://localhost:7860).
 
 ## Evaluation
 
 ```bash
-# Full evaluation (requires Gemini API key)
-python scripts/evaluate.py
+# Full retrieval and generation evaluation
+uv run python scripts/evaluate.py
 
-# Retrieval-only (no LLM calls)
-python scripts/evaluate.py --no-generate
+# Retrieval only; no Gemini generation
+uv run python scripts/evaluate.py --no-generate
 
-# Single category
-python scripts/evaluate.py --category nutrition
-
-# Verbose (show answer previews)
-python scripts/evaluate.py --verbose
+# One category
+uv run python scripts/evaluate.py --category nutrition
 ```
 
----
+## Configuration
 
-## Knowledge Categories
+| Variable | Default | Purpose |
+|---|---|---|
+| `DATABASE_URL` | local Compose URL | PostgreSQL connection URL |
+| `EMBEDDING_PROVIDER` | `local` | `local` or `gemini` |
+| `EMBEDDING_MODEL` | multilingual MiniLM | Local sentence-transformer |
+| `ONLINE_EMBEDDING_MODEL` | `gemini-embedding-2` | Hosted embedding model |
+| `EMBEDDING_DIMENSION` | `384` | Shared pgvector dimension |
+| `EMBEDDING_NAMESPACE` | provider-derived | Optional database partition namespace |
+| `GEMINI_API_KEY` | empty | Generation and hosted embeddings |
+| `GEMINI_MODEL` | `gemini-2.5-flash` in `.env.example` | Generation model |
+| `TOP_K` | `5` | Final retrieved chunks |
+| `SIMILARITY_THRESHOLD` | `0.30` | Minimum cosine similarity |
+| `CHUNK_SIZE` | `2000` | Maximum chunk characters |
+| `CHUNK_OVERLAP` | `200` | Adjacent chunk overlap |
+| `DATA_DIR` | `data/rew_data/books` | Source documents |
+| `DEBUG` | `false` | Show retrieval diagnostics |
+| `MAX_MEMORY_TURNS` | `6` | Conversation turns retained |
 
-| Category | What it covers |
-|---|---|
-| **Treatment** | Medications, clinical management, HbA1c, insulin, complications |
-| **Prevention** | Risk factors, lifestyle changes, screening, physical activity |
-| **Nutrition** | Dietary guidance, recommended foods, glycemic index, meal planning |
-| **All** | Cross-domain queries (default) |
+## Future Vercel deployment
 
----
+Use `EMBEDDING_PROVIDER=gemini` on Vercel so the deployment does not need PyTorch or local model files. Set `DATABASE_URL` to a managed PostgreSQL service with pgvector enabled, such as a compatible Neon or Supabase database.
 
-## Technology Stack
+Run `scripts/bootstrap.py --verify-online` against the production database during provisioning, not on every request. The storage and embedding layers are serverless-compatible; packaging the current Gradio UI as a Vercel entry point remains a separate deployment step.
 
-| Component | Technology |
-|---|---|
-| PDF Parsing | PyMuPDF (fitz) — structure-aware, table detection |
-| Chunking | SmartChunker — word/sentence-safe, Arabic-aware |
-| Embeddings | sentence-transformers (multilingual, free, local) |
-| Vector DB | ChromaDB (local, no API key needed) |
-| LLM | Google Gemini API |
-| UI | Gradio |
+## Safety
 
----
+The pre-generation safety layer classifies queries as emergency, high-risk, diagnosis, or informational. Emergency questions bypass retrieval and generation. High-risk and diagnosis questions receive mandatory disclaimers.
 
-## Safety & Disclaimers
-
-This system implements a four-level safety classification:
-
-- **EMERGENCY**: Acute symptoms → immediate redirect to emergency services
-- **HIGH_RISK**: Dosing/prescription requests → answer with mandatory medical disclaimer
-- **DIAGNOSIS**: Personal diagnosis requests → educational answer + consult disclaimer
-- **INFORMATIONAL**: Normal RAG flow
-
-The LLM is instructed to never invent medical facts, dosages, medications, or thresholds.
-All answers must be traceable to retrieved document chunks.
-
----
-
-## Ingestion Script Options
-
-```bash
-python scripts/ingest.py [OPTIONS]
-
-Options:
-  --data-dir PATH    Directory containing documents
-  --file PATH        Ingest a single file
-  --force            Re-ingest even if already stored
-  --reset            Delete all ChromaDB data before ingesting
-  --stats            Print collection stats and exit
-  --verbose, -v      Enable debug logging
-```
+This keyword-based guardrail is not a clinical diagnostic system.
