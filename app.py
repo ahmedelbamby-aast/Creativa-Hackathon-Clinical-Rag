@@ -33,6 +33,12 @@ from src.safety import classify_safety, SafetyLevel, get_disclaimer, get_emergen
 from src.prompts import build_user_prompt, NO_RESULTS_RESPONSE_EN, NO_RESULTS_RESPONSE_AR
 from src.citations import build_citation_list, build_debug_info
 from src.generator import generator
+from src.observability import (
+    RequestTrace,
+    diagnostics_markdown,
+    record_trace,
+    run_retrieval_benchmark,
+)
 
 logging.basicConfig(
     level=logging.DEBUG if config.debug else logging.INFO,
@@ -71,26 +77,36 @@ def rag_pipeline(
         return "Please enter a question.", "", ""
 
     is_ar = _is_arabic(query)
+    trace = RequestTrace(query=query[:200], requested_category=category)
 
     # Step 1: Safety check
-    safety_level = classify_safety(query)
+    with trace.stage("safety"):
+        safety_level = classify_safety(query)
 
     if safety_level == SafetyLevel.EMERGENCY:
         logger.warning("Emergency query detected: %r", query[:80])
         response = get_emergency_response(is_arabic=is_ar)
         memory.add_user(query, category=category)
         memory.add_assistant(response)
+        trace.finish("emergency")
+        record_trace(trace)
         return response, "", ""
 
     # Step 2: Rewrite query for better retrieval
     history = memory.get_history()
-    rewritten = rewrite_query(query, conversation_history=history)
+    with trace.stage("rewrite"):
+        rewritten = rewrite_query(query, conversation_history=history)
 
     # Step 3: Route to category
-    routed_category = route_query(rewritten, user_selected_category=category)
+    with trace.stage("route"):
+        routed_category = route_query(rewritten, user_selected_category=category)
+    trace.routed_category = routed_category
 
     # Step 4: Retrieve
-    chunks = retrieve(rewritten, category=routed_category, top_k=config.top_k)
+    with trace.stage("retrieval"):
+        chunks = retrieve(rewritten, category=routed_category, top_k=config.top_k)
+    trace.retrieval_count = len(chunks)
+    trace.best_score = round(chunks[0].score, 4) if chunks else 0.0
 
     # Step 5: Check sufficiency
     if not is_retrieval_sufficient(chunks):
@@ -98,6 +114,8 @@ def rag_pipeline(
         no_info = NO_RESULTS_RESPONSE_AR if is_ar else NO_RESULTS_RESPONSE_EN
         memory.add_user(query, category=category)
         memory.add_assistant(no_info)
+        trace.finish("insufficient_retrieval")
+        record_trace(trace)
         return no_info, "", ""
 
     # Step 6: Build citations
@@ -106,7 +124,8 @@ def rag_pipeline(
     # Step 7: Generate answer
     try:
         prompt = build_user_prompt(query, chunks, conversation_history=history)
-        answer = generator.generate(prompt)
+        with trace.stage("generation"):
+            answer = generator.generate(prompt)
     except RuntimeError as e:
         if "GEMINI_API_KEY" in str(e):
             answer = (
@@ -115,9 +134,11 @@ def rag_pipeline(
             )
         else:
             answer = f"⚠️ **Generation error**: {e}"
+        trace.error = str(e)[:300]
     except Exception as e:
         logger.error("Generation failed: %s", e)
         answer = f"⚠️ **An error occurred during generation**: {e}"
+        trace.error = str(e)[:300]
 
     # Step 8: Append safety disclaimer
     disclaimer = get_disclaimer(safety_level, is_arabic=is_ar)
@@ -133,6 +154,8 @@ def rag_pipeline(
     if config.debug:
         debug = build_debug_info(query, rewritten, routed_category, chunks)
 
+    trace.finish("generation_error" if trace.error else "ok", trace.error)
+    record_trace(trace)
     return answer, citations, debug
 
 
@@ -461,6 +484,33 @@ def build_ui() -> gr.Blocks:
             inputs=query_input,
             label="",
         )
+
+        # ── Developer diagnostics page ────────────────────────────────
+        with gr.Accordion("🧪 Developer Diagnostics", open=False):
+            gr.Markdown(
+                "Request-stage timings and repeatable retrieval benchmarks. "
+                "Benchmark history is stored locally under `.runtime/` and never includes API keys."
+            )
+            diagnostics_output = gr.Markdown(value=diagnostics_markdown(), elem_id="diagnostics-output")
+            with gr.Row():
+                refresh_diagnostics_btn = gr.Button("Refresh Traces", variant="secondary")
+                run_benchmark_btn = gr.Button("Run Retrieval Benchmark", variant="primary")
+
+            refresh_diagnostics_btn.click(
+                fn=diagnostics_markdown,
+                outputs=diagnostics_output,
+                api_name="refresh_diagnostics",
+            )
+
+            def run_benchmark_and_render():
+                run_retrieval_benchmark()
+                return diagnostics_markdown()
+
+            run_benchmark_btn.click(
+                fn=run_benchmark_and_render,
+                outputs=diagnostics_output,
+                api_name="run_retrieval_benchmark",
+            )
 
         # ── Footer ─────────────────────────────────────────────────────
         gr.HTML(

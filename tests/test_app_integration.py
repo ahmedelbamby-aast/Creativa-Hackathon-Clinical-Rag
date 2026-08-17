@@ -25,6 +25,8 @@ def test_generation_error_keeps_retrieved_citations(monkeypatch):
     monkeypatch.setattr(app.generator, "generate", lambda _: (_ for _ in ()).throw(
         RuntimeError("GEMINI_API_KEY is not set")
     ))
+    traces = []
+    monkeypatch.setattr(app, "record_trace", lambda trace: traces.append(trace.serializable()))
 
     answer, citations, _ = app.rag_pipeline(
         "How can complications be prevented?", "prevention", ConversationMemory()
@@ -33,3 +35,6 @@ def test_generation_error_keeps_retrieved_citations(monkeypatch):
     assert "Configuration Error" in answer
     assert "guideline" in citations
     assert "Page 4" in citations
+    assert traces[0]["status"] == "generation_error"
+    assert traces[0]["retrieval_count"] == 1
+    assert set(traces[0]["stages_ms"]) >= {"safety", "rewrite", "route", "retrieval", "generation"}
