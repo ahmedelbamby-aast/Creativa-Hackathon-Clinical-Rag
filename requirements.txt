@@ -1,0 +1,20 @@
+# ── Core RAG Stack ────────────────────────────────────────────────────────────
+pymupdf>=1.24.0                    # PyMuPDF / fitz — structure-aware PDF parsing + table detection
+sentence-transformers>=2.7.0       # Free multilingual embeddings (no API key)
+chromadb>=0.5.0                    # Local vector database
+google-generativeai>=0.8.0         # Gemini LLM API
+
+# ── UI ────────────────────────────────────────────────────────────────────────
+gradio>=4.40.0                     # Web UI
+
+# ── Config / Env ──────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0               # Load .env file
+
+# ── Text Processing ───────────────────────────────────────────────────────────
+langdetect>=1.0.9                  # Language detection (EN / AR)
+pypdf>=4.0.0                       # Fallback PDF extractor (plain text)
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-docx>=1.1.0                 # DOCX support
+tqdm>=4.66.0                       # Progress bars in ingestion script
+numpy>=1.26.0                      # Required by sentence-transformers + chromadb

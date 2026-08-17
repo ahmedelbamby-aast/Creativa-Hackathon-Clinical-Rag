@@ -1,163 +1,201 @@
-# Creativa Diabetes
+# Diabetes RAG Assistant
 
-Creativa Diabetes is an early-stage document ingestion project for preparing diabetes-related reference material for downstream search and retrieval workflows. The current runnable pipeline extracts text from source documents, cleans common extraction artifacts, detects whether the content is Arabic, English, or mixed, splits it into overlapping chunks, assigns a simple quality score, and writes page-aware JSON records.
+A fully grounded, bilingual (English + Arabic) RAG application that answers diabetes questions
+using **only** information retrieved from provided medical documents.
 
-The repository includes a small corpus of public diabetes publications and two generated chunk files that demonstrate the expected output format.
+> ⚕️ **This is a research/educational tool. Not a substitute for professional medical advice.**
 
-## What the pipeline does
+---
 
-For each document, the pipeline performs the following steps:
+## Architecture
 
-1. Extracts text from PDF, DOCX, or plain-text files.
-2. Preserves PDF page numbers in the extracted records.
-3. Normalizes Unicode and whitespace, repairs line-break hyphenation, and removes repeated headers, footers, and standalone page numbers.
-4. Detects Arabic, English, or mixed-language content using character distribution.
-5. Splits content hierarchically at paragraph, line, sentence, clause, word, and character boundaries.
-6. Adds configurable overlap while keeping chunks within the requested maximum size.
-7. Scores and filters chunks using length, text density, and technical-content signals.
-8. Saves the document metadata, cleaning statistics, parameters, and chunks as JSON.
-
-The chunker also attempts to keep fenced code, display math, HTML tables, and Markdown tables intact.
-
-## Repository structure
-
-```text
-.
-├── chunking/
-│   ├── main.py                         # Runnable command-line pipeline
-│   ├── output/                         # Generated JSON examples
-│   └── src/services/ingestion/
-│       ├── cleaner.py                  # Extraction and text cleanup
-│       ├── chunker.py                  # Hierarchical, overlapping chunker
-│       ├── language_detector.py        # Arabic/English language detection
-│       └── quality_filter.py           # Chunk scoring and filtering
-├── data/rew_data/books/                # Source diabetes publications
-└── example/services/                   # Reference code for a larger architecture
+```
+User Question (EN / AR / EGY-AR)
+    → Safety Check
+    → Query Rewriting (follow-up contextualisation)
+    → Category Routing (treatment / prevention / nutrition / all)
+    → Embedding (sentence-transformers multilingual)
+    → ChromaDB Semantic Search
+    → Relevance Threshold Filter
+    → Gemini LLM (grounded generation, context-only)
+    → Citation Builder
+    → Safety Disclaimer (if applicable)
+    → Final Answer + Sources
 ```
 
-`example/services/` contains exploratory components for embedding, clustering, security, and database-backed ingestion. It is not a complete runnable application in the current repository because the surrounding models, settings, and some services are not included.
+## Project Structure
 
-## Requirements
+```
+├── app.py                  # Gradio UI entry point
+├── requirements.txt
+├── .env.example            # Configuration template
+├── README.md
+│
+├── data/                   # Place your PDF/DOCX documents here
+│   └── rew_data/books/     # Default data directory
+│
+├── src/
+│   ├── config.py           # Central configuration (all from .env)
+│   ├── embeddings.py       # sentence-transformers wrapper
+│   ├── vector_store.py     # ChromaDB client (3 collections)
+│   ├── retriever.py        # Semantic search + threshold filter
+│   ├── router.py           # Query category routing
+│   ├── rewriter.py         # Follow-up query contextualisation
+│   ├── prompts.py          # Gemini system + user prompt templates
+│   ├── generator.py        # Gemini API wrapper
+│   ├── citations.py        # Source citation builder
+│   ├── safety.py           # Safety classifier + disclaimers
+│   ├── memory.py           # Conversation history
+│   ├── context_builder.py  # Context formatting for LLM
+│   └── ingestion/
+│       ├── parser.py           # PyMuPDF structure-aware PDF parser
+│       ├── chunker_adapter.py  # SmartChunker → ChunkRecord
+│       ├── category_classifier.py  # Auto-assign category to chunks
+│       ├── pipeline.py         # Orchestrates parse→chunk→embed→store
+│       └── core/
+│           ├── chunker.py      # SmartChunker (word/sentence-safe)
+│           ├── language_detector.py
+│           └── quality_filter.py
+│
+├── scripts/
+│   ├── ingest.py           # CLI ingestion pipeline
+│   └── evaluate.py         # RAG evaluation with test cases
+│
+└── chroma_db/              # ChromaDB storage (auto-created)
+```
 
-- Python 3.9 or newer
-- [`pypdf`](https://pypi.org/project/pypdf/) for PDF input
-- [`python-docx`](https://pypi.org/project/python-docx/) for DOCX input
+---
 
-Only the dependency for the selected input type is required. Plain-text processing uses the Python standard library.
+## Quick Start
 
-## Setup
-
-Clone the repository and create a virtual environment:
+### 1. Install dependencies
 
 ```bash
-git clone https://github.com/A7MED-SA/Creativa_Diabetes.git
-cd Creativa_Diabetes
-python -m venv .venv
+pip install -r requirements.txt
 ```
 
-Activate it on Windows:
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-Or on macOS/Linux:
+### 2. Configure environment
 
 ```bash
-source .venv/bin/activate
+copy .env.example .env
+# Edit .env and add your GEMINI_API_KEY
 ```
 
-Install the document readers:
+### 3. Place your documents
+
+Put PDF/DOCX files into `data/rew_data/books/` (or configure `DATA_DIR` in `.env`).
+
+### 4. Run ingestion
 
 ```bash
-python -m pip install pypdf python-docx
+python scripts/ingest.py
 ```
 
-## Usage
+Expected output:
+```
+Documents processed : 12
+Successful          : 12
+Pages processed     : 847
+Chunks created      : 3241
+  treatment          982
+  prevention         1105
+  nutrition          743
+  general            411
+```
 
-Run the pipeline from the repository root and provide a source document:
+### 5. Launch the application
 
 ```bash
-python chunking/main.py "data/rew_data/books/IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf"
+python app.py
 ```
 
-The result is written to `chunking/output/<document-name>.chunks.json` by default.
+Open http://localhost:7860 in your browser.
 
-If no document is supplied, the command processes the first PDF (alphabetically) in `data/rew_data/books/`:
+---
+
+## Configuration (`.env`)
+
+| Variable | Default | Description |
+|---|---|---|
+| `GEMINI_API_KEY` | *(required)* | Your Google Gemini API key |
+| `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini model name |
+| `EMBEDDING_MODEL` | `paraphrase-multilingual-MiniLM-L12-v2` | sentence-transformers model |
+| `TOP_K` | `5` | Number of chunks to retrieve |
+| `SIMILARITY_THRESHOLD` | `0.30` | Minimum similarity score (0–1) |
+| `CHUNK_SIZE` | `2000` | Max characters per chunk |
+| `CHUNK_OVERLAP` | `200` | Overlap between chunks |
+| `DATA_DIR` | `data/rew_data/books` | Document directory |
+| `CHROMA_DB_DIR` | `chroma_db` | ChromaDB storage directory |
+| `DEBUG` | `false` | Show retrieval debug info in UI |
+
+---
+
+## Evaluation
 
 ```bash
-python chunking/main.py
+# Full evaluation (requires Gemini API key)
+python scripts/evaluate.py
+
+# Retrieval-only (no LLM calls)
+python scripts/evaluate.py --no-generate
+
+# Single category
+python scripts/evaluate.py --category nutrition
+
+# Verbose (show answer previews)
+python scripts/evaluate.py --verbose
 ```
 
-### Options
+---
 
-```text
---output-dir PATH          Directory for generated JSON files
---max-chunk-size INTEGER   Maximum characters per chunk (default: 500)
---overlap-size INTEGER     Overlap between adjacent chunks (default: 50)
---min-quality-score FLOAT  Minimum accepted quality score (default: 0.1)
-```
+## Knowledge Categories
 
-Example with custom parameters:
+| Category | What it covers |
+|---|---|
+| **Treatment** | Medications, clinical management, HbA1c, insulin, complications |
+| **Prevention** | Risk factors, lifestyle changes, screening, physical activity |
+| **Nutrition** | Dietary guidance, recommended foods, glycemic index, meal planning |
+| **All** | Cross-domain queries (default) |
+
+---
+
+## Technology Stack
+
+| Component | Technology |
+|---|---|
+| PDF Parsing | PyMuPDF (fitz) — structure-aware, table detection |
+| Chunking | SmartChunker — word/sentence-safe, Arabic-aware |
+| Embeddings | sentence-transformers (multilingual, free, local) |
+| Vector DB | ChromaDB (local, no API key needed) |
+| LLM | Google Gemini API |
+| UI | Gradio |
+
+---
+
+## Safety & Disclaimers
+
+This system implements a four-level safety classification:
+
+- **EMERGENCY**: Acute symptoms → immediate redirect to emergency services
+- **HIGH_RISK**: Dosing/prescription requests → answer with mandatory medical disclaimer
+- **DIAGNOSIS**: Personal diagnosis requests → educational answer + consult disclaimer
+- **INFORMATIONAL**: Normal RAG flow
+
+The LLM is instructed to never invent medical facts, dosages, medications, or thresholds.
+All answers must be traceable to retrieved document chunks.
+
+---
+
+## Ingestion Script Options
 
 ```bash
-python chunking/main.py "path/to/document.pdf" \
-  --output-dir "output" \
-  --max-chunk-size 800 \
-  --overlap-size 80 \
-  --min-quality-score 0.2
+python scripts/ingest.py [OPTIONS]
+
+Options:
+  --data-dir PATH    Directory containing documents
+  --file PATH        Ingest a single file
+  --force            Re-ingest even if already stored
+  --reset            Delete all ChromaDB data before ingesting
+  --stats            Print collection stats and exit
+  --verbose, -v      Enable debug logging
 ```
-
-`overlap-size` must be smaller than `max-chunk-size`.
-
-## Output format
-
-Each generated file contains document-level metadata and a `chunks` array:
-
-```json
-{
-  "file_name": "document.pdf",
-  "content_type": "application/pdf",
-  "extractor": "pypdf",
-  "language": "en",
-  "page_count": 42,
-  "chunk_count": 315,
-  "chunk_params": {
-    "max_chunk_size": 500,
-    "overlap_size": 50,
-    "min_quality_score": 0.1
-  },
-  "chunks": [
-    {
-      "index": 0,
-      "page_number": 1,
-      "text": "Extracted and cleaned text...",
-      "char_count": 486,
-      "word_count": 73,
-      "quality_score": 0.684,
-      "language": "en"
-    }
-  ]
-}
-```
-
-The file also records source size, total cleaned characters, cleaning statistics, and a UTC creation timestamp. `source_file` is stored as an absolute path from the machine that generated the output.
-
-## Current limitations
-
-- Image-only or scanned PDFs require OCR before this pipeline can process them.
-- DOCX and TXT inputs are represented as a single page because those formats do not expose PDF-style pagination here.
-- Language detection currently distinguishes only Arabic, English, and mixed Arabic/English text.
-- Quality scoring is heuristic and should be tuned for a specific retrieval or evaluation workload.
-- Protected semantic blocks that are themselves larger than the configured chunk limit may exceed the intended content budget after restoration.
-- The files under `example/services/` require additional application modules and dependencies before they can be executed.
-
-## Data and medical-use notice
-
-The documents under `data/rew_data/books/` remain subject to their original publishers' terms and attribution requirements. Review those terms before redistributing the source files.
-
-This repository prepares documents for technical experimentation. It does not provide medical advice, diagnosis, or treatment recommendations, and generated chunks should be validated against their original sources before use in a health-related system.
-
-## License
-
-No project license is currently included. Unless a license is added, the repository's code should not be assumed to grant reuse, modification, or redistribution rights.
