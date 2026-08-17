@@ -43,6 +43,7 @@ from src.config import (
     CATEGORY_ALL,
     _collection_name,
 )
+from src.scoring import cosine_distance_to_score
 
 logger = logging.getLogger(__name__)
 
@@ -78,11 +79,6 @@ def _safe_metadata(record: dict) -> dict:
             val = val[:512]
         meta[field] = val
     return meta
-
-
-def cosine_distance_to_score(distance: float) -> float:
-    """Convert Chroma cosine distance to a similarity score in ``[0, 1]``."""
-    return round(max(0.0, min(1.0, 1.0 - float(distance))), 4)
 
 
 class VectorStore:
