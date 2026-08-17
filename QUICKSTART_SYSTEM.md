@@ -22,8 +22,14 @@ docker compose version
 
 ## 2. Configure the environment
 
-The demo repository contains `.env`. Add or replace the Gemini key without
-changing the deterministic local defaults:
+Copy the development template:
+
+```powershell
+Copy-Item .env.development.example .env.development
+```
+
+On macOS/Linux, use `cp .env.development.example .env.development`. Add or
+replace the Gemini key without changing the deterministic local defaults:
 
 ```dotenv
 GEMINI_API_KEY=your-key-here
@@ -135,11 +141,11 @@ intend to delete the indexed documents and model-independent database state.
 ## Troubleshooting
 
 - **Port 5432 is occupied:** set `POSTGRES_PORT` and update `DATABASE_URL` in
-  `.env` to the same host port before starting PostgreSQL.
+  `.env.development` to the same host port before starting PostgreSQL.
 - **Port 7860 is occupied:** stop the conflicting process before starting the
   host application; the current local entry point binds to port 7860.
 - **Embedding model download stalls:** retry bootstrap; optionally set an
-  `HF_TOKEN` in `.env` for higher Hugging Face rate limits.
+  `HF_TOKEN` in `.env.development` for higher Hugging Face rate limits.
 - **Gemini request fails:** confirm the key and
   `GEMINI_MODEL=gemini-3.6-flash`, then restart Gradio.
 - **`401 ACCESS_TOKEN_TYPE_UNSUPPORTED`:** replace `GEMINI_API_KEY` with an API

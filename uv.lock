@@ -243,6 +243,7 @@ name = "creativa-diabetes"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "fastapi" },
     { name = "google-genai" },
     { name = "gradio" },
     { name = "langdetect" },
@@ -277,6 +278,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "fastapi", specifier = ">=0.115.0" },
     { name = "google-genai", specifier = ">=1.0.0" },
     { name = "gradio", specifier = ">=4.40.0" },
     { name = "langdetect", specifier = ">=1.0.9" },

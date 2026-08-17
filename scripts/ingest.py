@@ -141,7 +141,7 @@ def main() -> None:
 
     if not data_dir.exists():
         print(f"  ✗ Data directory not found: {data_dir}")
-        print(f"  Set DATA_DIR in .env or pass --data-dir")
+        print(f"  Set DATA_DIR in the selected environment or pass --data-dir")
         sys.exit(1)
 
     print(f"  Data directory : {data_dir}")

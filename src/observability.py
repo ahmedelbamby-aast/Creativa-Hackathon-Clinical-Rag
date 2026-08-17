@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import statistics
+import tempfile
 import threading
 import time
 from contextlib import contextmanager
@@ -15,7 +16,11 @@ from typing import Iterator
 from src.config import CATEGORY_PREVENTION, config
 
 
-RUNTIME_DIR = config.project_root / ".runtime"
+RUNTIME_DIR = (
+    Path(tempfile.gettempdir()) / "creativa-diabetes"
+    if config.is_deployment
+    else config.project_root / ".runtime"
+)
 TRACE_FILE = RUNTIME_DIR / "request_traces.jsonl"
 BENCHMARK_FILE = RUNTIME_DIR / "benchmark_history.jsonl"
 

@@ -2,6 +2,7 @@
 
 import logging
 import math
+import time
 from typing import Optional
 
 from src.config import config
@@ -80,7 +81,8 @@ class EmbeddingModel:
             return f"Task: retrieve relevant diabetes reference passages\nQuery: {text}"
         return f"Task: represent a diabetes reference passage for retrieval\nDocument: {text}"
 
-    def _embed_online(self, texts: list[str], task: str) -> list[list[float]]:
+    def _embed_online_request(self, texts: list[str], task: str) -> list[list[float]]:
+        """Send one bounded Gemini embedding request with transient-error retries."""
         from google.genai import types
 
         client = self._get_online_client()
@@ -91,18 +93,45 @@ class EmbeddingModel:
             )
             for text in texts
         ]
-        response = client.models.embed_content(
-            model=self._online_model_name,
-            contents=contents,
-            config=types.EmbedContentConfig(
-                output_dimensionality=self._dimension,
-            ),
-        )
+        response = None
+        last_error: Exception | None = None
+        for attempt, delay in enumerate((0, 2, 5, 10)):
+            if delay:
+                time.sleep(delay)
+            try:
+                response = client.models.embed_content(
+                    model=self._online_model_name,
+                    contents=contents,
+                    config=types.EmbedContentConfig(
+                        output_dimensionality=self._dimension,
+                    ),
+                )
+                break
+            except Exception as exc:
+                last_error = exc
+                message = str(exc).lower()
+                retryable = any(
+                    marker in message
+                    for marker in ("429", "quota", "rate", "resource_exhausted", "503", "unavailable")
+                )
+                if not retryable or attempt == 3:
+                    raise
+
+        if response is None:
+            raise RuntimeError(f"Gemini embedding request failed: {last_error}")
         vectors = [_normalize(list(item.values)) for item in response.embeddings]
         if len(vectors) != len(texts):
             raise RuntimeError(
                 f"Gemini returned {len(vectors)} embeddings for {len(texts)} inputs"
             )
+        return vectors
+
+    def _embed_online(self, texts: list[str], task: str) -> list[list[float]]:
+        """Embed inputs in bounded batches so corpus ingestion fits API limits."""
+        vectors: list[list[float]] = []
+        batch_size = config.online_embedding_batch_size
+        for start in range(0, len(texts), batch_size):
+            vectors.extend(self._embed_online_request(texts[start : start + batch_size], task))
         return vectors
 
     @property

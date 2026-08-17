@@ -45,7 +45,7 @@ class VectorStore:
     def ensure_schema(self) -> None:
         """Enable pgvector and create the current namespace partition/index."""
         schema_sql = SCHEMA_PATH.read_text(encoding="utf-8")
-        with psycopg.connect(self.database_url, autocommit=True) as connection:
+        with psycopg.connect(config.schema_database_url, autocommit=True) as connection:
             connection.execute(schema_sql)
             register_vector(connection)
 
@@ -86,7 +86,7 @@ class VectorStore:
         self._schema_ready = True
 
     def _connect(self):
-        if not self._schema_ready:
+        if not self._schema_ready and config.auto_create_schema:
             self.ensure_schema()
         connection = psycopg.connect(self.database_url, row_factory=dict_row)
         register_vector(connection)

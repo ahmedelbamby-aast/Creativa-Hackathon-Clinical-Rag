@@ -35,6 +35,22 @@ def test_gemini_provider_normalizes_and_preserves_batch_order() -> None:
     assert len(models.calls) == 1
 
 
+def test_gemini_provider_splits_corpus_into_bounded_batches(monkeypatch) -> None:
+    models = FakeOnlineModels()
+    client = SimpleNamespace(models=models)
+    embedder = EmbeddingModel(
+        provider="gemini",
+        dimension=2,
+        online_client=client,
+    )
+    monkeypatch.setattr("src.embeddings.config.online_embedding_batch_size", 2)
+
+    vectors = embedder.embed_batch(["one", "two", "three", "four", "five"])
+
+    assert len(vectors) == 5
+    assert [len(call["contents"]) for call in models.calls] == [2, 2, 1]
+
+
 def test_gemini_query_uses_query_instruction() -> None:
     models = FakeOnlineModels()
     client = SimpleNamespace(models=models)

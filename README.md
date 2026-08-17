@@ -200,6 +200,8 @@ data/rew_data/books/        Default source-document directory
   embeddings, Gemini generation, and Gradio with Docker Compose.
 - [Local development](QUICKSTART_SYSTEM.md): run PostgreSQL in Docker and the
   Python/Gradio application on the host for faster editing and debugging.
+- [Vercel + Neon deployment](DEPLOYMENT_VERCEL.md): deploy the ASGI application
+  without Docker and rebuild the hosted pgvector index from the full PDF corpus.
 
 ## Local setup
 
@@ -212,18 +214,17 @@ uv sync --extra local
 Create local configuration:
 
 ```powershell
-Copy-Item .env.example .env
+Copy-Item .env.development.example .env.development
 ```
 
 On macOS/Linux:
 
 ```bash
-cp .env.example .env
+cp .env.development.example .env.development
 ```
 
-Set `GEMINI_API_KEY` in your local `.env`. The file is ignored by Git and must
-never be committed; deployment environments should inject the same values as
-runtime secrets.
+Set `GEMINI_API_KEY` in `.env.development`. Local secret files are ignored by
+Git and must never be committed.
 
 Start PostgreSQL with pgvector:
 
@@ -352,13 +353,17 @@ uv run python scripts/evaluate.py --category nutrition
 | Variable | Default | Purpose |
 |---|---|---|
 | `DATABASE_URL` | local Compose URL | PostgreSQL connection URL |
+| `DATABASE_URL_UNPOOLED` | empty | Direct Neon URL used for schema operations |
+| `APP_ENV` | `development` | Selects `.env.development` or deployment behavior |
+| `AUTO_CREATE_SCHEMA` | environment-dependent | Create schema on demand locally; disabled in deployment |
 | `EMBEDDING_PROVIDER` | `local` | `local` or `gemini` |
 | `EMBEDDING_MODEL` | multilingual MiniLM | Local sentence-transformer |
 | `ONLINE_EMBEDDING_MODEL` | `gemini-embedding-2` | Hosted embedding model |
 | `EMBEDDING_DIMENSION` | `384` | Shared pgvector dimension |
 | `EMBEDDING_NAMESPACE` | provider-derived | Optional database partition namespace |
 | `GEMINI_API_KEY` | empty | Generation and hosted embeddings |
-| `GEMINI_MODEL` | `gemini-3.6-flash` in `.env.example` | Generation model |
+| `GEMINI_MODEL` | `gemini-3.6-flash` | Generation model |
+| `ONLINE_EMBEDDING_BATCH_SIZE` | `16` | Maximum documents per Gemini embedding request |
 | `TOP_K` | `5` | Final retrieved chunks |
 | `SIMILARITY_THRESHOLD` | `0.30` | Minimum cosine similarity |
 | `CHUNK_SIZE` | `2000` | Maximum chunk characters |
@@ -367,11 +372,34 @@ uv run python scripts/evaluate.py --category nutrition
 | `DEBUG` | `false` | Show retrieval diagnostics |
 | `MAX_MEMORY_TURNS` | `6` | Conversation turns retained |
 
-## Future Vercel deployment
+## Vercel + Neon deployment
 
-Use `EMBEDDING_PROVIDER=gemini` on Vercel so the deployment does not need PyTorch or local model files. Set `DATABASE_URL` to a managed PostgreSQL service with pgvector enabled, such as a compatible Neon or Supabase database.
+The deployment is deliberately split into a request runtime and an admin
+ingestion job. Excluding PDFs from the Vercel bundle does **not** remove parsing
+or ingestion—the complete corpus remains in Git and is processed into Neon.
 
-Run `scripts/bootstrap.py --verify-online` against the production database during provisioning, not on every request. The storage and embedding layers are serverless-compatible; packaging the current Gradio UI as a Vercel entry point remains a separate deployment step.
+```mermaid
+flowchart LR
+    corpus["PDF/DOCX/TXT corpus<br/>data/rew_data/books"]
+    admin["Admin ingestion<br/>developer machine or GitHub workflow"]
+    parsing["Parse · section · chunk · filter"]
+    documentEmbeddings["Gemini document embeddings"]
+    neon[("Neon Free<br/>PostgreSQL + pgvector")]
+    browser["Browser"]
+    vercel["Vercel Hobby<br/>FastAPI + mounted Gradio"]
+    queryEmbedding["Gemini query embedding"]
+    generation["Gemini grounded generation"]
+
+    corpus --> admin --> parsing --> documentEmbeddings --> neon
+    browser --> vercel --> queryEmbedding --> neon
+    neon --> vercel --> generation --> vercel --> browser
+```
+
+Vercel uses `backend/server.py`, Fluid Compute, the Frankfurt function region,
+Gemini embeddings, and a pooled Neon connection. The raw corpus and local Torch
+runtime are omitted only from the serverless function bundle. See
+[DEPLOYMENT_VERCEL.md](DEPLOYMENT_VERCEL.md) for provisioning, environment,
+ingestion, deployment, and rollback instructions.
 
 ## Safety
 

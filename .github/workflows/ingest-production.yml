@@ -1,0 +1,67 @@
+name: Rebuild production knowledge base
+
+on:
+  workflow_dispatch:
+    inputs:
+      file:
+        description: "Optional repository-relative PDF/DOCX/TXT path; blank ingests the full corpus"
+        required: false
+        type: string
+      force:
+        description: "Replace documents that already exist in the active namespace"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-ingestion
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    env:
+      APP_ENV: deployment
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_MODEL: gemini-3.6-flash
+      EMBEDDING_PROVIDER: gemini
+      ONLINE_EMBEDDING_MODEL: gemini-embedding-2
+      EMBEDDING_DIMENSION: "384"
+      EMBEDDING_NAMESPACE: gemini_384
+      ONLINE_EMBEDDING_BATCH_SIZE: "16"
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+      AUTO_CREATE_SCHEMA: "false"
+      DATA_DIR: data/rew_data/books
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install serverless dependency set
+        run: uv sync --frozen
+      - name: Create pgvector schema and verify Gemini embeddings
+        run: uv run python scripts/bootstrap.py --verify-online
+      - name: Ingest one source
+        if: ${{ inputs.file != '' }}
+        shell: bash
+        run: |
+          args=(--file "${{ inputs.file }}")
+          if [[ "${{ inputs.force }}" == "true" ]]; then args+=(--force); fi
+          uv run python scripts/ingest.py "${args[@]}"
+      - name: Ingest full source directory
+        if: ${{ inputs.file == '' }}
+        shell: bash
+        run: |
+          args=()
+          if [[ "${{ inputs.force }}" == "true" ]]; then args+=(--force); fi
+          uv run python scripts/ingest.py "${args[@]}"

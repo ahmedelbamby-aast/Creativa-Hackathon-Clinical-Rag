@@ -3,7 +3,7 @@
 Provides a clean, bilingual (English + Arabic) chat interface with:
   - Category selector (All / Treatment / Prevention / Nutrition)
   - Chat history with source citations
-  - Debug panel (enabled via DEBUG=true in .env)
+  - Debug panel (enabled via DEBUG=true in the selected environment)
   - Clear conversation button
 
 Run with:
@@ -131,7 +131,7 @@ def rag_pipeline(
         if "GEMINI_API_KEY" in str(e):
             answer = (
                 "⚠️ **Configuration Error**: Gemini API key is not set.\n\n"
-                "Please copy `.env.example` to `.env` and add your `GEMINI_API_KEY`."
+                "Please configure `GEMINI_API_KEY` in `.env.development` or the deployment environment."
             )
         else:
             answer = f"⚠️ **Generation error**: {e}"
@@ -545,7 +545,16 @@ def build_ui() -> gr.Blocks:
                 """
             )
 
-        gr.HTML(knowledge_status_html())
+        knowledge_status_output = gr.HTML(
+            '<div id="knowledge-status" class="status-offline" role="status">'
+            '<span class="status-dot" aria-hidden="true"></span>Checking knowledge base…'
+            '</div>'
+        )
+        demo.load(
+            fn=knowledge_status_html,
+            outputs=knowledge_status_output,
+            api_name="knowledge_status",
+        )
 
         # ── Category Selector ───────────────────────────────────────────
         with gr.Column():

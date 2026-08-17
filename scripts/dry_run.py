@@ -27,7 +27,10 @@ def check_required_files() -> str:
         "database/schema.sql",
         "pyproject.toml",
         "uv.lock",
-        ".env.example",
+        ".env.development.example",
+        ".env.deployment.example",
+        "backend/server.py",
+        "vercel.json",
         "scripts/ingest.py",
         "scripts/evaluate.py",
         "src/config.py",
@@ -53,7 +56,9 @@ def check_environment_template() -> str:
         "TOP_K",
         "SIMILARITY_THRESHOLD",
     }
-    lines = (PROJECT_ROOT / ".env.example").read_text(encoding="utf-8").splitlines()
+    lines = []
+    for name in (".env.development.example", ".env.deployment.example"):
+        lines.extend((PROJECT_ROOT / name).read_text(encoding="utf-8").splitlines())
     available = {
         line.split("=", 1)[0]
         for line in lines

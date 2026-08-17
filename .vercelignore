@@ -1,0 +1,24 @@
+.git/
+.github/
+.runtime/
+.pytest_cache/
+.venv/
+__pycache__/
+*.py[cod]
+.coverage*
+.env
+.env.*
+!.env.development.example
+!.env.deployment.example
+
+# The production function queries pre-indexed data from Neon. Raw source files
+# remain in Git and are used by the separate admin ingestion workflow.
+data/**/*.pdf
+chunking/output/
+example/
+tests/
+scripts/
+Dockerfile
+compose.yaml
+QUICKSTART_DOCKER.md
+QUICKSTART_SYSTEM.md

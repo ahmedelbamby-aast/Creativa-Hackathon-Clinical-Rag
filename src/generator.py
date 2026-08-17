@@ -2,7 +2,7 @@
 
 Wraps the google.genai client with:
 - API key validation at startup
-- Configurable model (from .env)
+- Configurable model (from environment variables)
 - Retry logic for rate limits / transient errors
 - Graceful error handling
 
@@ -38,7 +38,7 @@ class GeminiGenerator:
         if not config.gemini_api_key:
             raise RuntimeError(
                 "GEMINI_API_KEY is not set. "
-                "Copy .env.example to .env and add your Gemini API key."
+                "Configure GEMINI_API_KEY in .env.development or the deployment environment."
             )
 
         try:

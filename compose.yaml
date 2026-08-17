@@ -24,7 +24,7 @@ services:
       context: .
       dockerfile: Dockerfile
     env_file:
-      - .env
+      - .env.development
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-creativa}:${POSTGRES_PASSWORD:-creativa-local}@postgres:5432/${POSTGRES_DB:-creativa_diabetes}
       HF_HOME: /cache/huggingface

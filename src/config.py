@@ -1,4 +1,4 @@
-"""Central configuration — loads all settings from .env / environment variables.
+"""Central configuration for development and deployment environments.
 
 All tuneable parameters live here. No other module should read os.environ directly.
 
@@ -15,9 +15,27 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load .env from the project root (two levels above this file: src/ → project root)
+# Resolve local dotenv files from the project root; hosted variables take precedence.
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
-load_dotenv(_PROJECT_ROOT / ".env", override=False)
+
+
+def _resolve_app_environment() -> str:
+    """Return the explicit runtime environment used to select local dotenv files."""
+    configured = os.environ.get("APP_ENV", "").strip().lower()
+    if configured:
+        return configured
+    if os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV"):
+        return "deployment"
+    return "development"
+
+
+_APP_ENV = _resolve_app_environment()
+_ENV_FILE = (
+    _PROJECT_ROOT / ".env.deployment"
+    if _APP_ENV in {"deployment", "production", "preview"}
+    else _PROJECT_ROOT / ".env.development"
+)
+load_dotenv(_ENV_FILE, override=False)
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +108,9 @@ class AppConfig:
     embedding_namespace: str = field(
         default_factory=lambda: os.environ.get("EMBEDDING_NAMESPACE", "")
     )
+    online_embedding_batch_size: int = field(
+        default_factory=lambda: int(os.environ.get("ONLINE_EMBEDDING_BATCH_SIZE", "16"))
+    )
 
     # ── Retrieval ──────────────────────────────────────────────────────────
     top_k: int = field(default_factory=lambda: int(os.environ.get("TOP_K", "5")))
@@ -115,9 +136,19 @@ class AppConfig:
             "postgresql://creativa:creativa-local@localhost:5432/creativa_diabetes",
         )
     )
+    database_url_unpooled: str = field(
+        default_factory=lambda: os.environ.get("DATABASE_URL_UNPOOLED", "")
+    )
 
     # ── Application ────────────────────────────────────────────────────────
     debug: bool = field(default_factory=lambda: os.environ.get("DEBUG", "false").lower() == "true")
+    app_env: str = field(default_factory=lambda: _APP_ENV)
+    auto_create_schema: bool = field(
+        default_factory=lambda: os.environ.get(
+            "AUTO_CREATE_SCHEMA",
+            "false" if _APP_ENV in {"deployment", "production", "preview"} else "true",
+        ).lower() == "true"
+    )
     max_memory_turns: int = field(
         default_factory=lambda: int(os.environ.get("MAX_MEMORY_TURNS", "6"))
     )
@@ -130,12 +161,19 @@ class AppConfig:
         if not self.gemini_api_key:
             logger.warning(
                 "GEMINI_API_KEY is not set. Generation will fail. "
-                "Copy .env.example to .env and add your key."
+                "Configure the key in .env.development or the deployment environment."
             )
         if self.embedding_provider not in {"local", "gemini"}:
             raise ValueError("EMBEDDING_PROVIDER must be 'local' or 'gemini'")
+        if self.is_deployment and self.embedding_provider != "gemini":
+            raise ValueError(
+                "Deployment requires EMBEDDING_PROVIDER=gemini; the local provider "
+                "depends on Torch and a persistent model cache."
+            )
         if not 1 <= self.embedding_dimension <= 2000:
             raise ValueError("EMBEDDING_DIMENSION must be between 1 and 2000")
+        if self.online_embedding_batch_size < 1:
+            raise ValueError("ONLINE_EMBEDDING_BATCH_SIZE must be at least 1")
         if not self.database_url.startswith(("postgresql://", "postgres://")):
             raise ValueError("DATABASE_URL must be a PostgreSQL connection URL")
         if self.chunk_overlap >= self.chunk_size:
@@ -154,6 +192,15 @@ class AppConfig:
         if self.embedding_namespace:
             return self.embedding_namespace
         return f"{self.embedding_provider}_{self.embedding_dimension}"
+
+    @property
+    def is_deployment(self) -> bool:
+        return self.app_env in {"deployment", "production", "preview"}
+
+    @property
+    def schema_database_url(self) -> str:
+        """Prefer Neon's direct connection for schema operations and migrations."""
+        return self.database_url_unpooled or self.database_url
 
 
 # ---------------------------------------------------------------------------

@@ -21,7 +21,14 @@ docker compose version
 
 ## 2. Configure the demo
 
-The repository contains a demo `.env`. Set or replace this line:
+Copy the development template:
+
+```powershell
+Copy-Item .env.development.example .env.development
+```
+
+On macOS/Linux, use `cp .env.development.example .env.development`. Then set
+or replace this line:
 
 ```dotenv
 GEMINI_API_KEY=your-key-here
@@ -127,7 +134,7 @@ downloaded model cache.
 
 - **Port already allocated:** set `POSTGRES_PORT` or `GRADIO_PORT` as shown above.
 - **App remains unhealthy:** run `docker compose logs app`; first model download can take several minutes.
-- **Hugging Face rate limits:** optionally add `HF_TOKEN` to `.env`; the default configuration disables Xet and uses standard HTTP downloads.
+- **Hugging Face rate limits:** optionally add `HF_TOKEN` to `.env.development`; the default configuration disables Xet and uses standard HTTP downloads.
 - **No citations:** ingest the PDF in step 4 and verify `docker compose exec app uv run python scripts/ingest.py --stats`.
 - **Gemini error:** confirm the key and `GEMINI_MODEL=gemini-3.6-flash`, then run `docker compose restart app`.
 - **`401 ACCESS_TOKEN_TYPE_UNSUPPORTED`:** replace `GEMINI_API_KEY` with an API
