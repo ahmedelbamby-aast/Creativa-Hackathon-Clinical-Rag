@@ -26,7 +26,14 @@ from src.vector_store import vector_store
 
 
 FIXED_QUERY = "How can diabetes complications be prevented?"
-EXPECTED_GRADIO_APIS = {"/on_send", "/on_send_1", "/on_clear", "/create_memory"}
+EXPECTED_GRADIO_APIS = {
+    "/on_send",
+    "/on_send_1",
+    "/on_clear",
+    "/create_memory",
+    "/refresh_diagnostics",
+    "/run_retrieval_benchmark",
+}
 
 
 def check(condition: bool, message: str) -> None:
@@ -82,6 +89,9 @@ def check_gradio(base_url: str) -> None:
     check(len(cleared) == 4, "Clear API returned an unexpected output count")
     check(cleared[0] == [], "Clear API did not empty chat history")
     check("Sources will appear" in cleared[1], "Clear API did not reset citations")
+    diagnostics = client.predict(api_name="/refresh_diagnostics")
+    check("System status" in diagnostics, "Diagnostics API returned no trace status")
+    check("retrieval benchmark" in diagnostics.lower(), "Diagnostics API returned no benchmark status")
     print(f"[PASS] gradio: HTTP 200 and {len(EXPECTED_GRADIO_APIS)} required APIs available")
 
 
