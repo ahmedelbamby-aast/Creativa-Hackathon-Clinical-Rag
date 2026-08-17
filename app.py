@@ -33,6 +33,7 @@ from src.safety import classify_safety, SafetyLevel, get_disclaimer, get_emergen
 from src.prompts import build_user_prompt, NO_RESULTS_RESPONSE_EN, NO_RESULTS_RESPONSE_AR
 from src.citations import build_citation_list, build_debug_info
 from src.generator import generator
+from src.vector_store import vector_store
 from src.observability import (
     RequestTrace,
     diagnostics_markdown,
@@ -207,14 +208,32 @@ def clear_chat(memory: ConversationMemory) -> tuple:
 # ---------------------------------------------------------------------------
 
 CATEGORY_CHOICES = {
-    "🔍 All Categories": CATEGORY_ALL,
-    "💊 Treatment": CATEGORY_TREATMENT,
-    "🛡️ Prevention": CATEGORY_PREVENTION,
-    "🥗 Nutrition": CATEGORY_NUTRITION,
+    "All categories": CATEGORY_ALL,
+    "Treatment": CATEGORY_TREATMENT,
+    "Prevention": CATEGORY_PREVENTION,
+    "Nutrition": CATEGORY_NUTRITION,
 }
 
 CATEGORY_DISPLAY_TO_VALUE = CATEGORY_CHOICES
 CATEGORY_VALUE_TO_DISPLAY = {v: k for k, v in CATEGORY_CHOICES.items()}
+
+
+def knowledge_status_html() -> str:
+    """Render a concise, patient-safe knowledge-base status."""
+    try:
+        indexed_chunks = sum(vector_store.collection_stats().values())
+        state = "ready" if indexed_chunks else "empty"
+        label = f"Knowledge base ready · {indexed_chunks} indexed passages"
+    except Exception:
+        state = "offline"
+        label = "Knowledge base unavailable"
+    model_label = config.gemini_model.removeprefix("gemini-")
+    return (
+        f'<div id="knowledge-status" class="status-{state}" role="status">'
+        f'<span class="status-dot" aria-hidden="true"></span>{label}'
+        f'<span class="status-meta">Local multilingual retrieval · Gemini {model_label}</span>'
+        "</div>"
+    )
 
 CUSTOM_CSS = """
 /* ── Global ─────────────────────────────────────────────────────────── */
@@ -273,11 +292,49 @@ button:focus-visible, textarea:focus-visible, input:focus-visible,
     margin: 0 !important;
 }
 
+#header-title-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+#header-mark {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 auto;
+    color: #7dd3fc;
+}
+
 #header-subtitle {
     font-size: 1rem !important;
     color: var(--text-secondary) !important;
     margin-top: 8px !important;
 }
+
+#knowledge-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    margin: -4px 0 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: rgba(23, 35, 58, 0.86);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.14);
+}
+.status-empty .status-dot { background: #fbbf24; box-shadow: 0 0 0 4px rgba(251,191,36,.14); }
+.status-offline .status-dot { background: #f87171; box-shadow: 0 0 0 4px rgba(248,113,113,.14); }
+.status-meta { margin-left: auto; color: var(--text-secondary); }
 
 /* ── Category Selector ──────────────────────────────────────────────── */
 #category-label label {
@@ -309,6 +366,10 @@ button:focus-visible, textarea:focus-visible, input:focus-visible,
     border-radius: 16px !important;
     box-shadow: 0 4px 24px rgba(0,0,0,0.3) !important;
     min-height: 340px !important;
+}
+
+#chatbot p {
+    color: var(--text-primary) !important;
 }
 
 #chatbot .message.user {
@@ -424,6 +485,9 @@ button:focus-visible, textarea:focus-visible, input:focus-visible,
     #header-box { padding: 20px !important; border-radius: 12px; }
     #header-title { font-size: 1.65rem !important; line-height: 1.2; }
     #header-subtitle { font-size: 0.95rem !important; line-height: 1.5; }
+    #header-mark { width: 32px; height: 32px; }
+    #knowledge-status { align-items: flex-start; flex-wrap: wrap; }
+    .status-meta { width: 100%; margin-left: 20px; }
     #chatbot { min-height: 300px !important; }
     #send-btn, #clear-btn { width: 100% !important; }
     .section-label { font-size: 0.82rem !important; }
@@ -466,7 +530,14 @@ def build_ui() -> gr.Blocks:
             gr.HTML(
                 """
                 <div>
-                  <div id="header-title">🩺 Diabetes RAG Assistant</div>
+                  <div id="header-title-row">
+                    <svg id="header-mark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M6 3v5a6 6 0 0 0 12 0V3M6 5H4m14 0h2M12 14v2a4 4 0 0 0 4 4h1"
+                            stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                      <circle cx="19" cy="20" r="2" stroke="currentColor" stroke-width="1.8"/>
+                    </svg>
+                    <div id="header-title">Diabetes RAG Assistant</div>
+                  </div>
                   <div id="header-subtitle">
                     Grounded answers from verified diabetes guidelines · English &amp; العربية
                   </div>
@@ -474,15 +545,18 @@ def build_ui() -> gr.Blocks:
                 """
             )
 
+        gr.HTML(knowledge_status_html())
+
         # ── Category Selector ───────────────────────────────────────────
         with gr.Column():
             category_input = gr.Dropdown(
                 choices=list(CATEGORY_CHOICES.keys()),
-                value="🔍 All Categories",
+                value="All categories",
                 label="Knowledge Category",
                 elem_id="category-selector",
                 interactive=True,
             )
+
             gr.Markdown(
                 "Select a category to focus retrieval, or use **All Categories** for cross-domain questions.",
                 elem_id="category-help",
@@ -497,6 +571,7 @@ def build_ui() -> gr.Blocks:
             height=380,
             show_label=False,
             render_markdown=True,
+            placeholder="Ask a question to receive a grounded answer with document and page citations.",
         )
 
         with gr.Column():
@@ -514,7 +589,7 @@ def build_ui() -> gr.Blocks:
                 clear_btn = gr.Button("Clear chat", elem_id="clear-btn", variant="secondary")
 
         # ── Citations Panel ─────────────────────────────────────────────
-        gr.HTML('<div class="section-label" style="margin-top:16px">📚 Sources</div>')
+        gr.HTML('<div class="section-label" style="margin-top:16px">Sources</div>')
         citations_output = gr.Markdown(
             value="*Sources will appear here after your first question.*",
             elem_id="citations-box",
@@ -522,30 +597,26 @@ def build_ui() -> gr.Blocks:
 
         # ── Debug Panel (only shown when DEBUG=true) ────────────────────
         if config.debug:
-            gr.HTML('<div class="section-label" style="margin-top:12px">🔍 Debug Info</div>')
+            gr.HTML('<div class="section-label" style="margin-top:12px">Debug information</div>')
             debug_output = gr.Markdown(elem_id="debug-box")
         else:
             debug_output = gr.Markdown(visible=False)
 
         # ── Example Questions ───────────────────────────────────────────
-        gr.HTML('<div class="section-label" style="margin-top:16px">💡 Example Questions</div>')
+        gr.HTML('<div class="section-label" style="margin-top:16px">Example questions</div>')
         gr.Examples(
             examples=[
-                ["What foods are recommended for people with diabetes?"],
-                ["How does physical activity help prevent type 2 diabetes?"],
-                ["What medications are mentioned in the diabetes guidelines?"],
+                ["What role do preventive cardiologists have in diabetes care?"],
+                ["What are the main risk factors for type 2 diabetes?"],
                 ["ما هي الأطعمة الموصى بها لمريض السكري؟"],
                 ["كيف يمكن الوقاية من مرض السكري النوع الثاني؟"],
-                ["What is HbA1c and why is it important?"],
-                ["Can a person with diabetes eat rice or bread?"],
-                ["What are the main risk factors for type 2 diabetes?"],
             ],
             inputs=query_input,
             label="",
         )
 
         # ── Developer diagnostics page ────────────────────────────────
-        with gr.Accordion("🧪 Developer Diagnostics", open=False):
+        with gr.Accordion("Developer diagnostics", open=False):
             gr.Markdown(
                 "Request-stage timings and repeatable retrieval benchmarks. "
                 "Benchmark history is stored locally under `.runtime/` and never includes API keys."
@@ -577,7 +648,7 @@ def build_ui() -> gr.Blocks:
             <div style="text-align:center; color:rgba(144,202,249,0.5);
                         font-size:0.75rem; margin-top:20px; padding:12px;
                         border-top: 1px solid rgba(100,181,246,0.1);">
-              ⚕️ For educational purposes only · Not a substitute for professional medical advice
+              For educational purposes only · Not a substitute for professional medical advice
               · Always consult a qualified healthcare professional
             </div>
             """

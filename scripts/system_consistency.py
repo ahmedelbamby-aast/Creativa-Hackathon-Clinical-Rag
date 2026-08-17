@@ -108,7 +108,7 @@ def check_live_gradio_query(base_url: str) -> None:
     result = client.predict(
         FIXED_QUERY,
         [],
-        "🛡️ Prevention",
+        "Prevention",
         api_name="/on_send",
     )
     check(len(result) == 4, "Send API returned an unexpected output count")
