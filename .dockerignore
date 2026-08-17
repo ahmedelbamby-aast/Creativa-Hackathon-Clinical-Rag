@@ -8,4 +8,6 @@ __pycache__
 .coverage*
 htmlcov
 chunking/output
-
+.env
+.env.*
+!.env.example

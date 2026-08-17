@@ -4,58 +4,186 @@ A bilingual English/Arabic RAG application that answers diabetes questions from 
 
 > This is a research and educational tool, not a substitute for professional medical advice.
 
-## Architecture
+## Architecture as implemented
 
-```text
-Documents
-  -> structure-aware parsing
-  -> language and category classification
-  -> chunking and quality filtering
-  -> local or Gemini embeddings
-  -> PostgreSQL + pgvector
+These diagrams follow the active code paths in `app.py`, `src/`, `scripts/`, and
+`database/schema.sql`. They intentionally use no fixed colors or backgrounds so
+GitHub can render them transparently in both light and dark themes.
 
-Question
-  -> medical safety check
-  -> follow-up query rewriting
-  -> treatment/prevention/nutrition routing
-  -> pgvector cosine search
-  -> grounded Gemini prompt
-  -> answer, disclaimer, and citations
+### Running system and external boundaries
+
+```mermaid
+flowchart LR
+    user["User<br/>English or Arabic"]
+    ui["Gradio UI<br/>app.py"]
+    pipeline["Request orchestration<br/>rag_pipeline()"]
+    controls["Safety · rewrite · route<br/>src/safety.py · rewriter.py · router.py"]
+    retrieval["Semantic retrieval<br/>src/retriever.py"]
+    provider{"EMBEDDING_PROVIDER"}
+    local["Local sentence-transformer<br/>multilingual MiniLM"]
+    online["Gemini embeddings API"]
+    vectors[("PostgreSQL 16 + pgvector<br/>partitioned vector store")]
+    prompt["Grounded prompt<br/>src/prompts.py"]
+    generation["Gemini generation API<br/>retry on quota/rate limits"]
+    output["Answer + disclaimer<br/>metadata-built source list"]
+    telemetry[("Local JSONL diagnostics<br/>.runtime/")]
+
+    user --> ui --> pipeline --> controls --> retrieval
+    retrieval --> provider
+    provider -->|local| local --> vectors
+    provider -->|gemini| online --> vectors
+    vectors --> retrieval --> prompt --> generation --> output --> ui --> user
+    pipeline --> telemetry
 ```
 
-Embedding spaces are isolated with PostgreSQL partitions. The defaults create `local_384` and `gemini_384` namespaces, each with its own cosine HNSW index. This prevents vectors from different models from being compared accidentally.
+The embedding provider is selected once from configuration. Document and query
+vectors therefore use the same provider and dimension. Gemini is always used for
+answer generation; choosing local embeddings does not make generation local.
+
+### Document ingestion and index construction
+
+```mermaid
+flowchart TD
+    command["scripts/ingest.py"]
+    files{"Input extension"}
+    pdf["PDF"]
+    docx["DOCX"]
+    txt["TXT"]
+    fitz["PyMuPDF<br/>blocks, headings, tables, pages"]
+    fallback["pypdf fallback<br/>only when PyMuPDF yields no elements"]
+    docxParser["python-docx paragraphs<br/>heading styles"]
+    textParser["UTF-8 / Latin-1 paragraphs"]
+    elements["DocumentElement records<br/>document · page · section · type · content"]
+    sections["Forward-fill section and subsection context"]
+    docLanguage["Detect document language"]
+    classify["Per-element category and language classification"]
+    tableDecision{"Table element?"}
+    tableChunk["Keep the Markdown table as one chunk"]
+    chunker["SmartChunker<br/>character limit + overlap + semantic block protection"]
+    quality["Quality scoring and minimum-score filter"]
+    records["Chunk records<br/>ID · provenance · counts · quality"]
+    embed["Batch document embeddings<br/>local MiniLM or Gemini"]
+    store["Upsert chunks and vectors<br/>src/vector_store.py"]
+    partition[("rag_chunks_namespace<br/>cosine HNSW index")]
+
+    command --> files
+    files -->|.pdf| pdf --> fitz
+    fitz -->|no elements| fallback
+    fitz -->|elements found| elements
+    fallback --> elements
+    files -->|.docx| docx --> docxParser --> elements
+    files -->|.txt| txt --> textParser --> elements
+    elements --> sections --> docLanguage --> classify --> tableDecision
+    tableDecision -->|yes| tableChunk --> quality
+    tableDecision -->|no| chunker --> quality
+    quality --> records --> embed --> store --> partition
+```
+
+`--force` does not delete the stored version until parsing, chunking, and
+embedding of the replacement have succeeded. Storage is then replaced at the
+document level. Tables deliberately bypass normal splitting.
+
+### Question processing and decision branches
+
+```mermaid
+flowchart TD
+    question["Question + selected category + session memory"]
+    empty{"Question empty?"}
+    safety["Classify medical safety level"]
+    emergency{"Emergency?"}
+    emergencyReply["Return emergency guidance<br/>No retrieval or generation"]
+    rewrite["Rewrite vague/follow-up query using bounded history"]
+    route["Use selected category or keyword route<br/>treatment · prevention · nutrition · all"]
+    queryEmbed["Embed rewritten query"]
+    categoryFilter["Database category filter<br/>includes general chunks"]
+    search["pgvector cosine search<br/>fetch 2 × TOP_K"]
+    threshold["Drop results below SIMILARITY_THRESHOLD<br/>then keep TOP_K"]
+    enough{"At least one sufficient chunk?"}
+    refusal["Return bilingual no-evidence response<br/>No Gemini call"]
+    citations["Build source list from retrieved metadata"]
+    groundedPrompt["Label every chunk as SOURCE n<br/>add limited conversation context"]
+    gemini["Generate with Gemini<br/>temperature 0.1 · max 2048 tokens · up to 3 rate-limit retries"]
+    disclaimer["Append disclaimer for<br/>high-risk or diagnosis queries"]
+    memory["Store user and assistant turns<br/>record timings and status"]
+    response["Render answer, sources, and optional DEBUG retrieval preview"]
+
+    question --> empty
+    empty -->|yes| response
+    empty -->|no| safety --> emergency
+    emergency -->|yes| emergencyReply --> memory --> response
+    emergency -->|no| rewrite --> route --> queryEmbed --> categoryFilter --> search --> threshold --> enough
+    enough -->|no| refusal --> memory --> response
+    enough -->|yes| citations --> groundedPrompt --> gemini --> disclaimer --> memory --> response
+```
+
+Citations are built from retrieved metadata, not parsed from the model's text.
+The active UI shows the final answer and source list after the request completes;
+when `DEBUG=true`, it also shows scores and text previews. It does not currently
+pause generation for a separate pre-generation evidence-approval step.
+
+### Vector namespace isolation
+
+```mermaid
+flowchart TB
+    parent[("rag_chunks<br/>partitioned by namespace<br/>embedding vector(384)")]
+    localPartition[("rag_chunks_local_384<br/>local document + query vectors<br/>HNSW cosine index")]
+    geminiPartition[("rag_chunks_gemini_384<br/>Gemini document + query vectors<br/>HNSW cosine index")]
+    metadata["Per row metadata<br/>chunk ID · document · page · section · category<br/>content type · language · quality score"]
+
+    parent --> localPartition
+    parent --> geminiPartition
+    localPartition --> metadata
+    geminiPartition --> metadata
+```
+
+The namespace defaults to `<provider>_<dimension>` and can be overridden with
+`EMBEDDING_NAMESPACE`. Separate partitions prevent accidental similarity
+comparisons between the default local and Gemini embedding spaces.
+
+## Active code versus supporting code
+
+| Path | Actual role |
+|---|---|
+| `app.py` | Active Gradio UI and synchronous RAG request orchestration. |
+| `src/ingestion/` | Active parser, section propagation, classification, chunking adapter, and filters used by `scripts/ingest.py`. |
+| `src/embeddings.py`, `src/vector_store.py`, `src/retriever.py` | Active embedding, pgvector storage, and query path. |
+| `src/prompts.py`, `src/generator.py`, `src/citations.py` | Active grounded generation and source presentation. |
+| `src/observability.py` | Active local request traces and the three-query developer benchmark stored under `.runtime/`. |
+| `chunking/` | Standalone earlier JSON chunking workflow; its output files are not read by the active pgvector pipeline. |
+| `example/services/` | Prototype/example components and security tests; the Gradio application does not import them. |
+| `src/context_builder.py` | Available helper, but the active request path constructs context directly in `src/prompts.py`. |
 
 ## Main modules
 
 ```text
-app.py                      Gradio chat application
+app.py                      Gradio chat application and request orchestration
 compose.yaml                PostgreSQL + CPU-only Gradio application services
-database/schema.sql         Partitioned vector schema
-pyproject.toml              UV dependency definitions
+database/schema.sql         Partitioned pgvector schema
+pyproject.toml              UV dependency and pytest configuration
 uv.lock                     Reproducible dependency lock
 
 scripts/
-  bootstrap.py              Prepare the model and pgvector namespace
+  bootstrap.py              Create/verify the configured vector namespace
   dry_run.py                Validate modules, embeddings, database, and UI
-  ingest.py                 Parse and ingest source documents
-  evaluate.py               Run retrieval and response evaluations
+  ingest.py                 Parse, embed, and store source documents
+  evaluate.py               Rule-based retrieval/response evaluation cases
+  database_smoke.py         Real pgvector insert/search/delete smoke test
+  system_consistency.py     Running database, retrieval, UI, and optional live checks
 
 src/
   config.py                 Environment-based configuration
   embeddings.py             Local/Gemini embedding providers
-  scoring.py                Cosine-distance conversion
-  vector_store.py           PostgreSQL/pgvector storage and search
-  retriever.py              Similarity filtering and result mapping
-  router.py                 Query category routing
-  rewriter.py               Follow-up query contextualization
+  vector_store.py           PostgreSQL partitions and cosine search
+  retriever.py              Thresholded, category-aware result mapping
   safety.py                 Medical-risk classification and disclaimers
-  prompts.py                Grounded Gemini prompts
-  generator.py              Gemini generation client and retries
-  citations.py              Page- and section-aware citations
+  rewriter.py / router.py   Follow-up contextualization and category routing
+  prompts.py / generator.py Grounded Gemini prompt and generation client
+  citations.py              Metadata-derived citations and debug output
   memory.py                 Bounded per-session conversation memory
-  ingestion/                Parsing, classification, chunking, and filtering
+  observability.py          Local request timings and benchmark history
+  ingestion/                Active parsing, classification, chunking, and filtering
 
-tests/                      Focused pytest tests
+tests/                      Unit and integration-style pytest suite
 data/rew_data/books/        Default source-document directory
 ```
 
@@ -93,9 +221,9 @@ On macOS/Linux:
 cp .env.example .env
 ```
 
-Set `GEMINI_API_KEY` in `.env`. This demo repository intentionally tracks its
-demo environment file; use a separate untracked secret mechanism for any
-non-demo deployment.
+Set `GEMINI_API_KEY` in your local `.env`. The file is ignored by Git and must
+never be committed; deployment environments should inject the same values as
+runtime secrets.
 
 Start PostgreSQL with pgvector:
 
