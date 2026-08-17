@@ -78,25 +78,24 @@ def _table_to_markdown(table) -> str:
     except Exception:
         return ""
 
-    if not rows:
-        return ""
-
-    clean_rows = []
-    for row in rows:
-        clean_row = [str(cell).strip() if cell is not None else "" for cell in row]
-        clean_rows.append(clean_row)
-
+    clean_rows = [
+        [re.sub(r"\s+", " ", str(cell or "")).strip().replace("|", r"\|") for cell in row]
+        for row in (rows or [])
+    ]
+    clean_rows = [row for row in clean_rows if any(row)]
     if not clean_rows:
         return ""
 
+    # PyMuPDF can return ragged rows when cells are merged. Preserve every
+    # detected column instead of truncating wider data rows to header width.
+    width = max(len(row) for row in clean_rows)
+    clean_rows = [row + [""] * (width - len(row)) for row in clean_rows]
     lines: list[str] = []
     header = clean_rows[0]
     lines.append("| " + " | ".join(header) + " |")
     lines.append("| " + " | ".join("---" for _ in header) + " |")
     for row in clean_rows[1:]:
-        while len(row) < len(header):
-            row.append("")
-        lines.append("| " + " | ".join(row[: len(header)]) + " |")
+        lines.append("| " + " | ".join(row) + " |")
 
     return "\n".join(lines)
 
@@ -167,8 +166,11 @@ def _extract_with_fitz(file_path: str) -> list[DocumentElement]:
         # ── Extract tables ────────────────────────────────────────────
         table_bboxes: list[tuple] = []
         try:
-            tabs = page.find_tables()
-            for table in tabs:
+            finder = page.find_tables()
+            # Current PyMuPDF returns a TableFinder with a ``tables`` list;
+            # older releases exposed an iterable directly. Support both.
+            tables = getattr(finder, "tables", finder)
+            for table in tables:
                 md = _table_to_markdown(table)
                 if md:
                     elements.append({
