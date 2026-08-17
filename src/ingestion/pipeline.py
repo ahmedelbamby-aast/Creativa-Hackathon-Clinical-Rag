@@ -52,11 +52,19 @@ def ingest_document(
         "chunks": 0,
         "categories": {},
         "elapsed_s": 0.0,
+        "skipped": False,
         "error": None,
     }
 
     try:
         logger.info("━━━ Ingesting: %s", file_name)
+
+        document_exists = vector_store.has_document(file_name)
+        if document_exists and not force:
+            logger.info("  Skipped: document is already in the vector store")
+            stats["skipped"] = True
+            stats["elapsed_s"] = round(time.perf_counter() - start, 2)
+            return stats
 
         # Step 1: Parse
         elements = parse_document(str(file_path))
@@ -104,6 +112,8 @@ def ingest_document(
         embeddings = embedder.embed_batch(texts, show_progress=False)
 
         # Step 5: Store
+        if document_exists:
+            vector_store.delete_document(file_name)
         added = vector_store.add_chunks(chunk_records, embeddings)
         logger.info(
             "  Stored -> %s",
@@ -165,7 +175,8 @@ def ingest_directory(
 def print_ingestion_summary(all_stats: list[dict]) -> None:
     """Print a formatted summary of ingestion results."""
     total_docs = len(all_stats)
-    successful = [s for s in all_stats if not s["error"]]
+    successful = [s for s in all_stats if not s["error"] and not s.get("skipped")]
+    skipped = [s for s in all_stats if s.get("skipped")]
     failed = [s for s in all_stats if s["error"]]
     total_pages = sum(s["pages"] for s in successful)
     total_chunks = sum(s["chunks"] for s in successful)
@@ -183,6 +194,7 @@ def print_ingestion_summary(all_stats: list[dict]) -> None:
     print("=" * 60)
     print(f"  Documents processed : {total_docs}")
     print(f"  Successful          : {len(successful)}")
+    print(f"  Skipped             : {len(skipped)}")
     print(f"  Failed              : {len(failed)}")
     print(f"  Pages processed     : {total_pages}")
     print(f"  Chunks created      : {total_chunks}")

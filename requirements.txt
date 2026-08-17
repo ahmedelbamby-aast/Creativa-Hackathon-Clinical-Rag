@@ -2,7 +2,7 @@
 pymupdf>=1.24.0                    # PyMuPDF / fitz — structure-aware PDF parsing + table detection
 sentence-transformers>=2.7.0       # Free multilingual embeddings (no API key)
 chromadb>=0.5.0                    # Local vector database
-google-generativeai>=0.8.0         # Gemini LLM API
+google-genai>=1.0.0                # Gemini LLM API (google.genai SDK)
 
 # ── UI ────────────────────────────────────────────────────────────────────────
 gradio>=4.40.0                     # Web UI

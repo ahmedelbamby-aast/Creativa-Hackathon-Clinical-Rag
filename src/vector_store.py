@@ -80,6 +80,11 @@ def _safe_metadata(record: dict) -> dict:
     return meta
 
 
+def cosine_distance_to_score(distance: float) -> float:
+    """Convert Chroma cosine distance to a similarity score in ``[0, 1]``."""
+    return round(max(0.0, min(1.0, 1.0 - float(distance))), 4)
+
+
 class VectorStore:
     """ChromaDB-backed vector store for three diabetes knowledge categories."""
 
@@ -197,6 +202,25 @@ class VectorStore:
 
         return added
 
+    def has_document(self, document_name: str) -> bool:
+        """Return whether any collection already contains a document."""
+        for category in ALL_CATEGORIES:
+            collection = self._get_collection(category)
+            result = collection.get(
+                where={"document_name": document_name},
+                limit=1,
+                include=[],
+            )
+            if result.get("ids"):
+                return True
+        return False
+
+    def delete_document(self, document_name: str) -> None:
+        """Remove all chunks for a document from every collection."""
+        for category in ALL_CATEGORIES:
+            collection = self._get_collection(category)
+            collection.delete(where={"document_name": document_name})
+
     # ------------------------------------------------------------------
     # Read operations
     # ------------------------------------------------------------------
@@ -278,14 +302,13 @@ class VectorStore:
         dists = raw.get("distances", [[]])[0]
 
         for cid, doc, meta, dist in zip(ids, docs, metas, dists):
-            # ChromaDB cosine space returns distances in [0, 2]; convert to [0, 1] score
-            score = max(0.0, 1.0 - dist / 2.0)
+            score = cosine_distance_to_score(dist)
             results.append({
                 "id": cid,
                 "document": doc,
                 "metadata": meta,
                 "distance": dist,
-                "score": round(score, 4),
+                "score": score,
             })
 
         return results

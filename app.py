@@ -356,9 +356,6 @@ body, .gradio-container {
 """
 
 
-def build_ui() -> gr.Blocks:
-    """Construct and return the Gradio UI."""
-
 GRADIO_THEME = gr.themes.Base(
     primary_hue="blue",
     neutral_hue="slate",
