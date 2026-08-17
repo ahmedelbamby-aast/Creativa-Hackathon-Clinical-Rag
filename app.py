@@ -115,11 +115,9 @@ def rag_pipeline(
             )
         else:
             answer = f"⚠️ **Generation error**: {e}"
-        citations = ""
     except Exception as e:
         logger.error("Generation failed: %s", e)
         answer = f"⚠️ **An error occurred during generation**: {e}"
-        citations = ""
 
     # Step 8: Append safety disclaimer
     disclaimer = get_disclaimer(safety_level, is_arabic=is_ar)

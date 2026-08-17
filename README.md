@@ -140,6 +140,16 @@ Run the integration dry run:
 uv run python scripts/dry_run.py
 ```
 
+With Gradio running, verify the configured model, pgvector data, deterministic
+retrieval invariants, Gradio APIs, and one live Gemini request:
+
+```powershell
+.\scripts\test_system.ps1
+```
+
+On macOS/Linux, use `./scripts/test_system.sh`. To skip the billable Gemini
+request, run `uv run python scripts/system_consistency.py` directly.
+
 Exercise real pgvector writes, nearest-neighbor search, and cleanup:
 
 ```bash
@@ -211,7 +221,7 @@ uv run python scripts/evaluate.py --category nutrition
 | `EMBEDDING_DIMENSION` | `384` | Shared pgvector dimension |
 | `EMBEDDING_NAMESPACE` | provider-derived | Optional database partition namespace |
 | `GEMINI_API_KEY` | empty | Generation and hosted embeddings |
-| `GEMINI_MODEL` | `gemini-2.5-flash` in `.env.example` | Generation model |
+| `GEMINI_MODEL` | `gemini-3.6-flash` in `.env.example` | Generation model |
 | `TOP_K` | `5` | Final retrieved chunks |
 | `SIMILARITY_THRESHOLD` | `0.30` | Minimum cosine similarity |
 | `CHUNK_SIZE` | `2000` | Maximum chunk characters |
