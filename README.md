@@ -29,7 +29,7 @@ Embedding spaces are isolated with PostgreSQL partitions. The defaults create `l
 
 ```text
 app.py                      Gradio chat application
-compose.yaml                Local PostgreSQL 16 + pgvector service
+compose.yaml                PostgreSQL + CPU-only Gradio application services
 database/schema.sql         Partitioned vector schema
 pyproject.toml              UV dependency definitions
 uv.lock                     Reproducible dependency lock
@@ -66,6 +66,13 @@ data/rew_data/books/        Default source-document directory
 - PostgreSQL with the pgvector extension
 - A Gemini API key for generation and online embeddings
 
+## Quickstarts
+
+- [Docker end to end](QUICKSTART_DOCKER.md): run PostgreSQL, pgvector, local CPU
+  embeddings, Gemini generation, and Gradio with Docker Compose.
+- [Local development](QUICKSTART_SYSTEM.md): run PostgreSQL in Docker and the
+  Python/Gradio application on the host for faster editing and debugging.
+
 ## Local setup
 
 Install the locked dependencies including the local embedding model runtime:
@@ -86,7 +93,9 @@ On macOS/Linux:
 cp .env.example .env
 ```
 
-Set `GEMINI_API_KEY` in `.env`. Never commit `.env`.
+Set `GEMINI_API_KEY` in `.env`. This demo repository intentionally tracks its
+demo environment file; use a separate untracked secret mechanism for any
+non-demo deployment.
 
 Start PostgreSQL with pgvector:
 

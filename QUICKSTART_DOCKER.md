@@ -6,7 +6,7 @@ Gemini generation, and the Gradio application in Docker.
 ## 1. Prerequisites
 
 - Docker Desktop with Docker Compose v2
-- A Gemini API key
+- A Gemini API key from Google AI Studio (not an OAuth access token)
 - At least 6 GB of free disk space for images and the cached embedding model
 
 The application image uses the PyTorch CPU wheel only. CUDA, NVIDIA, and
@@ -130,3 +130,6 @@ downloaded model cache.
 - **Hugging Face rate limits:** optionally add `HF_TOKEN` to `.env`; the default configuration disables Xet and uses standard HTTP downloads.
 - **No citations:** ingest the PDF in step 4 and verify `docker compose exec app uv run python scripts/ingest.py --stats`.
 - **Gemini error:** confirm the key and `GEMINI_MODEL=gemini-3.6-flash`, then run `docker compose restart app`.
+- **`401 ACCESS_TOKEN_TYPE_UNSUPPORTED`:** replace `GEMINI_API_KEY` with an API
+  key created in Google AI Studio; OAuth access tokens are not accepted by this
+  client configuration.
