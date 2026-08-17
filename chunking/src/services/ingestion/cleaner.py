@@ -13,6 +13,23 @@ from collections import Counter
 from typing import Optional
 
 
+_DEFAULT_FILE_TYPE = ("text/plain", "plain-text")
+_FILE_TYPES_BY_EXTENSION = {
+    ".pdf": ("application/pdf", "pypdf"),
+    ".docx": (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "python-docx",
+    ),
+    ".txt": _DEFAULT_FILE_TYPE,
+}
+
+
+def _resolve_file_type(file_path: str) -> tuple[str, str]:
+    """Return the content type and extractor label from one shared mapping."""
+    extension = os.path.splitext(os.fspath(file_path))[1].lower()
+    return _FILE_TYPES_BY_EXTENSION.get(extension, _DEFAULT_FILE_TYPE)
+
+
 def detect_content_type(file_path: str) -> str:
     """Detect MIME-like content type from file extension.
 
@@ -22,24 +39,12 @@ def detect_content_type(file_path: str) -> str:
     Returns:
         Content type string used to pick the right extractor.
     """
-    _, ext = os.path.splitext(file_path)
-    extension_map = {
-        ".pdf": "application/pdf",
-        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        ".txt": "text/plain",
-    }
-    return extension_map.get(ext.lower(), "text/plain")
+    return _resolve_file_type(file_path)[0]
 
 
 def get_extractor_label(file_path: str) -> str:
     """Human-readable label of the extractor used for a file."""
-    content_type = detect_content_type(file_path)
-    labels = {
-        "application/pdf": "pypdf",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "python-docx",
-        "text/plain": "plain-text",
-    }
-    return labels.get(content_type, "unknown")
+    return _resolve_file_type(file_path)[1]
 
 
 def _extract_pages_from_pdf(file_path: str) -> list[dict]:
