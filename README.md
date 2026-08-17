@@ -129,6 +129,11 @@ Run pytest:
 uv run python -m pytest
 ```
 
+The default test command runs in parallel, randomizes test order, reports
+failures immediately, applies per-test timeouts, and enforces 100% statement
+and branch coverage for the measured chunking and security modules. The suite
+uses `pytest-instafail`; `pytest-installfail` is not a published package.
+
 Run the integration dry run:
 
 ```bash
