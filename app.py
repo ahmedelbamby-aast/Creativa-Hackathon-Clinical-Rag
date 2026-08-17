@@ -218,6 +218,14 @@ CATEGORY_DISPLAY_TO_VALUE = CATEGORY_CHOICES
 CATEGORY_VALUE_TO_DISPLAY = {v: k for k, v in CATEGORY_CHOICES.items()}
 
 
+def example_loader(question: str):
+    """Return a zero-argument callback for a predefined question button."""
+    def load_question() -> str:
+        return question
+
+    return load_question
+
+
 def knowledge_status_html() -> str:
     """Render a concise, patient-safe knowledge-base status."""
     try:
@@ -613,16 +621,24 @@ def build_ui() -> gr.Blocks:
 
         # ── Example Questions ───────────────────────────────────────────
         gr.HTML('<div class="section-label" style="margin-top:16px">Example questions</div>')
-        gr.Examples(
-            examples=[
-                ["What role do preventive cardiologists have in diabetes care?"],
-                ["What are the main risk factors for type 2 diabetes?"],
-                ["ما هي الأطعمة الموصى بها لمريض السكري؟"],
-                ["كيف يمكن الوقاية من مرض السكري النوع الثاني؟"],
-            ],
-            inputs=query_input,
-            label="",
-        )
+        example_questions = [
+            "What role do preventive cardiologists have in diabetes care?",
+            "What are the main risk factors for type 2 diabetes?",
+            "ما هي الأطعمة الموصى بها لمريض السكري؟",
+            "كيف يمكن الوقاية من مرض السكري النوع الثاني؟",
+        ]
+        with gr.Row():
+            for example_question in example_questions:
+                example_button = gr.Button(
+                    example_question,
+                    variant="secondary",
+                    size="sm",
+                )
+                example_button.click(
+                    fn=example_loader(example_question),
+                    outputs=query_input,
+                    queue=False,
+                )
 
         # ── Developer diagnostics page ────────────────────────────────
         with gr.Accordion("Developer diagnostics", open=False):
