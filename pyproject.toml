@@ -1,18 +1,31 @@
 [project]
 name = "creativa-diabetes"
 version = "0.1.0"
-description = "Document ingestion and chunking pipeline for diabetes reference material"
+description = "Bilingual diabetes RAG assistant"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11,<3.13"
 dependencies = [
-    "pypdf>=6.0,<7",
-    "python-docx>=1.2,<2",
+    "google-genai>=1.0.0",
+    "gradio>=4.40.0",
+    "langdetect>=1.0.9",
+    "numpy>=1.26.0",
+    "pymupdf>=1.24.0",
+    "pgvector>=0.4.0",
+    "psycopg[binary]>=3.2.0",
+    "pypdf>=4.0.0",
+    "python-docx>=1.1.0",
+    "python-dotenv>=1.0.0",
+    "tqdm>=4.66.0",
+]
+
+[project.optional-dependencies]
+local = [
+    "sentence-transformers>=2.7.0",
 ]
 
 [dependency-groups]
 dev = [
-    "numpy>=2.0,<3",
-    "pytest>=8.0,<9",
+    "pytest>=8.0",
     "pytest-cov>=7.0,<8",
     "pytest-instafail>=0.5,<1",
     "pytest-randomly>=4.0,<5",
@@ -22,20 +35,20 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-minversion = "8.0"
 testpaths = ["tests"]
-pythonpath = ["chunking", "."]
+pythonpath = ["."]
 addopts = [
-    "-n=auto",
+    "-n=4",
     "--dist=loadscope",
     "--instafail",
-    "--timeout=10",
+    "--timeout=30",
     "--timeout-method=thread",
     "--strict-config",
     "--strict-markers",
     "--cov=chunking",
     "--cov=example/services/security",
     "--cov-report=term-missing:skip-covered",
+    "--cov-fail-under=100",
 ]
 markers = [
     "integration: exercises multiple pipeline components together",
@@ -47,6 +60,7 @@ parallel = true
 omit = ["tests/*"]
 
 [tool.coverage.report]
+fail_under = 100
 show_missing = true
 skip_covered = true
 exclude_also = ["if __name__ == .__main__.:"]

@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from docx import Document
 
-from src.services.ingestion import cleaner
+from chunking.src.services.ingestion import cleaner
 
 
 @pytest.mark.parametrize(
@@ -43,11 +43,42 @@ def test_extract_docx(tmp_path):
     ]
 
 
+def test_pdf_extractor_handles_textless_pages_and_reader_failures(monkeypatch):
+    class Page:
+        def __init__(self, text):
+            self.text = text
+
+        def extract_text(self):
+            return self.text
+
+    class Reader:
+        def __init__(self, _):
+            self.pages = [Page("first"), Page(None)]
+
+    monkeypatch.setattr("pypdf.PdfReader", Reader)
+    assert cleaner.extract_pages("sample.pdf") == [
+        {"page_number": 1, "text": "first"},
+        {"page_number": 2, "text": ""},
+    ]
+
+    monkeypatch.setattr("pypdf.PdfReader", lambda _: (_ for _ in ()).throw(OSError("bad pdf")))
+    assert cleaner.extract_pages("bad.pdf") == []
+
+
+def test_docx_extractor_failure_returns_no_pages(tmp_path):
+    assert cleaner.extract_pages(str(tmp_path / "missing.docx")) == []
+
+
 def test_extract_missing_or_empty_file_returns_no_pages(tmp_path):
     assert cleaner.extract_pages(str(tmp_path / "missing.txt")) == []
     empty = tmp_path / "empty.txt"
     empty.write_text("  ", encoding="utf-8")
     assert cleaner.extract_pages(str(empty)) == []
+
+
+def test_extract_pages_rejects_unknown_content_type(monkeypatch):
+    monkeypatch.setattr(cleaner, "detect_content_type", lambda _: "application/unknown")
+    assert cleaner.extract_pages("unknown.data") == []
 
 
 def test_clean_pages_removes_artifacts_and_tracks_statistics():
@@ -70,3 +101,36 @@ def test_extract_text_joins_cleaned_pages(monkeypatch):
         {"page_number": 2, "text": "second"},
     ])
     assert cleaner.extract_text("ignored.pdf") == "first\n\nsecond"
+
+
+def test_repeated_line_cleaner_handles_small_and_nonrepeating_inputs():
+    small = ["header\nbody", "header\nother"]
+    assert cleaner._remove_repeated_lines(small) == (small, 0, 0)
+    distinct = [f"unique content {index}" for index in range(4)]
+    assert cleaner._remove_repeated_lines(distinct) == (distinct, 0, 0)
+
+
+def test_repeated_footer_is_removed_when_glued_to_content():
+    footer = "long-running-footer.example"
+    pages = [
+        f"{footer} | {index}\ncontent {index} {footer}\nkeep {index}"
+        for index in range(1, 5)
+    ]
+    cleaned, exact_removed, marker_removed = cleaner._remove_repeated_lines(pages)
+    assert cleaned == [f"content {index}\nkeep {index}" for index in range(1, 5)]
+    assert exact_removed == 0
+    assert marker_removed == 8
+
+
+def test_clean_pages_discards_empty_pages():
+    cleaned, stats = cleaner.clean_pages([{"page_number": 1, "text": "  \n  "}])
+    assert cleaned == []
+    assert stats["pages_after"] == 0
+
+
+def test_extract_text_returns_none_for_extraction_or_cleaning_failure(monkeypatch):
+    monkeypatch.setattr(cleaner, "extract_pages", lambda _: [])
+    assert cleaner.extract_text("missing.txt") is None
+    monkeypatch.setattr(cleaner, "extract_pages", lambda _: [{"page_number": 1, "text": "text"}])
+    monkeypatch.setattr(cleaner, "clean_pages", lambda _: ([], {}))
+    assert cleaner.extract_text("empty.txt") is None

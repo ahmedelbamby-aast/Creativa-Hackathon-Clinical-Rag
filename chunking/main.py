@@ -6,15 +6,15 @@ import logging
 import os
 from datetime import datetime, timezone
 
-from src.services.ingestion.chunker import SmartChunker
-from src.services.ingestion.cleaner import (
+from chunking.src.services.ingestion.chunker import SmartChunker
+from chunking.src.services.ingestion.cleaner import (
     clean_pages,
     detect_content_type,
     extract_pages,
     get_extractor_label,
 )
-from src.services.ingestion.language_detector import language_detector
-from src.services.ingestion.quality_filter import quality_filter
+from chunking.src.services.ingestion.language_detector import language_detector
+from chunking.src.services.ingestion.quality_filter import quality_filter
 
 logger = logging.getLogger(__name__)
 

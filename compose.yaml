@@ -9,17 +9,15 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test:
         - CMD-SHELL
         - pg_isready -U ${POSTGRES_USER:-creativa} -d ${POSTGRES_DB:-creativa_diabetes}
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 12
       start_period: 10s
     restart: unless-stopped
 
 volumes:
   postgres_data:
-

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.services.ingestion.chunker import SmartChunker
+from chunking.src.services.ingestion.chunker import SmartChunker
 
 
 def test_invalid_overlap_is_rejected():
@@ -53,3 +53,34 @@ def test_tiny_tail_is_merged_when_space_allows():
     chunker = SmartChunker(max_chunk_size=50, overlap_size=0, min_chunk_size=10)
     assert chunker._merge_small_chunks(["a" * 20, "tail"]) == ["a" * 20 + " tail"]
 
+
+def test_separator_helpers_cover_empty_parts_and_absolute_fallback():
+    chunker = SmartChunker(max_chunk_size=20, overlap_size=5, min_chunk_size=1)
+    assert chunker._split_by_separator("a..b", ".", 10) == ["a.b"]
+    assert chunker._recursive_split("abcdefgh", [], 3) == ["abc", "def", "gh"]
+
+
+def test_overlap_helpers_cover_short_and_unbroken_tails():
+    chunker = SmartChunker(max_chunk_size=10, overlap_size=4, min_chunk_size=1)
+    assert chunker._get_overlap("abc") == "abc"
+    assert chunker._get_overlap("abcdefgh") == "efgh"
+    assert chunker._apply_overlap(["single"]) == ["single"]
+
+
+@pytest.mark.parametrize(
+    ("next_chunk", "expected"),
+    [
+        ("12345 789", "fgh12345"),
+        ("123456789", "fgh1234567"),
+    ],
+)
+def test_apply_overlap_trims_at_word_or_character_boundary(next_chunk, expected):
+    chunker = SmartChunker(max_chunk_size=10, overlap_size=3, min_chunk_size=1)
+    assert chunker._apply_overlap(["abcdefgh", next_chunk]) == ["abcdefgh", expected]
+
+
+def test_merge_small_chunks_covers_empty_buffer_overflow_and_unmergeable_tail():
+    chunker = SmartChunker(max_chunk_size=10, overlap_size=0, min_chunk_size=5)
+    assert chunker._merge_small_chunks([]) == []
+    assert chunker._merge_small_chunks(["a", "b"]) == ["a b"]
+    assert chunker._merge_small_chunks(["tiny", "long-enough", "end"]) == ["tiny", "long-enough", "end"]

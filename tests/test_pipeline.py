@@ -57,6 +57,36 @@ def test_process_file_explains_scanned_document(monkeypatch, pipeline_main):
         pipeline_main.process_file("scan.pdf")
 
 
+def test_process_file_rejects_content_removed_by_cleaning(monkeypatch, pipeline_main):
+    monkeypatch.setattr(pipeline_main, "extract_pages", lambda _: [{"page_number": 1, "text": "raw"}])
+    monkeypatch.setattr(
+        pipeline_main,
+        "clean_pages",
+        lambda _: ([], {"chars_before": 3, "chars_after": 0}),
+    )
+    with pytest.raises(ValueError, match="No text left after cleaning"):
+        pipeline_main.process_file("empty.txt")
+
+
+def test_process_file_skips_pages_that_generate_no_chunks(tmp_path, monkeypatch, pipeline_main):
+    source = tmp_path / "mixed.txt"
+    source.write_text("source", encoding="utf-8")
+    pages = [{"page_number": 1, "text": "skip"}, {"page_number": 2, "text": "keep"}]
+    monkeypatch.setattr(pipeline_main, "extract_pages", lambda _: pages)
+    monkeypatch.setattr(pipeline_main, "clean_pages", lambda _: (pages, {"chars_before": 8, "chars_after": 8}))
+
+    class Chunker:
+        def __init__(self, **_):
+            pass
+
+        def chunk(self, text):
+            return [] if text == "skip" else [text]
+
+    monkeypatch.setattr(pipeline_main, "SmartChunker", Chunker)
+    result = pipeline_main.process_file(str(source), str(tmp_path / "out"), min_quality_score=0)
+    assert [chunk["page_number"] for chunk in result["chunks"]] == [2]
+
+
 def test_process_file_rejects_all_filtered_chunks(tmp_path, pipeline_main):
     source = tmp_path / "weak.txt"
     source.write_text("tiny", encoding="utf-8")
@@ -86,3 +116,30 @@ def test_cli_forwards_arguments(tmp_path, monkeypatch, pipeline_main):
         "max_chunk_size": 80,
         "overlap_size": 10,
     }
+
+
+def test_cli_default_file_reports_missing_data_directory(monkeypatch, pipeline_main, tmp_path):
+    monkeypatch.setattr(pipeline_main, "DEFAULT_DATA_DIR", str(tmp_path / "missing"))
+    monkeypatch.setattr(sys, "argv", ["main.py"])
+    with pytest.raises(SystemExit, match="Data directory not found"):
+        pipeline_main.main()
+
+
+def test_cli_default_file_reports_empty_data_directory(monkeypatch, pipeline_main, tmp_path):
+    monkeypatch.setattr(pipeline_main, "DEFAULT_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(sys, "argv", ["main.py"])
+    with pytest.raises(SystemExit, match="No PDF files found"):
+        pipeline_main.main()
+
+
+def test_cli_default_file_selects_first_pdf(monkeypatch, pipeline_main, tmp_path):
+    first = tmp_path / "a.pdf"
+    first.write_bytes(b"pdf")
+    (tmp_path / "z.PDF").write_bytes(b"pdf")
+    (tmp_path / "note.txt").write_text("ignored", encoding="utf-8")
+    captured = {}
+    monkeypatch.setattr(pipeline_main, "DEFAULT_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(pipeline_main, "process_file", lambda path, **kwargs: captured.update(path=path, kwargs=kwargs))
+    monkeypatch.setattr(sys, "argv", ["main.py"])
+    pipeline_main.main()
+    assert captured["path"] == str(first.resolve())

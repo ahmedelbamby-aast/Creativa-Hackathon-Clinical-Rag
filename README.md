@@ -1,195 +1,233 @@
-# Creativa Diabetes
+# Diabetes RAG Assistant
 
-Creativa Diabetes is an early-stage document ingestion project for preparing diabetes-related reference material for downstream search and retrieval workflows. The current runnable pipeline extracts text from source documents, cleans common extraction artifacts, detects whether the content is Arabic, English, or mixed, splits it into overlapping chunks, assigns a simple quality score, and writes page-aware JSON records.
+A bilingual English/Arabic RAG application that answers diabetes questions from the medical documents in this repository. It supports local sentence-transformer embeddings for development and Gemini API embeddings for serverless deployment. PostgreSQL with pgvector stores and searches all embeddings.
 
-The repository includes a small corpus of public diabetes publications and two generated chunk files that demonstrate the expected output format.
+> This is a research and educational tool, not a substitute for professional medical advice.
 
-## What the pipeline does
-
-For each document, the pipeline performs the following steps:
-
-1. Extracts text from PDF, DOCX, or plain-text files.
-2. Preserves PDF page numbers in the extracted records.
-3. Normalizes Unicode and whitespace, repairs line-break hyphenation, and removes repeated headers, footers, and standalone page numbers.
-4. Detects Arabic, English, or mixed-language content using character distribution.
-5. Splits content hierarchically at paragraph, line, sentence, clause, word, and character boundaries.
-6. Adds configurable overlap while keeping chunks within the requested maximum size.
-7. Scores and filters chunks using length, text density, and technical-content signals.
-8. Saves the document metadata, cleaning statistics, parameters, and chunks as JSON.
-
-The chunker also attempts to keep fenced code, display math, HTML tables, and Markdown tables intact.
-
-## Repository structure
+## Architecture
 
 ```text
-.
-├── chunking/
-│   ├── main.py                         # Runnable command-line pipeline
-│   ├── output/                         # Generated JSON examples
-│   └── src/services/ingestion/
-│       ├── cleaner.py                  # Extraction and text cleanup
-│       ├── chunker.py                  # Hierarchical, overlapping chunker
-│       ├── language_detector.py        # Arabic/English language detection
-│       └── quality_filter.py           # Chunk scoring and filtering
-├── data/rew_data/books/                # Source diabetes publications
-└── example/services/                   # Reference code for a larger architecture
+Documents
+  -> structure-aware parsing
+  -> language and category classification
+  -> chunking and quality filtering
+  -> local or Gemini embeddings
+  -> PostgreSQL + pgvector
+
+Question
+  -> medical safety check
+  -> follow-up query rewriting
+  -> treatment/prevention/nutrition routing
+  -> pgvector cosine search
+  -> grounded Gemini prompt
+  -> answer, disclaimer, and citations
 ```
 
-`example/services/` contains exploratory components for embedding, clustering, security, and database-backed ingestion. It is not a complete runnable application in the current repository because the surrounding models, settings, and some services are not included.
+Embedding spaces are isolated with PostgreSQL partitions. The defaults create `local_384` and `gemini_384` namespaces, each with its own cosine HNSW index. This prevents vectors from different models from being compared accidentally.
+
+## Main modules
+
+```text
+app.py                      Gradio chat application
+compose.yaml                Local PostgreSQL 16 + pgvector service
+database/schema.sql         Partitioned vector schema
+pyproject.toml              UV dependency definitions
+uv.lock                     Reproducible dependency lock
+
+scripts/
+  bootstrap.py              Prepare the model and pgvector namespace
+  dry_run.py                Validate modules, embeddings, database, and UI
+  ingest.py                 Parse and ingest source documents
+  evaluate.py               Run retrieval and response evaluations
+
+src/
+  config.py                 Environment-based configuration
+  embeddings.py             Local/Gemini embedding providers
+  scoring.py                Cosine-distance conversion
+  vector_store.py           PostgreSQL/pgvector storage and search
+  retriever.py              Similarity filtering and result mapping
+  router.py                 Query category routing
+  rewriter.py               Follow-up query contextualization
+  safety.py                 Medical-risk classification and disclaimers
+  prompts.py                Grounded Gemini prompts
+  generator.py              Gemini generation client and retries
+  citations.py              Page- and section-aware citations
+  memory.py                 Bounded per-session conversation memory
+  ingestion/                Parsing, classification, chunking, and filtering
+
+tests/                      Focused pytest tests
+data/rew_data/books/        Default source-document directory
+```
 
 ## Requirements
 
-- Python 3.10 or newer (required by the development test plugins)
-- [`pypdf`](https://pypi.org/project/pypdf/) for PDF input
-- [`python-docx`](https://pypi.org/project/python-docx/) for DOCX input
+- Python 3.11 or 3.12
+- [UV](https://docs.astral.sh/uv/)
+- PostgreSQL with the pgvector extension
+- A Gemini API key for generation and online embeddings
 
-Only the dependency for the selected input type is required. Plain-text processing uses the Python standard library.
+## Local setup
 
-## Setup
-
-Clone the repository and create a virtual environment:
+Install the locked dependencies including the local embedding model runtime:
 
 ```bash
-git clone https://github.com/A7MED-SA/Creativa_Diabetes.git
-cd Creativa_Diabetes
-python -m venv .venv
+uv sync --extra local
 ```
 
-Activate it on Windows:
+Create local configuration:
 
 ```powershell
-.venv\Scripts\Activate.ps1
-```
-
-Or on macOS/Linux:
-
-```bash
-source .venv/bin/activate
-```
-
-Install the complete project environment with [UV](https://docs.astral.sh/uv/):
-
-```bash
-uv sync --all-groups
-```
-
-On Windows, the equivalent bootstrap helper is:
-
-```powershell
-.\scripts\install.ps1
+Copy-Item .env.example .env
 ```
 
 On macOS/Linux:
 
 ```bash
-./scripts/install.sh
+cp .env.example .env
 ```
 
-UV installs the runtime document readers and the development test dependencies
-from `pyproject.toml` and `uv.lock`.
+Set `GEMINI_API_KEY` in `.env`. Never commit `.env`.
 
-## Testing
-
-Run the complete test suite with:
+Start PostgreSQL with pgvector:
 
 ```bash
-uv run pytest
+docker compose up -d postgres
 ```
 
-Or use `.\scripts\test.ps1` on Windows and `./scripts/test.sh` on macOS/Linux.
-The default configuration runs tests in parallel with `pytest-xdist`, randomizes
-test order with `pytest-randomly`, reports failures immediately with
-`pytest-instafail`, keeps output concise with `pytest-tldr`, enforces per-test
-timeouts with `pytest-timeout`, and reports coverage with `pytest-cov`.
-
-`pytest-installfail` is not a published PyPI package; the project uses
-`pytest-instafail`, the established plugin for immediate failure output.
-
-## Usage
-
-Run the pipeline from the repository root and provide a source document:
+Download the local embedding model and create its database partition/index:
 
 ```bash
-python chunking/main.py "data/rew_data/books/IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf"
+uv run python scripts/bootstrap.py
 ```
 
-The result is written to `chunking/output/<document-name>.chunks.json` by default.
+## Online embeddings
 
-If no document is supplied, the command processes the first PDF (alphabetically) in `data/rew_data/books/`:
+For API-based embeddings, set:
+
+```dotenv
+EMBEDDING_PROVIDER=gemini
+ONLINE_EMBEDDING_MODEL=gemini-embedding-2
+EMBEDDING_DIMENSION=384
+```
+
+The serverless environment does not need the local model extra:
 
 ```bash
-python chunking/main.py
+uv sync
+uv run python scripts/bootstrap.py --verify-online
 ```
 
-### Options
+The online provider adds retrieval instructions to document and query inputs, requests 384-dimensional vectors, and normalizes the returned vectors before pgvector storage.
+
+Changing providers selects a separate database namespace. Run ingestion once for each provider you intend to use.
+
+## Tests and consistency checks
+
+Run pytest:
+
+```bash
+uv run python -m pytest
+```
+
+The default test command runs in parallel, randomizes test order, reports
+failures immediately, applies per-test timeouts, and enforces 100% statement
+and branch coverage for the measured chunking and security modules. The suite
+uses `pytest-instafail`; `pytest-installfail` is not a published package.
+
+Run the integration dry run:
+
+```bash
+uv run python scripts/dry_run.py
+```
+
+Exercise real pgvector writes, nearest-neighbor search, and cleanup:
+
+```bash
+uv run python scripts/database_smoke.py
+```
+
+The dry run validates:
+
+- Required files and environment keys
+- Runtime library imports
+- Routing, rewriting, safety, classification, and chunking
+- Active local or Gemini embeddings
+- PostgreSQL connectivity and pgvector availability
+- The active namespace and cosine query path
+- Gradio UI construction
+
+It does not ingest documents or call Gemini generation. When `EMBEDDING_PROVIDER=gemini`, it does make embedding API requests.
+
+## Ingest documents
+
+Place PDF, DOCX, or TXT files in `data/rew_data/books/`, then run:
+
+```bash
+uv run python scripts/ingest.py
+```
+
+Options:
 
 ```text
---output-dir PATH          Directory for generated JSON files
---max-chunk-size INTEGER   Maximum characters per chunk (default: 500)
---overlap-size INTEGER     Overlap between adjacent chunks (default: 50)
---min-quality-score FLOAT  Minimum accepted quality score (default: 0.1)
+--data-dir PATH    Use another document directory
+--file PATH        Ingest one document
+--force            Replace an already-ingested document
+--reset            Delete chunks in the active embedding namespace
+--stats            Print category counts without ingesting
+--verbose, -v      Enable debug logging
 ```
 
-Example with custom parameters:
+Without `--force`, an existing document is skipped. With `--force`, old chunks are removed only after parsing, chunking, and embedding succeed.
+
+## Run the application
 
 ```bash
-python chunking/main.py "path/to/document.pdf" \
-  --output-dir "output" \
-  --max-chunk-size 800 \
-  --overlap-size 80 \
-  --min-quality-score 0.2
+uv run python app.py
 ```
 
-`overlap-size` must be smaller than `max-chunk-size`.
+Open [http://localhost:7860](http://localhost:7860).
 
-## Output format
+## Evaluation
 
-Each generated file contains document-level metadata and a `chunks` array:
+```bash
+# Full retrieval and generation evaluation
+uv run python scripts/evaluate.py
 
-```json
-{
-  "file_name": "document.pdf",
-  "content_type": "application/pdf",
-  "extractor": "pypdf",
-  "language": "en",
-  "page_count": 42,
-  "chunk_count": 315,
-  "chunk_params": {
-    "max_chunk_size": 500,
-    "overlap_size": 50,
-    "min_quality_score": 0.1
-  },
-  "chunks": [
-    {
-      "index": 0,
-      "page_number": 1,
-      "text": "Extracted and cleaned text...",
-      "char_count": 486,
-      "word_count": 73,
-      "quality_score": 0.684,
-      "language": "en"
-    }
-  ]
-}
+# Retrieval only; no Gemini generation
+uv run python scripts/evaluate.py --no-generate
+
+# One category
+uv run python scripts/evaluate.py --category nutrition
 ```
 
-The file also records source size, total cleaned characters, cleaning statistics, and a UTC creation timestamp. `source_file` is stored as an absolute path from the machine that generated the output.
+## Configuration
 
-## Current limitations
+| Variable | Default | Purpose |
+|---|---|---|
+| `DATABASE_URL` | local Compose URL | PostgreSQL connection URL |
+| `EMBEDDING_PROVIDER` | `local` | `local` or `gemini` |
+| `EMBEDDING_MODEL` | multilingual MiniLM | Local sentence-transformer |
+| `ONLINE_EMBEDDING_MODEL` | `gemini-embedding-2` | Hosted embedding model |
+| `EMBEDDING_DIMENSION` | `384` | Shared pgvector dimension |
+| `EMBEDDING_NAMESPACE` | provider-derived | Optional database partition namespace |
+| `GEMINI_API_KEY` | empty | Generation and hosted embeddings |
+| `GEMINI_MODEL` | `gemini-2.5-flash` in `.env.example` | Generation model |
+| `TOP_K` | `5` | Final retrieved chunks |
+| `SIMILARITY_THRESHOLD` | `0.30` | Minimum cosine similarity |
+| `CHUNK_SIZE` | `2000` | Maximum chunk characters |
+| `CHUNK_OVERLAP` | `200` | Adjacent chunk overlap |
+| `DATA_DIR` | `data/rew_data/books` | Source documents |
+| `DEBUG` | `false` | Show retrieval diagnostics |
+| `MAX_MEMORY_TURNS` | `6` | Conversation turns retained |
 
-- Image-only or scanned PDFs require OCR before this pipeline can process them.
-- DOCX and TXT inputs are represented as a single page because those formats do not expose PDF-style pagination here.
-- Language detection currently distinguishes only Arabic, English, and mixed Arabic/English text.
-- Quality scoring is heuristic and should be tuned for a specific retrieval or evaluation workload.
-- Protected semantic blocks that are themselves larger than the configured chunk limit may exceed the intended content budget after restoration.
-- The files under `example/services/` require additional application modules and dependencies before they can be executed.
+## Future Vercel deployment
 
-## Data and medical-use notice
+Use `EMBEDDING_PROVIDER=gemini` on Vercel so the deployment does not need PyTorch or local model files. Set `DATABASE_URL` to a managed PostgreSQL service with pgvector enabled, such as a compatible Neon or Supabase database.
 
-The documents under `data/rew_data/books/` remain subject to their original publishers' terms and attribution requirements. Review those terms before redistributing the source files.
+Run `scripts/bootstrap.py --verify-online` against the production database during provisioning, not on every request. The storage and embedding layers are serverless-compatible; packaging the current Gradio UI as a Vercel entry point remains a separate deployment step.
 
-This repository prepares documents for technical experimentation. It does not provide medical advice, diagnosis, or treatment recommendations, and generated chunks should be validated against their original sources before use in a health-related system.
+## Safety
 
-## License
+The pre-generation safety layer classifies queries as emergency, high-risk, diagnosis, or informational. Emergency questions bypass retrieval and generation. High-risk and diagnosis questions receive mandatory disclaimers.
 
-No project license is currently included. Unless a license is added, the repository's code should not be assumed to grant reuse, modification, or redistribution rights.
+This keyword-based guardrail is not a clinical diagnostic system.

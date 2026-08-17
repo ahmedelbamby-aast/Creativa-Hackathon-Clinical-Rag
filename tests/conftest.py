@@ -13,7 +13,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 @pytest.fixture(scope="session")
 def pipeline_main():
-    """Load the CLI module without relying on ``chunking`` being a package."""
     path = ROOT / "chunking" / "main.py"
     spec = importlib.util.spec_from_file_location("chunking_main", path)
     assert spec and spec.loader

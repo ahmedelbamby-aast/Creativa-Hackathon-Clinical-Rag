@@ -2,20 +2,16 @@ from __future__ import annotations
 
 import pytest
 
-from src.services.ingestion.language_detector import LanguageDetector
-from src.services.ingestion.quality_filter import QualityFilter
+from chunking.src.services.ingestion.language_detector import LanguageDetector
+from chunking.src.services.ingestion.quality_filter import QualityFilter
 
 
-@pytest.mark.parametrize(
-    ("text", "expected"),
-    [
-        ("", "en"),
-        ("1234 !?", "en"),
-        ("Diabetes prevention and treatment", "en"),
-        ("السكري والوقاية والعلاج", "ar"),
-        ("diabetes مرض السكري care", "mixed"),
-    ],
-)
+@pytest.mark.parametrize(("text", "expected"), [
+    ("", "en"), ("1234 !?", "en"),
+    ("Diabetes prevention and treatment", "en"),
+    ("السكري والوقاية والعلاج", "ar"),
+    ("diabetes مرض السكري care", "mixed"),
+])
 def test_detect_language(text, expected):
     assert LanguageDetector().detect(text) == expected
 
