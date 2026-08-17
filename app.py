@@ -218,13 +218,41 @@ CATEGORY_VALUE_TO_DISPLAY = {v: k for k, v in CATEGORY_CHOICES.items()}
 
 CUSTOM_CSS = """
 /* ── Global ─────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+:root {
+    --surface-page: #0f172a;
+    --surface-card: #17233a;
+    --surface-raised: #1e3a5f;
+    --text-primary: #f8fafc;
+    --text-secondary: #bfdbfe;
+    --accent: #42a5f5;
+    --focus: #7dd3fc;
+    --border: rgba(147, 197, 253, 0.32);
+    --radius-sm: 10px;
+    --radius-lg: 16px;
+}
 
 * { font-family: 'Inter', sans-serif !important; }
 
 body, .gradio-container {
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f2744 100%) !important;
-    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+.gradio-container {
+    max-width: 1120px !important;
+    margin-inline: auto !important;
+    padding: 24px !important;
+    overflow-x: hidden;
+}
+
+button, textarea, input, [role="combobox"] {
+    min-height: 44px !important;
+}
+
+button:focus-visible, textarea:focus-visible, input:focus-visible,
+[role="combobox"]:focus-visible, summary:focus-visible {
+    outline: 3px solid var(--focus) !important;
+    outline-offset: 3px !important;
 }
 
 /* ── Header ─────────────────────────────────────────────────────────── */
@@ -247,7 +275,7 @@ body, .gradio-container {
 
 #header-subtitle {
     font-size: 1rem !important;
-    color: #90caf9 !important;
+    color: var(--text-secondary) !important;
     margin-top: 8px !important;
 }
 
@@ -267,12 +295,20 @@ body, .gradio-container {
     color: #e3f2fd !important;
 }
 
+#category-help, #category-help p {
+    color: var(--text-secondary) !important;
+    font-size: 0.92rem !important;
+    line-height: 1.55 !important;
+    margin-top: -4px !important;
+}
+
 /* ── Chat Interface ──────────────────────────────────────────────────── */
 #chatbot {
     background: rgba(15, 23, 42, 0.8) !important;
     border: 1px solid rgba(100, 181, 246, 0.2) !important;
     border-radius: 16px !important;
     box-shadow: 0 4px 24px rgba(0,0,0,0.3) !important;
+    min-height: 340px !important;
 }
 
 #chatbot .message.user {
@@ -296,7 +332,8 @@ body, .gradio-container {
     border: 1.5px solid rgba(100, 181, 246, 0.4) !important;
     border-radius: 12px !important;
     color: #e3f2fd !important;
-    font-size: 0.95rem !important;
+    font-size: 1rem !important;
+    line-height: 1.55 !important;
     transition: border-color 0.2s ease;
 }
 
@@ -306,7 +343,12 @@ body, .gradio-container {
 }
 
 #query-input textarea::placeholder {
-    color: rgba(144, 202, 249, 0.5) !important;
+    color: rgba(191, 219, 254, 0.72) !important;
+}
+
+#query-input label, #category-selector label {
+    color: var(--text-secondary) !important;
+    font-weight: 600 !important;
 }
 
 /* ── Buttons ─────────────────────────────────────────────────────────── */
@@ -373,6 +415,30 @@ body, .gradio-container {
     margin-bottom: 6px !important;
 }
 
+#citations-box, #citations-box p, #citations-box em {
+    color: var(--text-secondary) !important;
+}
+
+@media (max-width: 768px) {
+    .gradio-container { padding: 12px !important; }
+    #header-box { padding: 20px !important; border-radius: 12px; }
+    #header-title { font-size: 1.65rem !important; line-height: 1.2; }
+    #header-subtitle { font-size: 0.95rem !important; line-height: 1.5; }
+    #chatbot { min-height: 300px !important; }
+    #send-btn, #clear-btn { width: 100% !important; }
+    .section-label { font-size: 0.82rem !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+    #send-btn:hover { transform: none !important; }
+}
+
 /* ── Scrollbars ──────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 3px; }
@@ -409,22 +475,16 @@ def build_ui() -> gr.Blocks:
             )
 
         # ── Category Selector ───────────────────────────────────────────
-        with gr.Row():
+        with gr.Column():
             category_input = gr.Dropdown(
                 choices=list(CATEGORY_CHOICES.keys()),
                 value="🔍 All Categories",
                 label="Knowledge Category",
                 elem_id="category-selector",
-                scale=2,
                 interactive=True,
             )
-            gr.HTML(
-                """
-                <div style="color:#90caf9; font-size:0.82rem; padding-top:28px; line-height:1.5;">
-                  Select a category to focus retrieval, or use <strong>All Categories</strong>
-                  for cross-domain questions.
-                </div>
-                """,
+            gr.Markdown(
+                "Select a category to focus retrieval, or use **All Categories** for cross-domain questions.",
                 elem_id="category-help",
             )
 
@@ -434,25 +494,24 @@ def build_ui() -> gr.Blocks:
         chatbot = gr.Chatbot(
             label="",
             elem_id="chatbot",
-            height=460,
+            height=380,
             show_label=False,
             render_markdown=True,
         )
 
-        with gr.Row():
+        with gr.Column():
             query_input = gr.Textbox(
                 placeholder="Ask about diabetes treatment, prevention, nutrition... (English or Arabic)",
-                label="",
+                label="Your question",
                 elem_id="query-input",
                 lines=2,
                 max_lines=5,
-                scale=5,
-                show_label=False,
+                show_label=True,
                 autofocus=True,
             )
-            with gr.Column(scale=1, min_width=120):
-                send_btn = gr.Button("Send ↵", elem_id="send-btn", variant="primary")
-                clear_btn = gr.Button("🗑️ Clear", elem_id="clear-btn", variant="secondary")
+            with gr.Row():
+                send_btn = gr.Button("Send question", elem_id="send-btn", variant="primary")
+                clear_btn = gr.Button("Clear chat", elem_id="clear-btn", variant="secondary")
 
         # ── Citations Panel ─────────────────────────────────────────────
         gr.HTML('<div class="section-label" style="margin-top:16px">📚 Sources</div>')
