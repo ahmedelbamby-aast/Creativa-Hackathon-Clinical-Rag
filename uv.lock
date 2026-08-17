@@ -391,8 +391,12 @@ dependencies = [
     { name = "pypdf" },
     { name = "python-docx" },
     { name = "python-dotenv" },
-    { name = "sentence-transformers" },
     { name = "tqdm" },
+]
+
+[package.optional-dependencies]
+local = [
+    { name = "sentence-transformers" },
 ]
 
 [package.dev-dependencies]
@@ -411,9 +415,10 @@ requires-dist = [
     { name = "pypdf", specifier = ">=4.0.0" },
     { name = "python-docx", specifier = ">=1.1.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
-    { name = "sentence-transformers", specifier = ">=2.7.0" },
+    { name = "sentence-transformers", marker = "extra == 'local'", specifier = ">=2.7.0" },
     { name = "tqdm", specifier = ">=4.66.0" },
 ]
+provides-extras = ["local"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=8.0" }]

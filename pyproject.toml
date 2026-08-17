@@ -14,8 +14,12 @@ dependencies = [
     "pypdf>=4.0.0",
     "python-docx>=1.1.0",
     "python-dotenv>=1.0.0",
-    "sentence-transformers>=2.7.0",
     "tqdm>=4.66.0",
+]
+
+[project.optional-dependencies]
+local = [
+    "sentence-transformers>=2.7.0",
 ]
 
 [dependency-groups]

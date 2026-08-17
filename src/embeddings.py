@@ -1,92 +1,124 @@
-"""Embedding model wrapper using sentence-transformers.
-
-Uses a free multilingual model that supports English, Arabic, and Egyptian
-Arabic. The embedding dimension is determined automatically from the model
-at runtime — never hardcoded.
-
-Default model: paraphrase-multilingual-MiniLM-L12-v2
-  - Dimension: 384
-  - Supports 50+ languages including Arabic
-  - ~470 MB download, cached locally after first use
-  - Free, no API key required
-
-Usage
------
-    from src.embeddings import embedder
-
-    # Single query
-    vector = embedder.embed_query("What foods are recommended for diabetics?")
-
-    # Batch (for ingestion)
-    vectors = embedder.embed_batch(["chunk 1 text", "chunk 2 text"])
-"""
+"""Configurable local and Gemini API embedding providers."""
 
 import logging
+import math
 from typing import Optional
-
-import numpy as np
 
 from src.config import config
 
 logger = logging.getLogger(__name__)
 
 
+def _normalize(values: list[float]) -> list[float]:
+    """Return a unit-length vector for reliable cosine search."""
+    magnitude = math.sqrt(sum(value * value for value in values))
+    if magnitude == 0:
+        raise ValueError("Embedding provider returned a zero vector")
+    return [value / magnitude for value in values]
+
+
 class EmbeddingModel:
-    """Lazy-loading sentence-transformer embedding model.
+    """Small facade over local sentence-transformers and Gemini embeddings."""
 
-    The model is loaded on first use (not at import time) to keep startup
-    fast and allow tests to run without downloading the model.
-    """
+    def __init__(
+        self,
+        provider: Optional[str] = None,
+        dimension: Optional[int] = None,
+        local_model_name: Optional[str] = None,
+        online_model_name: Optional[str] = None,
+        online_client=None,
+    ) -> None:
+        self._provider = (provider or config.embedding_provider).lower()
+        if self._provider not in {"local", "gemini"}:
+            raise ValueError("Embedding provider must be 'local' or 'gemini'")
 
-    def __init__(self, model_name: Optional[str] = None) -> None:
-        self._model_name = model_name or config.embedding_model
-        self._model = None
-        self._dimension: Optional[int] = None
+        self._dimension = dimension or config.embedding_dimension
+        self._local_model_name = local_model_name or config.embedding_model
+        self._online_model_name = online_model_name or config.online_embedding_model
+        self._local_model = None
+        self._online_client = online_client
 
-    def _load(self) -> None:
-        """Load the model if not already loaded."""
-        if self._model is not None:
+    def _load_local(self) -> None:
+        if self._local_model is not None:
             return
-        logger.info("Loading embedding model: %s", self._model_name)
         try:
             from sentence_transformers import SentenceTransformer
-            self._model = SentenceTransformer(self._model_name)
-            self._dimension = self._model.get_sentence_embedding_dimension()
-            logger.info(
-                "Embedding model loaded. Dimension: %d", self._dimension
+        except ImportError as exc:
+            raise RuntimeError(
+                "Local embeddings require `uv sync --extra local`."
+            ) from exc
+
+        logger.info("Loading local embedding model: %s", self._local_model_name)
+        self._local_model = SentenceTransformer(self._local_model_name)
+        actual = self._local_model.get_sentence_embedding_dimension()
+        if actual != self._dimension:
+            raise ValueError(
+                f"Local model outputs {actual} dimensions, but "
+                f"EMBEDDING_DIMENSION is {self._dimension}."
             )
-        except Exception as e:
-            logger.error("Failed to load embedding model %s: %s", self._model_name, e)
-            raise
+
+    def _get_online_client(self):
+        if self._online_client is None:
+            if not config.gemini_api_key:
+                raise RuntimeError("GEMINI_API_KEY is required for Gemini embeddings")
+            from google import genai
+
+            self._online_client = genai.Client(api_key=config.gemini_api_key)
+        return self._online_client
+
+    @staticmethod
+    def _online_text(text: str, task: str) -> str:
+        if task == "query":
+            return f"Task: retrieve relevant diabetes reference passages\nQuery: {text}"
+        return f"Task: represent a diabetes reference passage for retrieval\nDocument: {text}"
+
+    def _embed_online(self, texts: list[str], task: str) -> list[list[float]]:
+        from google.genai import types
+
+        client = self._get_online_client()
+        contents = [
+            types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=self._online_text(text, task))],
+            )
+            for text in texts
+        ]
+        response = client.models.embed_content(
+            model=self._online_model_name,
+            contents=contents,
+            config=types.EmbedContentConfig(
+                output_dimensionality=self._dimension,
+            ),
+        )
+        vectors = [_normalize(list(item.values)) for item in response.embeddings]
+        if len(vectors) != len(texts):
+            raise RuntimeError(
+                f"Gemini returned {len(vectors)} embeddings for {len(texts)} inputs"
+            )
+        return vectors
 
     @property
     def dimension(self) -> int:
-        """Return the embedding dimension (loads model if needed)."""
-        self._load()
-        return self._dimension  # type: ignore[return-value]
+        if self._provider == "local":
+            self._load_local()
+        return self._dimension
 
     def embed_query(self, text: str) -> list[float]:
-        """Embed a single query string.
+        """Embed one retrieval query."""
+        text = text.strip()
+        if not text:
+            raise ValueError("Cannot embed an empty query")
 
-        Args:
-            text: Query text (English or Arabic).
+        if self._provider == "gemini":
+            return self._embed_online([text], task="query")[0]
 
-        Returns:
-            Embedding vector as a list of floats.
-        """
-        self._load()
-        if not text or not text.strip():
-            raise ValueError("Cannot embed empty query")
-        try:
-            vector = self._model.encode(  # type: ignore[union-attr]
-                text.strip(),
-                normalize_embeddings=True,
-                show_progress_bar=False,
-            )
-            return vector.tolist()
-        except Exception as e:
-            logger.error("Failed to embed query: %s", e)
-            raise
+        self._load_local()
+        vector = self._local_model.encode(
+            text,
+            normalize_embeddings=True,
+            show_progress_bar=False,
+        )
+        return vector.tolist()
 
     def embed_batch(
         self,
@@ -94,42 +126,33 @@ class EmbeddingModel:
         batch_size: int = 32,
         show_progress: bool = False,
     ) -> list[list[float]]:
-        """Embed a list of texts in batches.
-
-        Args:
-            texts: List of strings to embed.
-            batch_size: Number of texts per batch.
-            show_progress: Show tqdm progress bar.
-
-        Returns:
-            List of embedding vectors (same order as input).
-        """
-        self._load()
+        """Embed document passages while preserving their order."""
         if not texts:
             return []
+        clean_texts = [text.strip() if text and text.strip() else "." for text in texts]
 
-        # Filter empty strings (replace with placeholder to preserve order)
-        clean_texts = [t.strip() if t and t.strip() else "." for t in texts]
+        if self._provider == "gemini":
+            return self._embed_online(clean_texts, task="document")
 
-        try:
-            vectors = self._model.encode(  # type: ignore[union-attr]
-                clean_texts,
-                batch_size=batch_size,
-                normalize_embeddings=True,
-                show_progress_bar=show_progress,
-                convert_to_numpy=True,
-            )
-            return vectors.tolist()
-        except Exception as e:
-            logger.error("Batch embedding failed: %s", e)
-            raise
+        self._load_local()
+        vectors = self._local_model.encode(
+            clean_texts,
+            batch_size=batch_size,
+            show_progress_bar=show_progress,
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+        )
+        return vectors.tolist()
 
     @property
     def model_name(self) -> str:
-        return self._model_name
+        if self._provider == "gemini":
+            return self._online_model_name
+        return self._local_model_name
+
+    @property
+    def provider(self) -> str:
+        return self._provider
 
 
-# ---------------------------------------------------------------------------
-# Singleton — import this everywhere
-# ---------------------------------------------------------------------------
 embedder = EmbeddingModel()

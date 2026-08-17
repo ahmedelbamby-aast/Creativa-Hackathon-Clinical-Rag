@@ -78,11 +78,26 @@ class AppConfig:
     gemini_model: str = field(default_factory=lambda: os.environ.get("GEMINI_MODEL", "gemini-2.0-flash"))
 
     # ── Embedding ──────────────────────────────────────────────────────────
+    embedding_provider: str = field(
+        default_factory=lambda: os.environ.get("EMBEDDING_PROVIDER", "local").lower()
+    )
     embedding_model: str = field(
         default_factory=lambda: os.environ.get(
             "EMBEDDING_MODEL",
             "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
         )
+    )
+    online_embedding_model: str = field(
+        default_factory=lambda: os.environ.get(
+            "ONLINE_EMBEDDING_MODEL",
+            "gemini-embedding-2",
+        )
+    )
+    embedding_dimension: int = field(
+        default_factory=lambda: int(os.environ.get("EMBEDDING_DIMENSION", "384"))
+    )
+    embedding_namespace: str = field(
+        default_factory=lambda: os.environ.get("EMBEDDING_NAMESPACE", "")
     )
 
     # ── Retrieval ──────────────────────────────────────────────────────────
@@ -123,6 +138,10 @@ class AppConfig:
                 "GEMINI_API_KEY is not set. Generation will fail. "
                 "Copy .env.example to .env and add your key."
             )
+        if self.embedding_provider not in {"local", "gemini"}:
+            raise ValueError("EMBEDDING_PROVIDER must be 'local' or 'gemini'")
+        if not 1 <= self.embedding_dimension <= 2000:
+            raise ValueError("EMBEDDING_DIMENSION must be between 1 and 2000")
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError(
                 f"CHUNK_OVERLAP ({self.chunk_overlap}) must be less than "
@@ -132,6 +151,13 @@ class AppConfig:
             logger.warning(f"DATA_DIR does not exist: {self.data_dir}")
         logger.debug("Configuration loaded: model=%s, top_k=%d, threshold=%.2f",
                      self.gemini_model, self.top_k, self.similarity_threshold)
+
+    @property
+    def resolved_embedding_namespace(self) -> str:
+        """Return an explicit or provider-derived database namespace."""
+        if self.embedding_namespace:
+            return self.embedding_namespace
+        return f"{self.embedding_provider}_{self.embedding_dimension}"
 
 
 # ---------------------------------------------------------------------------
