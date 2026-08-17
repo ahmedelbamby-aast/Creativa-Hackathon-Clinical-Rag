@@ -1,0 +1,52 @@
+[project]
+name = "creativa-diabetes"
+version = "0.1.0"
+description = "Document ingestion and chunking pipeline for diabetes reference material"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pypdf>=6.0,<7",
+    "python-docx>=1.2,<2",
+]
+
+[dependency-groups]
+dev = [
+    "numpy>=2.0,<3",
+    "pytest>=8.0,<9",
+    "pytest-cov>=7.0,<8",
+    "pytest-instafail>=0.5,<1",
+    "pytest-randomly>=4.0,<5",
+    "pytest-timeout>=2.4,<3",
+    "pytest-tldr>=0.2.6,<1",
+    "pytest-xdist>=3.8,<4",
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["chunking", "."]
+addopts = [
+    "-n=auto",
+    "--dist=loadscope",
+    "--instafail",
+    "--timeout=10",
+    "--timeout-method=thread",
+    "--strict-config",
+    "--strict-markers",
+    "--cov=chunking",
+    "--cov=example/services/security",
+    "--cov-report=term-missing:skip-covered",
+]
+markers = [
+    "integration: exercises multiple pipeline components together",
+]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = ["if __name__ == .__main__.:"]

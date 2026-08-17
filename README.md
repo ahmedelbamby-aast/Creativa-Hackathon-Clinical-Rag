@@ -39,7 +39,7 @@ The chunker also attempts to keep fenced code, display math, HTML tables, and Ma
 
 ## Requirements
 
-- Python 3.9 or newer
+- Python 3.10 or newer (required by the development test plugins)
 - [`pypdf`](https://pypi.org/project/pypdf/) for PDF input
 - [`python-docx`](https://pypi.org/project/python-docx/) for DOCX input
 
@@ -67,11 +67,43 @@ Or on macOS/Linux:
 source .venv/bin/activate
 ```
 
-Install the document readers:
+Install the complete project environment with [UV](https://docs.astral.sh/uv/):
 
 ```bash
-python -m pip install pypdf python-docx
+uv sync --all-groups
 ```
+
+On Windows, the equivalent bootstrap helper is:
+
+```powershell
+.\scripts\install.ps1
+```
+
+On macOS/Linux:
+
+```bash
+./scripts/install.sh
+```
+
+UV installs the runtime document readers and the development test dependencies
+from `pyproject.toml` and `uv.lock`.
+
+## Testing
+
+Run the complete test suite with:
+
+```bash
+uv run pytest
+```
+
+Or use `.\scripts\test.ps1` on Windows and `./scripts/test.sh` on macOS/Linux.
+The default configuration runs tests in parallel with `pytest-xdist`, randomizes
+test order with `pytest-randomly`, reports failures immediately with
+`pytest-instafail`, keeps output concise with `pytest-tldr`, enforces per-test
+timeouts with `pytest-timeout`, and reports coverage with `pytest-cov`.
+
+`pytest-installfail` is not a published PyPI package; the project uses
+`pytest-instafail`, the established plugin for immediate failure output.
 
 ## Usage
 
