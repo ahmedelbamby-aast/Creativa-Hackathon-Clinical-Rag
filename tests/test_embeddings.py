@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.embeddings import EmbeddingModel
+from src.embeddings import EmbeddingModel, _local_dimension
 
 
 class FakeOnlineModels:
@@ -52,3 +52,14 @@ def test_gemini_query_uses_query_instruction() -> None:
 def test_unknown_provider_is_rejected() -> None:
     with pytest.raises(ValueError, match="provider"):
         EmbeddingModel(provider="unknown")
+
+
+def test_current_local_dimension_api_is_preferred() -> None:
+    class FakeModel:
+        def get_embedding_dimension(self):
+            return 384
+
+        def get_sentence_embedding_dimension(self):
+            raise AssertionError("deprecated method should not be called")
+
+    assert _local_dimension(FakeModel()) == 384

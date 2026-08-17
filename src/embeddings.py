@@ -17,6 +17,14 @@ def _normalize(values: list[float]) -> list[float]:
     return [value / magnitude for value in values]
 
 
+def _local_dimension(model) -> int:
+    """Read dimensions from current or older sentence-transformers versions."""
+    getter = getattr(model, "get_embedding_dimension", None)
+    if getter is None:
+        getter = model.get_sentence_embedding_dimension
+    return int(getter())
+
+
 class EmbeddingModel:
     """Small facade over local sentence-transformers and Gemini embeddings."""
 
@@ -50,7 +58,7 @@ class EmbeddingModel:
 
         logger.info("Loading local embedding model: %s", self._local_model_name)
         self._local_model = SentenceTransformer(self._local_model_name)
-        actual = self._local_model.get_sentence_embedding_dimension()
+        actual = _local_dimension(self._local_model)
         if actual != self._dimension:
             raise ValueError(
                 f"Local model outputs {actual} dimensions, but "
