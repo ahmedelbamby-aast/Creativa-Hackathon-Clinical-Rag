@@ -1,120 +1,96 @@
-"""ChromaDB vector store interface.
+"""PostgreSQL/pgvector storage for RAG chunks and similarity search."""
 
-Manages three category-specific collections:
-  - diabetes_treatment
-  - diabetes_prevention
-  - diabetes_nutrition
-
-Each collection stores:
-  - id:        chunk_id (string)
-  - embedding: embedding vector (list[float])
-  - document:  chunk text
-  - metadata:  all ChunkRecord fields except 'text'
-
-Usage
------
-    from src.vector_store import vector_store
-
-    # Add chunks
-    vector_store.add_chunks(chunk_records, embeddings)
-
-    # Query
-    results = vector_store.query(
-        query_embedding=vector,
-        category="nutrition",
-        top_k=5,
-    )
-
-    # Stats
-    print(vector_store.collection_stats())
-"""
-
-import logging
+import re
 from pathlib import Path
 from typing import Optional
 
-import chromadb
-from chromadb.config import Settings
+import psycopg
+from pgvector import Vector
+from pgvector.psycopg import register_vector
+from psycopg import sql
+from psycopg.rows import dict_row
 
-from src.config import (
-    config,
-    ALL_CATEGORIES,
-    CATEGORY_GENERAL,
-    CATEGORY_ALL,
-    _collection_name,
-)
+from src.config import ALL_CATEGORIES, CATEGORY_ALL, CATEGORY_GENERAL, config
 from src.scoring import cosine_distance_to_score
 
-logger = logging.getLogger(__name__)
 
-# Metadata fields that can be stored in ChromaDB (must be str/int/float/bool)
-_METADATA_FIELDS = [
-    "chunk_id",
-    "document_name",
-    "page_number",
-    "section_title",
-    "subsection_title",
-    "category",
-    "content_type",
-    "language",
-    "char_count",
-    "word_count",
-    "quality_score",
-]
+SCHEMA_PATH = Path(__file__).resolve().parent.parent / "database" / "schema.sql"
 
 
-def _safe_metadata(record: dict) -> dict:
-    """Extract ChromaDB-safe metadata from a chunk record.
-
-    ChromaDB metadata values must be str, int, float, or bool.
-    Truncates long string fields to prevent storage issues.
-    """
-    meta = {}
-    for field in _METADATA_FIELDS:
-        val = record.get(field, "")
-        if val is None:
-            val = ""
-        # Truncate long strings (section titles can be verbose)
-        if isinstance(val, str) and len(val) > 512:
-            val = val[:512]
-        meta[field] = val
-    return meta
+def normalize_namespace(namespace: str) -> str:
+    """Return a safe PostgreSQL identifier component."""
+    normalized = re.sub(r"[^a-z0-9_]+", "_", namespace.lower()).strip("_")
+    if not normalized:
+        raise ValueError("Embedding namespace cannot be empty")
+    return normalized[:40]
 
 
 class VectorStore:
-    """ChromaDB-backed vector store for three diabetes knowledge categories."""
+    """Store and retrieve one embedding namespace in PostgreSQL."""
 
-    def __init__(self) -> None:
-        self._client: Optional[chromadb.PersistentClient] = None
-        self._collections: dict[str, chromadb.Collection] = {}
+    def __init__(
+        self,
+        database_url: Optional[str] = None,
+        namespace: Optional[str] = None,
+        dimension: Optional[int] = None,
+    ) -> None:
+        self.database_url = database_url or config.database_url
+        self.namespace = normalize_namespace(
+            namespace or config.resolved_embedding_namespace
+        )
+        self.dimension = dimension or config.embedding_dimension
+        self.partition_name = f"rag_chunks_{self.namespace}"
+        self._schema_ready = False
 
-    def _get_client(self) -> chromadb.PersistentClient:
-        if self._client is None:
-            db_path = str(config.chroma_db_dir)
-            Path(db_path).mkdir(parents=True, exist_ok=True)
-            logger.info("Initialising ChromaDB at: %s", db_path)
-            self._client = chromadb.PersistentClient(
-                path=db_path,
-                settings=Settings(anonymized_telemetry=False),
+    def ensure_schema(self) -> None:
+        """Enable pgvector and create the current namespace partition/index."""
+        schema_sql = SCHEMA_PATH.read_text(encoding="utf-8")
+        with psycopg.connect(self.database_url, autocommit=True) as connection:
+            connection.execute(schema_sql)
+            register_vector(connection)
+
+            actual_dimension = connection.execute(
+                """
+                SELECT atttypmod
+                FROM pg_attribute
+                WHERE attrelid = 'rag_chunks'::regclass
+                  AND attname = 'embedding'
+                  AND NOT attisdropped
+                """
+            ).fetchone()[0]
+            if actual_dimension != self.dimension:
+                raise RuntimeError(
+                    f"Database vector dimension is {actual_dimension}; "
+                    f"configuration requires {self.dimension}."
+                )
+
+            connection.execute(
+                sql.SQL(
+                    "CREATE TABLE IF NOT EXISTS {} PARTITION OF rag_chunks "
+                    "FOR VALUES IN ({})"
+                ).format(
+                    sql.Identifier(self.partition_name),
+                    sql.Literal(self.namespace),
+                )
             )
-        return self._client
-
-    def _get_collection(self, category: str) -> chromadb.Collection:
-        """Get or create a ChromaDB collection for a category."""
-        if category not in self._collections:
-            client = self._get_client()
-            name = _collection_name(category)
-            collection = client.get_or_create_collection(
-                name=name,
-                metadata={"hnsw:space": "cosine"},
+            connection.execute(
+                sql.SQL(
+                    "CREATE INDEX IF NOT EXISTS {} ON {} "
+                    "USING hnsw (embedding vector_cosine_ops) "
+                    "WITH (m = 16, ef_construction = 64)"
+                ).format(
+                    sql.Identifier(f"{self.partition_name}_embedding_hnsw_idx"),
+                    sql.Identifier(self.partition_name),
+                )
             )
-            self._collections[category] = collection
-            logger.debug("Using collection: %s (%d items)", name, collection.count())
-        return self._collections[category]
+        self._schema_ready = True
 
-    # ------------------------------------------------------------------
-    # Write operations
-    # ------------------------------------------------------------------
+    def _connect(self):
+        if not self._schema_ready:
+            self.ensure_schema()
+        connection = psycopg.connect(self.database_url, row_factory=dict_row)
+        register_vector(connection)
+        return connection
 
     def add_chunks(
         self,
@@ -122,104 +98,93 @@ class VectorStore:
         embeddings: list[list[float]],
         batch_size: int = 100,
     ) -> dict[str, int]:
-        """Add chunk records and their embeddings to the appropriate collections.
-
-        Chunks are routed to collections based on their 'category' field.
-        'general' category chunks are added to all three collections.
-
-        Args:
-            chunk_records: List of ChunkRecord dicts.
-            embeddings: Corresponding embedding vectors (same length/order).
-            batch_size: ChromaDB upsert batch size.
-
-        Returns:
-            Dict mapping category → number of chunks added.
-        """
+        """Upsert chunk records and embeddings in batches."""
         if len(chunk_records) != len(embeddings):
-            raise ValueError(
-                f"chunk_records ({len(chunk_records)}) and embeddings "
-                f"({len(embeddings)}) must have the same length"
+            raise ValueError("chunk records and embeddings must have equal lengths")
+        if any(len(embedding) != self.dimension for embedding in embeddings):
+            raise ValueError(f"all embeddings must have {self.dimension} dimensions")
+
+        statement = """
+            INSERT INTO rag_chunks (
+                namespace, chunk_id, document_name, page_number,
+                section_title, subsection_title, category, content_type,
+                language, content, char_count, word_count, quality_score,
+                embedding
+            ) VALUES (
+                %(namespace)s, %(chunk_id)s, %(document_name)s, %(page_number)s,
+                %(section_title)s, %(subsection_title)s, %(category)s,
+                %(content_type)s, %(language)s, %(content)s, %(char_count)s,
+                %(word_count)s, %(quality_score)s, %(embedding)s
+            )
+            ON CONFLICT (namespace, chunk_id) DO UPDATE SET
+                document_name = EXCLUDED.document_name,
+                page_number = EXCLUDED.page_number,
+                section_title = EXCLUDED.section_title,
+                subsection_title = EXCLUDED.subsection_title,
+                category = EXCLUDED.category,
+                content_type = EXCLUDED.content_type,
+                language = EXCLUDED.language,
+                content = EXCLUDED.content,
+                char_count = EXCLUDED.char_count,
+                word_count = EXCLUDED.word_count,
+                quality_score = EXCLUDED.quality_score,
+                embedding = EXCLUDED.embedding,
+                updated_at = now()
+        """
+        rows = []
+        category_counts = {category: 0 for category in ALL_CATEGORIES}
+        for record, embedding in zip(chunk_records, embeddings):
+            category = record.get("category", CATEGORY_GENERAL)
+            if category == CATEGORY_GENERAL:
+                for name in ALL_CATEGORIES:
+                    category_counts[name] += 1
+            elif category in category_counts:
+                category_counts[category] += 1
+
+            rows.append(
+                {
+                    "namespace": self.namespace,
+                    "chunk_id": record["chunk_id"],
+                    "document_name": record["document_name"],
+                    "page_number": record.get("page_number"),
+                    "section_title": record.get("section_title", ""),
+                    "subsection_title": record.get("subsection_title", ""),
+                    "category": category,
+                    "content_type": record.get("content_type", "text"),
+                    "language": record.get("language", "en"),
+                    "content": record["text"],
+                    "char_count": record.get("char_count", len(record["text"])),
+                    "word_count": record.get("word_count", len(record["text"].split())),
+                    "quality_score": record.get("quality_score"),
+                    "embedding": Vector(embedding),
+                }
             )
 
-        # Group by target collections
-        by_category: dict[str, list[tuple[dict, list[float]]]] = {
-            cat: [] for cat in ALL_CATEGORIES
-        }
-        for record, emb in zip(chunk_records, embeddings):
-            cat = record.get("category", CATEGORY_GENERAL)
-            if cat == CATEGORY_GENERAL:
-                # General chunks go into all collections for maximum recall
-                for c in ALL_CATEGORIES:
-                    by_category[c].append((record, emb))
-            elif cat in by_category:
-                by_category[cat].append((record, emb))
-            else:
-                # Unknown category → all collections
-                logger.warning("Unknown category '%s' for chunk %s", cat, record.get("chunk_id"))
-                for c in ALL_CATEGORIES:
-                    by_category[c].append((record, emb))
-
-        added: dict[str, int] = {}
-        for cat, pairs in by_category.items():
-            if not pairs:
-                added[cat] = 0
-                continue
-
-            collection = self._get_collection(cat)
-            records_cat, embeddings_cat = zip(*pairs)
-
-            # Process in batches
-            count = 0
-            for start in range(0, len(records_cat), batch_size):
-                end = start + batch_size
-                batch_records = records_cat[start:end]
-                batch_embeddings = list(embeddings_cat[start:end])
-
-                ids = [r["chunk_id"] for r in batch_records]
-                documents = [r["text"] for r in batch_records]
-                metadatas = [_safe_metadata(r) for r in batch_records]
-
-                try:
-                    collection.upsert(
-                        ids=ids,
-                        embeddings=batch_embeddings,
-                        documents=documents,
-                        metadatas=metadatas,
-                    )
-                    count += len(batch_records)
-                except Exception as e:
-                    logger.error(
-                        "ChromaDB upsert failed for category=%s batch=%d: %s",
-                        cat, start // batch_size, e,
-                    )
-
-            added[cat] = count
-            logger.info("Added %d chunks to collection '%s'", count, _collection_name(cat))
-
-        return added
+        with self._connect() as connection:
+            for start in range(0, len(rows), batch_size):
+                with connection.cursor() as cursor:
+                    cursor.executemany(statement, rows[start : start + batch_size])
+        return category_counts
 
     def has_document(self, document_name: str) -> bool:
-        """Return whether any collection already contains a document."""
-        for category in ALL_CATEGORIES:
-            collection = self._get_collection(category)
-            result = collection.get(
-                where={"document_name": document_name},
-                limit=1,
-                include=[],
-            )
-            if result.get("ids"):
-                return True
-        return False
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT EXISTS (
+                    SELECT 1 FROM rag_chunks
+                    WHERE namespace = %s AND document_name = %s
+                ) AS found
+                """,
+                (self.namespace, document_name),
+            ).fetchone()
+        return bool(row["found"])
 
     def delete_document(self, document_name: str) -> None:
-        """Remove all chunks for a document from every collection."""
-        for category in ALL_CATEGORIES:
-            collection = self._get_collection(category)
-            collection.delete(where={"document_name": document_name})
-
-    # ------------------------------------------------------------------
-    # Read operations
-    # ------------------------------------------------------------------
+        with self._connect() as connection:
+            connection.execute(
+                "DELETE FROM rag_chunks WHERE namespace = %s AND document_name = %s",
+                (self.namespace, document_name),
+            )
 
     def query(
         self,
@@ -228,121 +193,98 @@ class VectorStore:
         top_k: int = 5,
         where: Optional[dict] = None,
     ) -> list[dict]:
-        """Semantic similarity search.
+        """Return nearest chunks using cosine distance."""
+        if where:
+            raise ValueError("Use the category argument for retrieval filtering")
+        if len(query_embedding) != self.dimension:
+            raise ValueError(f"query embedding must have {self.dimension} dimensions")
 
-        Args:
-            query_embedding: Query vector from the embedding model.
-            category: One of ALL_CATEGORIES or "all" (queries all three).
-            top_k: Number of results per collection.
-            where: Optional ChromaDB metadata filter.
-
-        Returns:
-            List of result dicts sorted by distance (ascending = most similar).
-            Each result has: id, document, metadata, distance, score.
+        category_clause = ""
+        parameters: list = []
+        if category != CATEGORY_ALL and category in ALL_CATEGORIES:
+            category_clause = "AND (category = %s OR category = %s)"
+            parameters.extend([category, CATEGORY_GENERAL])
+        vector = Vector(query_embedding)
+        limit = max(0, min(top_k, 1000))
+        statement = f"""
+            SELECT
+                chunk_id AS id,
+                content AS document,
+                document_name,
+                page_number,
+                section_title,
+                subsection_title,
+                category,
+                content_type,
+                language,
+                quality_score,
+                embedding <=> %s AS distance
+            FROM rag_chunks
+            WHERE namespace = %s
+            {category_clause}
+            ORDER BY embedding <=> %s
+            LIMIT %s
         """
-        if category == CATEGORY_ALL or category not in ALL_CATEGORIES:
-            # Query all collections and merge
-            all_results: list[dict] = []
-            for cat in ALL_CATEGORIES:
-                results = self._query_collection(cat, query_embedding, top_k, where)
-                all_results.extend(results)
-            # Deduplicate by chunk_id (general chunks appear in all collections)
-            seen: set[str] = set()
-            deduped: list[dict] = []
-            for r in all_results:
-                cid = r["metadata"].get("chunk_id", r["id"])
-                if cid not in seen:
-                    seen.add(cid)
-                    deduped.append(r)
-            # Sort by distance (lower = more similar)
-            deduped.sort(key=lambda x: x["distance"])
-            return deduped[:top_k]
+        query_parameters = [vector, self.namespace, *parameters, vector, limit]
+        with self._connect() as connection:
+            rows = connection.execute(statement, query_parameters).fetchall()
 
-        return self._query_collection(category, query_embedding, top_k, where)
-
-    def _query_collection(
-        self,
-        category: str,
-        query_embedding: list[float],
-        top_k: int,
-        where: Optional[dict],
-    ) -> list[dict]:
-        """Query a single collection."""
-        collection = self._get_collection(category)
-
-        if collection.count() == 0:
-            logger.debug("Collection '%s' is empty", _collection_name(category))
-            return []
-
-        # ChromaDB n_results must not exceed collection size
-        n = min(top_k, collection.count())
-
-        try:
-            kwargs: dict = {
-                "query_embeddings": [query_embedding],
-                "n_results": n,
-                "include": ["documents", "metadatas", "distances"],
-            }
-            if where:
-                kwargs["where"] = where
-
-            raw = collection.query(**kwargs)
-        except Exception as e:
-            logger.error("ChromaDB query failed for '%s': %s", category, e)
-            return []
-
-        results: list[dict] = []
-        ids = raw.get("ids", [[]])[0]
-        docs = raw.get("documents", [[]])[0]
-        metas = raw.get("metadatas", [[]])[0]
-        dists = raw.get("distances", [[]])[0]
-
-        for cid, doc, meta, dist in zip(ids, docs, metas, dists):
-            score = cosine_distance_to_score(dist)
-            results.append({
-                "id": cid,
-                "document": doc,
-                "metadata": meta,
-                "distance": dist,
-                "score": score,
-            })
-
+        results = []
+        for row in rows:
+            distance = float(row.pop("distance"))
+            chunk_id = row.pop("id")
+            document = row.pop("document")
+            results.append(
+                {
+                    "id": chunk_id,
+                    "document": document,
+                    "metadata": {"chunk_id": chunk_id, **row},
+                    "distance": distance,
+                    "score": cosine_distance_to_score(distance),
+                }
+            )
         return results
 
-    # ------------------------------------------------------------------
-    # Utilities
-    # ------------------------------------------------------------------
-
     def collection_stats(self) -> dict[str, int]:
-        """Return the document count for each category collection."""
-        stats: dict[str, int] = {}
-        for cat in ALL_CATEGORIES:
-            try:
-                col = self._get_collection(cat)
-                stats[cat] = col.count()
-            except Exception:
-                stats[cat] = -1
-        return stats
-
-    def reset_collection(self, category: str) -> None:
-        """Delete and recreate a collection (clears all data)."""
-        client = self._get_client()
-        name = _collection_name(category)
-        try:
-            client.delete_collection(name)
-            logger.warning("Deleted collection: %s", name)
-        except Exception:
-            pass
-        # Remove cached reference so it gets recreated on next access
-        self._collections.pop(category, None)
+        """Return category counts, including general chunks in each category."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT category, count(*) AS count
+                FROM rag_chunks
+                WHERE namespace = %s
+                GROUP BY category
+                """,
+                (self.namespace,),
+            ).fetchall()
+        counts = {row["category"]: row["count"] for row in rows}
+        general = counts.get(CATEGORY_GENERAL, 0)
+        return {
+            category: counts.get(category, 0) + general
+            for category in ALL_CATEGORIES
+        }
 
     def reset_all(self) -> None:
-        """Delete and recreate all category collections."""
-        for cat in ALL_CATEGORIES:
-            self.reset_collection(cat)
+        """Remove every chunk in the active embedding namespace."""
+        with self._connect() as connection:
+            connection.execute(
+                "DELETE FROM rag_chunks WHERE namespace = %s",
+                (self.namespace,),
+            )
+
+    def healthcheck(self) -> dict[str, str]:
+        """Return PostgreSQL and pgvector versions."""
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    current_setting('server_version') AS postgres,
+                    extversion AS pgvector
+                FROM pg_extension
+                WHERE extname = 'vector'
+                """
+            ).fetchone()
+        return {"postgres": row["postgres"], "pgvector": row["pgvector"]}
 
 
-# ---------------------------------------------------------------------------
-# Singleton
-# ---------------------------------------------------------------------------
 vector_store = VectorStore()

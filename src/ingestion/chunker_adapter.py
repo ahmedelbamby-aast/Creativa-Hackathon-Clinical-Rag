@@ -1,7 +1,7 @@
 """Chunker adapter — bridges the SmartChunker with the RAG ingestion pipeline.
 
 Takes parsed DocumentElements and produces RAG-ready chunk records with
-full metadata. Each chunk record is ready to be embedded and stored in ChromaDB.
+full metadata. Each chunk record is ready to be embedded and stored in pgvector.
 """
 
 import hashlib
@@ -51,7 +51,7 @@ def build_chunk_record(
     language: str,
     global_index: int,
 ) -> ChunkRecord:
-    """Build a metadata-rich chunk record ready for ChromaDB storage."""
+    """Build a metadata-rich chunk record ready for pgvector storage."""
     chunk_id = _make_chunk_id(document_name, page_number, global_index)
     return {
         "chunk_id": chunk_id,

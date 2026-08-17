@@ -34,15 +34,6 @@ CATEGORY_ALL = "all"
 
 ALL_CATEGORIES = [CATEGORY_TREATMENT, CATEGORY_PREVENTION, CATEGORY_NUTRITION]
 
-# ChromaDB collection names (prefixed to avoid conflicts)
-COLLECTION_PREFIX = "diabetes"
-
-
-def _collection_name(category: str) -> str:
-    """Return the ChromaDB collection name for a given category."""
-    return f"{COLLECTION_PREFIX}_{category}"
-
-
 # ---------------------------------------------------------------------------
 # Document → category mapping
 # Covers the 12 PDFs in data/rew_data/books/.
@@ -118,8 +109,11 @@ class AppConfig:
     data_dir: Path = field(
         default_factory=lambda: _PROJECT_ROOT / os.environ.get("DATA_DIR", "data/rew_data/books")
     )
-    chroma_db_dir: Path = field(
-        default_factory=lambda: _PROJECT_ROOT / os.environ.get("CHROMA_DB_DIR", "chroma_db")
+    database_url: str = field(
+        default_factory=lambda: os.environ.get(
+            "DATABASE_URL",
+            "postgresql://creativa:creativa-local@localhost:5432/creativa_diabetes",
+        )
     )
 
     # ── Application ────────────────────────────────────────────────────────
@@ -142,6 +136,8 @@ class AppConfig:
             raise ValueError("EMBEDDING_PROVIDER must be 'local' or 'gemini'")
         if not 1 <= self.embedding_dimension <= 2000:
             raise ValueError("EMBEDDING_DIMENSION must be between 1 and 2000")
+        if not self.database_url.startswith(("postgresql://", "postgres://")):
+            raise ValueError("DATABASE_URL must be a PostgreSQL connection URL")
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError(
                 f"CHUNK_OVERLAP ({self.chunk_overlap}) must be less than "

@@ -15,6 +15,10 @@ import re
 import sys
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 # Add project root to Python path when running directly
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -36,7 +40,6 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("chromadb").setLevel(logging.WARNING)
 logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
@@ -522,18 +525,19 @@ if __name__ == "__main__":
     print("═" * 60)
     print(f"  Embedding model : {config.embedding_model}")
     print(f"  Gemini model    : {config.gemini_model}")
-    print(f"  ChromaDB path   : {config.chroma_db_dir}")
+    print(f"  Embedding source: {config.embedding_provider}")
+    print(f"  DB namespace    : {config.resolved_embedding_namespace}")
     print(f"  Debug mode      : {'ON' if config.debug else 'off'}")
     print("═" * 60)
 
-    # Check that ChromaDB has data
+    # Check that PostgreSQL has indexed data
     from src.vector_store import vector_store
     stats = vector_store.collection_stats()
     total = sum(stats.values())
     if total == 0:
         print(
-            "\n  ⚠️  WARNING: ChromaDB collections are empty.\n"
-            "  Run 'python scripts/ingest.py' first to ingest your documents.\n"
+            "\n  ⚠️  WARNING: PostgreSQL contains no chunks for this namespace.\n"
+            "  Run 'uv run python scripts/ingest.py' first.\n"
         )
     else:
         print(f"\n  Knowledge base: {total} chunks indexed")

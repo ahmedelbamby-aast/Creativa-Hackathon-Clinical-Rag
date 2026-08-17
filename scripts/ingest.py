@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Ingestion script — parse, chunk, embed and store all diabetes documents.
+"""Ingestion script — parse, chunk, embed and store diabetes documents.
 
 Usage
 -----
@@ -28,10 +28,15 @@ import os
 import sys
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 # Add project root to Python path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.config import config
+from src.embeddings import embedder
 from src.ingestion.pipeline import (
     ingest_document,
     ingest_directory,
@@ -50,7 +55,6 @@ def setup_logging(verbose: bool = False) -> None:
     # Suppress noisy third-party loggers
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
-    logging.getLogger("chromadb").setLevel(logging.WARNING)
     logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
 
 
@@ -78,7 +82,7 @@ def main() -> None:
     parser.add_argument(
         "--reset",
         action="store_true",
-        help="⚠️  Delete and recreate all ChromaDB collections before ingesting",
+        help="⚠️  Delete all chunks in the active PostgreSQL namespace",
     )
     parser.add_argument(
         "--stats",
@@ -98,8 +102,9 @@ def main() -> None:
     print("\n" + "=" * 60)
     print("  Diabetes RAG - Document Ingestion")
     print("=" * 60)
-    print(f"  ChromaDB path    : {config.chroma_db_dir}")
-    print(f"  Embedding model  : {config.embedding_model}")
+    print(f"  Database         : PostgreSQL/pgvector")
+    print(f"  Namespace        : {config.resolved_embedding_namespace}")
+    print(f"  Embedding model  : {embedder.model_name}")
     print(f"  Chunk size       : {config.chunk_size} chars")
     print(f"  Chunk overlap    : {config.chunk_overlap} chars")
     print()
@@ -115,7 +120,7 @@ def main() -> None:
 
     # ── Optional reset ─────────────────────────────────────────────────
     if args.reset:
-        print("  ⚠️  Resetting all ChromaDB collections...")
+        print("  ⚠️  Resetting the active PostgreSQL namespace...")
         vector_store.reset_all()
         print("  Collections cleared.\n")
 

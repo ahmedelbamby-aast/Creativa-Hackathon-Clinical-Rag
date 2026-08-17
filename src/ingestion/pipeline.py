@@ -5,7 +5,7 @@ Orchestrates all ingestion stages for one or more documents:
 2. Propagate section titles
 3. Chunk with SmartChunker adapter
 4. Generate embeddings in batch
-5. Upsert into ChromaDB
+5. Upsert into PostgreSQL/pgvector
 
 Designed to be run once (or re-run to update the knowledge base).
 """
@@ -203,7 +203,7 @@ def print_ingestion_summary(all_stats: list[dict]) -> None:
     for cat, count in sorted(cat_totals.items()):
         print(f"    {cat:<15} {count}")
     print()
-    print("  ChromaDB collection sizes:")
+    print("  PostgreSQL namespace counts:")
     for cat, size in col_stats.items():
         print(f"    {cat:<15} {size}")
     print("=" * 60)

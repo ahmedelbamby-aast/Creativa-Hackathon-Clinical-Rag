@@ -1,4 +1,4 @@
-"""Semantic retriever — queries ChromaDB and returns grounded chunks.
+"""Semantic retriever — queries pgvector and returns grounded chunks.
 
 Retrieves the most relevant chunks for a user query, filtered by:
 - Category (treatment / prevention / nutrition / all)
@@ -24,7 +24,7 @@ class RetrievedChunk:
     chunk_id: str
     text: str
     score: float           # Similarity score [0, 1] — higher = more relevant
-    distance: float        # Raw ChromaDB distance (for reference)
+    distance: float        # Raw pgvector cosine distance
     document_name: str
     page_number: int
     section_title: str
@@ -75,7 +75,7 @@ def retrieve(
     )
 
     if not raw_results:
-        logger.info("No results returned from ChromaDB for query: %r", query[:80])
+        logger.info("No results returned from pgvector for query: %r", query[:80])
         return []
 
     # Convert to RetrievedChunk and apply threshold
