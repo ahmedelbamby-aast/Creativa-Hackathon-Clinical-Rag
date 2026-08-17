@@ -111,6 +111,9 @@ class AppConfig:
     online_embedding_batch_size: int = field(
         default_factory=lambda: int(os.environ.get("ONLINE_EMBEDDING_BATCH_SIZE", "16"))
     )
+    online_embedding_rpm: int = field(
+        default_factory=lambda: int(os.environ.get("ONLINE_EMBEDDING_RPM", "90"))
+    )
 
     # ── Retrieval ──────────────────────────────────────────────────────────
     top_k: int = field(default_factory=lambda: int(os.environ.get("TOP_K", "5")))
@@ -174,6 +177,8 @@ class AppConfig:
             raise ValueError("EMBEDDING_DIMENSION must be between 1 and 2000")
         if self.online_embedding_batch_size < 1:
             raise ValueError("ONLINE_EMBEDDING_BATCH_SIZE must be at least 1")
+        if self.online_embedding_rpm < 1:
+            raise ValueError("ONLINE_EMBEDDING_RPM must be at least 1")
         if not self.database_url.startswith(("postgresql://", "postgres://")):
             raise ValueError("DATABASE_URL must be a PostgreSQL connection URL")
         if self.chunk_overlap >= self.chunk_size:

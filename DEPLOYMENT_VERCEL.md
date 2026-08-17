@@ -80,6 +80,7 @@ Add or verify the remaining Vercel variables using the keys in
 APP_ENV=deployment
 EMBEDDING_PROVIDER=gemini
 ONLINE_EMBEDDING_MODEL=gemini-embedding-2
+ONLINE_EMBEDDING_RPM=90
 EMBEDDING_DIMENSION=384
 EMBEDDING_NAMESPACE=gemini_384
 AUTO_CREATE_SCHEMA=false
@@ -144,7 +145,9 @@ delete or reset `gemini_384` during an application rollback.
   limits.
 - Neon Free can suspend compute after allowance exhaustion and has finite
   storage/network transfer.
-- Gemini usage is governed separately by the Google API account and quota.
+- Gemini usage is governed separately by the Google API account and quota. The
+  ingestion client honors provider retry delays and defaults to a rolling
+  90-item/minute cap to stay below the current free-tier embedding limit.
 - The local JSONL diagnostics stored by Vercel are ephemeral because serverless
   filesystems are not durable application storage.
 

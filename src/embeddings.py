@@ -2,12 +2,25 @@
 
 import logging
 import math
+import re
 import time
+from collections import deque
 from typing import Optional
 
 from src.config import config
 
 logger = logging.getLogger(__name__)
+
+
+def _retry_delay_seconds(message: str, fallback: float) -> float:
+    """Return the provider-requested retry delay with a small safety margin."""
+    hints: list[float] = []
+    for pattern in (
+        r"retry in\s+([0-9]+(?:\.[0-9]+)?)s",
+        r"retryDelay['\"]?\s*:\s*['\"]([0-9]+(?:\.[0-9]+)?)s",
+    ):
+        hints.extend(float(value) for value in re.findall(pattern, message, re.I))
+    return max(fallback, (max(hints) + 1.0) if hints else 0.0)
 
 
 def _normalize(values: list[float]) -> list[float]:
@@ -46,6 +59,25 @@ class EmbeddingModel:
         self._online_model_name = online_model_name or config.online_embedding_model
         self._local_model = None
         self._online_client = online_client
+        self._online_usage: deque[tuple[float, int]] = deque()
+
+    def _wait_for_online_quota(self, item_count: int) -> None:
+        """Keep successful embedded items below the configured rolling RPM cap."""
+        window_seconds = 60.0
+        while True:
+            now = time.monotonic()
+            while self._online_usage and now - self._online_usage[0][0] >= window_seconds:
+                self._online_usage.popleft()
+            used = sum(count for _, count in self._online_usage)
+            if used + item_count <= config.online_embedding_rpm:
+                return
+            wait = max(0.25, window_seconds - (now - self._online_usage[0][0]) + 0.25)
+            logger.info(
+                "Gemini free-tier pacing: waiting %.1fs before embedding %d items",
+                wait,
+                item_count,
+            )
+            time.sleep(wait)
 
     def _load_local(self) -> None:
         if self._local_model is not None:
@@ -95,9 +127,9 @@ class EmbeddingModel:
         ]
         response = None
         last_error: Exception | None = None
-        for attempt, delay in enumerate((0, 2, 5, 10)):
-            if delay:
-                time.sleep(delay)
+        fallback_delays = (2.0, 5.0, 10.0, 30.0)
+        for attempt in range(len(fallback_delays) + 1):
+            self._wait_for_online_quota(len(texts))
             try:
                 response = client.models.embed_content(
                     model=self._online_model_name,
@@ -114,8 +146,18 @@ class EmbeddingModel:
                     marker in message
                     for marker in ("429", "quota", "rate", "resource_exhausted", "503", "unavailable")
                 )
-                if not retryable or attempt == 3:
+                if not retryable or attempt == len(fallback_delays):
                     raise
+                delay = _retry_delay_seconds(message, fallback_delays[attempt])
+                logger.warning(
+                    "Gemini embedding request throttled/unavailable; retrying in %.1fs",
+                    delay,
+                )
+                time.sleep(delay)
+                continue
+
+            self._online_usage.append((time.monotonic(), len(texts)))
+            break
 
         if response is None:
             raise RuntimeError(f"Gemini embedding request failed: {last_error}")

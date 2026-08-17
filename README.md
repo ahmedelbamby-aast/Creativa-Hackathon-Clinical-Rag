@@ -36,7 +36,10 @@ flowchart LR
     pipeline --> telemetry
 ```
 
-The embedding provider is selected once from configuration. Document and query
+The embedding provider is selected once from configuration. Consecutive PDF
+blocks are first aggregated into page-scoped semantic units so citations remain
+exact while tiny layout fragments do not become weak standalone embeddings.
+Document and query
 vectors therefore use the same provider and dimension. Gemini is always used for
 answer generation; choosing local embeddings does not make generation local.
 
@@ -364,6 +367,7 @@ uv run python scripts/evaluate.py --category nutrition
 | `GEMINI_API_KEY` | empty | Generation and hosted embeddings |
 | `GEMINI_MODEL` | `gemini-3.6-flash` | Generation model |
 | `ONLINE_EMBEDDING_BATCH_SIZE` | `16` | Maximum documents per Gemini embedding request |
+| `ONLINE_EMBEDDING_RPM` | `90` | Rolling embedded-item cap with free-tier headroom |
 | `TOP_K` | `5` | Final retrieved chunks |
 | `SIMILARITY_THRESHOLD` | `0.30` | Minimum cosine similarity |
 | `CHUNK_SIZE` | `2000` | Maximum chunk characters |
