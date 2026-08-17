@@ -41,3 +41,5 @@ Thumbs.db
 htmlcov/
 coverage.json
 .runtime/
+
+.vercel/
