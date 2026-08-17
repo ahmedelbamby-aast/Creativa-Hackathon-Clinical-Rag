@@ -19,5 +19,34 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-creativa}:${POSTGRES_PASSWORD:-creativa-local}@postgres:5432/${POSTGRES_DB:-creativa_diabetes}
+      HF_HOME: /cache/huggingface
+      HF_HUB_DISABLE_XET: "1"
+      HF_HUB_DOWNLOAD_TIMEOUT: "300"
+    ports:
+      - "${GRADIO_PORT:-7860}:7860"
+    volumes:
+      - model_cache:/cache/huggingface
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - uv run python -c "from urllib.request import urlopen; assert urlopen('http://localhost:7860', timeout=5).status == 200"
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 600s
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  model_cache:

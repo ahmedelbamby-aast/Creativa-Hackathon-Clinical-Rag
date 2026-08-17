@@ -1,0 +1,11 @@
+.git
+.github
+.venv
+.runtime
+.pytest_cache
+__pycache__
+*.py[cod]
+.coverage*
+htmlcov
+chunking/output
+
