@@ -40,3 +40,16 @@ def test_schema_operations_prefer_unpooled_database_url() -> None:
         database_url_unpooled="postgresql://direct/db",
     )
     assert config.schema_database_url == "postgresql://direct/db"
+
+
+def test_extractive_generation_requires_no_runtime_credential() -> None:
+    config = AppConfig(
+        generation_provider="extractive",
+        gemini_api_key="",
+        ai_gateway_api_key="",
+        vercel_oidc_token="",
+    )
+
+    config.validate()
+
+    assert config.generation_configured is True

@@ -24,7 +24,7 @@ flowchart LR
     online["Gemini embeddings API"]
     vectors[("PostgreSQL 16 + pgvector<br/>partitioned vector store")]
     prompt["Grounded prompt<br/>src/prompts.py"]
-    generation["Gemini direct or Vercel AI Gateway<br/>retry on quota/rate limits"]
+    generation["Extractive evidence by default<br/>optional Gemini or AI Gateway"]
     output["Answer + disclaimer<br/>metadata-built source list"]
     telemetry[("Local JSONL diagnostics<br/>.runtime/")]
 
@@ -368,7 +368,8 @@ uv run python scripts/evaluate.py --category nutrition
 | `EMBEDDING_DIMENSION` | `384` | Shared pgvector dimension |
 | `EMBEDDING_NAMESPACE` | provider-derived | Optional database partition namespace |
 | `GEMINI_API_KEY` | empty | Hosted embeddings and optional direct local generation |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Free-tier grounded generation model |
+| `GENERATION_PROVIDER` | `gemini` locally / `extractive` deployed | Generation strategy |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Optional direct generation model |
 | `GENERATION_PROVIDER` | `gemini` | `gemini` locally or `vercel_gateway` in production |
 | `AI_GATEWAY_MODEL` | `google/gemini-2.5-flash` | Vercel AI Gateway production model |
 | `ONLINE_EMBEDDING_BATCH_SIZE` | `16` | Maximum documents per Gemini embedding request |
@@ -398,7 +399,7 @@ flowchart LR
     browser["Browser"]
     vercel["Vercel Hobby<br/>FastAPI + static bilingual client"]
     queryEmbedding["Gemini query embedding"]
-    generation["Vercel AI Gateway<br/>Gemini 2.5 Flash generation"]
+    generation["Card-free extractive answer<br/>optional hosted generation"]
 
     corpus --> admin --> parsing --> documentEmbeddings --> neon
     browser --> vercel --> queryEmbedding --> neon
@@ -406,10 +407,12 @@ flowchart LR
 ```
 
 Vercel uses `backend/server.py`, Fluid Compute, the Frankfurt function region,
-Gemini embeddings, AI Gateway generation through a Sensitive project key, and a
-pooled Neon connection. Browser-owned bounded history keeps `/api/chat`
-stateless. The raw corpus and local Torch runtime are omitted only from the
-serverless function bundle. See
+Gemini embeddings, deterministic extractive answers, and a pooled Neon
+connection. Browser-owned bounded history keeps `/api/chat` stateless. Hosted
+generation remains optional because the free Gateway currently requires card
+verification and this Google project has zero text-generation quota. The raw
+corpus and local Torch runtime are omitted only from the serverless function
+bundle. See
 [DEPLOYMENT_VERCEL.md](DEPLOYMENT_VERCEL.md) for provisioning, environment,
 ingestion, deployment, and rollback instructions.
 

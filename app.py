@@ -33,6 +33,7 @@ from src.safety import classify_safety, SafetyLevel, get_disclaimer, get_emergen
 from src.prompts import build_user_prompt, NO_RESULTS_RESPONSE_EN, NO_RESULTS_RESPONSE_AR
 from src.citations import build_citation_list, build_debug_info
 from src.generator import generator
+from src.extractive import build_extractive_answer
 from src.vector_store import vector_store
 from src.observability import (
     RequestTrace,
@@ -124,9 +125,12 @@ def rag_pipeline(
 
     # Step 7: Generate answer
     try:
-        prompt = build_user_prompt(query, chunks, conversation_history=history)
         with trace.stage("generation"):
-            answer = generator.generate(prompt)
+            if config.generation_provider == "extractive":
+                answer = build_extractive_answer(query, chunks, is_arabic=is_ar)
+            else:
+                prompt = build_user_prompt(query, chunks, conversation_history=history)
+                answer = generator.generate(prompt)
     except RuntimeError as e:
         if "GEMINI_API_KEY" in str(e):
             answer = (

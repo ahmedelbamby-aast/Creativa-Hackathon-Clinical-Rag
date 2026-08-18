@@ -3,8 +3,9 @@
 This deployment runs a serverless-safe FastAPI API and dependency-free bilingual
 web client on Vercel's Python runtime. The local development command still uses
 the existing Gradio interface. Neon provides PostgreSQL and pgvector. Gemini
-provides production embeddings, while Vercel AI Gateway uses its included
-monthly credit for answer generation. The function does not need Torch or a
+provides production embeddings. The card-free default constructs answers from
+ranked evidence excerpts without an inference service. Vercel AI Gateway remains
+an optional generation provider. The function does not need Torch or a
 persistent model cache.
 
 ## Deployment architecture
@@ -80,7 +81,7 @@ Add or verify the remaining Vercel variables using the keys in
 
 ```dotenv
 APP_ENV=deployment
-GENERATION_PROVIDER=vercel_gateway
+GENERATION_PROVIDER=extractive
 AI_GATEWAY_MODEL=google/gemini-2.5-flash
 EMBEDDING_PROVIDER=gemini
 ONLINE_EMBEDDING_MODEL=gemini-embedding-2
@@ -95,11 +96,10 @@ AUTO_CREATE_SCHEMA=false
 DEBUG=false
 ```
 
-Set `GEMINI_API_KEY` and `AI_GATEWAY_API_KEY` as Sensitive Vercel variables for
-Production and Preview. Never paste their values into Git, workflow YAML, build
-arguments, logs, or tracked project configuration. Vercel's JavaScript AI SDK
-can use runtime OIDC automatically, but the Python OpenAI-compatible client uses
-the explicit AI Gateway key.
+Set `GEMINI_API_KEY` as a Sensitive Vercel variable for Production and Preview;
+it is required for query embeddings. `AI_GATEWAY_API_KEY` is optional unless
+`GENERATION_PROVIDER=vercel_gateway`. Never paste secret values into Git,
+workflow YAML, build arguments, logs, or tracked project configuration.
 
 ## 4. Create and populate the hosted index
 
@@ -165,9 +165,11 @@ delete or reset `gemini_384` during an application rollback.
   90-item/minute cap to stay below the current free-tier embedding limit. The
   deployed corpus profile uses 3,000/300 chunks: 946 chunks across all 12 PDFs,
   including local Tesseract OCR for the three image-only sources.
-- Vercel AI Gateway includes $5 in monthly credits per team. Grounded answer
-  generation uses `google/gemini-2.5-flash` through a Sensitive project key and
-  stops cleanly if that credit is exhausted; no automatic top-up is configured.
+- Card-free production uses `GENERATION_PROVIDER=extractive`, which returns the
+  strongest retrieved evidence sentences with source/page labels and consumes no
+  generation quota. Vercel AI Gateway advertises monthly credits but currently
+  requires payment-card verification before serving requests. It is therefore
+  optional and no automatic top-up is configured.
 - The local JSONL diagnostics stored by Vercel are ephemeral because serverless
   filesystems are not durable application storage.
 

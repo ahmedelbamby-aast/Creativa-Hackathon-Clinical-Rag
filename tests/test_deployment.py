@@ -12,7 +12,7 @@ def test_health_reports_deployment_configuration() -> None:
     assert result["status"] == "ok"
     assert result["embedding_provider"] in {"local", "gemini"}
     assert result["embedding_namespace"]
-    assert result["generation_provider"] in {"gemini", "vercel_gateway"}
+    assert result["generation_provider"] in {"extractive", "gemini", "vercel_gateway"}
 
 
 def test_ready_reports_database_metadata(monkeypatch) -> None:

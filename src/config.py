@@ -186,8 +186,10 @@ class AppConfig:
             logger.warning("AI Gateway credentials are unavailable outside the Vercel runtime")
         if self.embedding_provider not in {"local", "gemini"}:
             raise ValueError("EMBEDDING_PROVIDER must be 'local' or 'gemini'")
-        if self.generation_provider not in {"gemini", "vercel_gateway"}:
-            raise ValueError("GENERATION_PROVIDER must be 'gemini' or 'vercel_gateway'")
+        if self.generation_provider not in {"extractive", "gemini", "vercel_gateway"}:
+            raise ValueError(
+                "GENERATION_PROVIDER must be 'extractive', 'gemini', or 'vercel_gateway'"
+            )
         if self.generation_provider == "vercel_gateway" and "/" not in self.ai_gateway_model:
             raise ValueError("AI_GATEWAY_MODEL must use provider/model format")
         if self.is_deployment and self.embedding_provider != "gemini":
@@ -238,6 +240,8 @@ class AppConfig:
         """Return whether the active generation provider has runtime credentials."""
         if self.generation_provider == "vercel_gateway":
             return bool(self.ai_gateway_api_key or self.vercel_oidc_token)
+        if self.generation_provider == "extractive":
+            return True
         return bool(self.gemini_api_key)
 
 
