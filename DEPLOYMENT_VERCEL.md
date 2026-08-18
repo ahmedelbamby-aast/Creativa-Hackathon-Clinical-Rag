@@ -1,15 +1,16 @@
 # Deploy to Vercel Hobby + Neon Free
 
-This deployment runs the existing Gradio interface as an ASGI application on
-Vercel's Python runtime. Neon provides PostgreSQL and pgvector. Gemini provides
-production embeddings, while Vercel AI Gateway uses its included monthly credit
-for answer generation. The function does not need Torch or a persistent model
-cache.
+This deployment runs a serverless-safe FastAPI API and dependency-free bilingual
+web client on Vercel's Python runtime. The local development command still uses
+the existing Gradio interface. Neon provides PostgreSQL and pgvector. Gemini
+provides production embeddings, while Vercel AI Gateway uses its included
+monthly credit for answer generation. The function does not need Torch or a
+persistent model cache.
 
 ## Deployment architecture
 
-- **Vercel request runtime:** `backend/server.py` mounts the Gradio app on
-  FastAPI and exposes `/api/health` and `/api/ready`.
+- **Vercel request runtime:** `backend/server.py` serves the static client and
+  exposes stateless `/api/chat`, `/api/health`, and `/api/ready` endpoints.
 - **Neon database:** the application uses the pooled `DATABASE_URL`; schema
   operations use the direct `DATABASE_URL_UNPOOLED`.
 - **Admin ingestion:** PDF parsing and ingestion run from a trusted developer
@@ -94,10 +95,11 @@ AUTO_CREATE_SCHEMA=false
 DEBUG=false
 ```
 
-Set `GEMINI_API_KEY` as a sensitive Vercel variable. Never paste its value into
-Git, workflow YAML, build arguments, logs, or the Vercel project configuration.
-Vercel injects `VERCEL_OIDC_TOKEN` automatically at runtime, so AI Gateway does
-not require another long-lived secret.
+Set `GEMINI_API_KEY` and `AI_GATEWAY_API_KEY` as Sensitive Vercel variables for
+Production and Preview. Never paste their values into Git, workflow YAML, build
+arguments, logs, or tracked project configuration. Vercel's JavaScript AI SDK
+can use runtime OIDC automatically, but the Python OpenAI-compatible client uses
+the explicit AI Gateway key.
 
 ## 4. Create and populate the hosted index
 
@@ -132,11 +134,11 @@ Verification endpoints:
 - `GET /api/health` confirms the function and required configuration loaded.
 - `GET /api/ready` confirms PostgreSQL, pgvector, the active namespace, and a
   non-empty index.
-- `/` serves the mounted Gradio application.
-
-All Gradio events run with `queue=False` in production. Vercel functions are
-stateless, so Gradio's in-memory SSE queue cannot safely share event IDs across
-separate `/queue/join` and `/queue/data` invocations.
+- `POST /api/chat` accepts a question, category, and bounded browser-owned
+  conversation history, then returns an answer and citations.
+- `/` serves the serverless-safe bilingual web client. Gradio remains available
+  for local development, but is not mounted in production because its heartbeat
+  and in-memory SSE queue require a persistent process.
 
 After deployment, verify one English and one Arabic query, confirm citations
 contain document/page metadata, and inspect Vercel runtime logs for 5xx errors.
@@ -164,8 +166,8 @@ delete or reset `gemini_384` during an application rollback.
   deployed corpus profile uses 3,000/300 chunks: 946 chunks across all 12 PDFs,
   including local Tesseract OCR for the three image-only sources.
 - Vercel AI Gateway includes $5 in monthly credits per team. Grounded answer
-  generation uses `google/gemini-2.5-flash` through OIDC and stops cleanly if
-  that credit is exhausted; no automatic top-up is configured.
+  generation uses `google/gemini-2.5-flash` through a Sensitive project key and
+  stops cleanly if that credit is exhausted; no automatic top-up is configured.
 - The local JSONL diagnostics stored by Vercel are ephemeral because serverless
   filesystems are not durable application storage.
 

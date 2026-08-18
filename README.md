@@ -15,7 +15,7 @@ GitHub can render them transparently in both light and dark themes.
 ```mermaid
 flowchart LR
     user["User<br/>English or Arabic"]
-    ui["Gradio UI<br/>app.py"]
+    ui["Bilingual chat UI<br/>Gradio local · HTML/FastAPI on Vercel"]
     pipeline["Request orchestration<br/>rag_pipeline()"]
     controls["Safety · rewrite · route<br/>src/safety.py · rewriter.py · router.py"]
     retrieval["Semantic retrieval<br/>src/retriever.py"]
@@ -24,7 +24,7 @@ flowchart LR
     online["Gemini embeddings API"]
     vectors[("PostgreSQL 16 + pgvector<br/>partitioned vector store")]
     prompt["Grounded prompt<br/>src/prompts.py"]
-    generation["Gemini generation API<br/>retry on quota/rate limits"]
+    generation["Gemini direct or Vercel AI Gateway<br/>retry on quota/rate limits"]
     output["Answer + disclaimer<br/>metadata-built source list"]
     telemetry[("Local JSONL diagnostics<br/>.runtime/")]
 
@@ -147,7 +147,8 @@ comparisons between the default local and Gemini embedding spaces.
 
 | Path | Actual role |
 |---|---|
-| `app.py` | Active Gradio UI and synchronous RAG request orchestration. |
+| `app.py` | Local Gradio UI and shared synchronous RAG request orchestration. |
+| `backend/server.py`, `backend/static/index.html` | Stateless Vercel API and bilingual production web client. |
 | `src/ingestion/` | Active parser, section propagation, classification, chunking adapter, and filters used by `scripts/ingest.py`. |
 | `src/embeddings.py`, `src/vector_store.py`, `src/retriever.py` | Active embedding, pgvector storage, and query path. |
 | `src/prompts.py`, `src/generator.py`, `src/citations.py` | Active grounded generation and source presentation. |
@@ -159,7 +160,9 @@ comparisons between the default local and Gemini embedding spaces.
 ## Main modules
 
 ```text
-app.py                      Gradio chat application and request orchestration
+app.py                      Local Gradio UI and shared RAG request orchestration
+backend/server.py           Stateless Vercel API entrypoint
+backend/static/index.html   Dependency-free production chat client
 compose.yaml                PostgreSQL + CPU-only Gradio application services
 database/schema.sql         Partitioned pgvector schema
 pyproject.toml              UV dependency and pytest configuration
@@ -393,7 +396,7 @@ flowchart LR
     documentEmbeddings["Gemini document embeddings"]
     neon[("Neon Free<br/>PostgreSQL + pgvector")]
     browser["Browser"]
-    vercel["Vercel Hobby<br/>FastAPI + mounted Gradio"]
+    vercel["Vercel Hobby<br/>FastAPI + static bilingual client"]
     queryEmbedding["Gemini query embedding"]
     generation["Vercel AI Gateway<br/>Gemini 2.5 Flash generation"]
 
@@ -403,9 +406,10 @@ flowchart LR
 ```
 
 Vercel uses `backend/server.py`, Fluid Compute, the Frankfurt function region,
-Gemini embeddings, AI Gateway generation through runtime OIDC, and a pooled
-Neon connection. The raw corpus and local Torch runtime are omitted only from
-the serverless function bundle. See
+Gemini embeddings, AI Gateway generation through a Sensitive project key, and a
+pooled Neon connection. Browser-owned bounded history keeps `/api/chat`
+stateless. The raw corpus and local Torch runtime are omitted only from the
+serverless function bundle. See
 [DEPLOYMENT_VERCEL.md](DEPLOYMENT_VERCEL.md) for provisioning, environment,
 ingestion, deployment, and rollback instructions.
 
