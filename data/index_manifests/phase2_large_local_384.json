@@ -1,0 +1,15 @@
+{
+  "char_chunk_overlap": 300,
+  "char_chunk_size": 3000,
+  "chunk_profile": "large",
+  "corpus_hash": "5db1c0b8ba73de3ed1be48cdd3fd8a72eec55e1a076ff23677fe0e557b68c537",
+  "created_at": "2026-08-18T09:51:07.094575+00:00",
+  "dimension": 384,
+  "embedding_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+  "embedding_provider": "local",
+  "hnsw_ef_construction": 64,
+  "hnsw_m": 16,
+  "namespace": "phase2_large_local_384",
+  "source_catalog_hash": "2dd9a41182a294f38c0eaf96d89fb945548ba153bc56360882369e2521f47bb0",
+  "token_count": 208936
+}
