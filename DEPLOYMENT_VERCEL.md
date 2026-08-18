@@ -2,8 +2,9 @@
 
 This deployment runs the existing Gradio interface as an ASGI application on
 Vercel's Python runtime. Neon provides PostgreSQL and pgvector. Gemini provides
-both production embeddings and answer generation, so the Vercel function does
-not need Torch or a persistent model cache.
+production embeddings, while Vercel AI Gateway uses its included monthly credit
+for answer generation. The function does not need Torch or a persistent model
+cache.
 
 ## Deployment architecture
 
@@ -78,6 +79,8 @@ Add or verify the remaining Vercel variables using the keys in
 
 ```dotenv
 APP_ENV=deployment
+GENERATION_PROVIDER=vercel_gateway
+AI_GATEWAY_MODEL=google/gemini-2.5-flash
 EMBEDDING_PROVIDER=gemini
 ONLINE_EMBEDDING_MODEL=gemini-embedding-2
 ONLINE_EMBEDDING_RPM=90
@@ -93,6 +96,8 @@ DEBUG=false
 
 Set `GEMINI_API_KEY` as a sensitive Vercel variable. Never paste its value into
 Git, workflow YAML, build arguments, logs, or the Vercel project configuration.
+Vercel injects `VERCEL_OIDC_TOKEN` automatically at runtime, so AI Gateway does
+not require another long-lived secret.
 
 ## 4. Create and populate the hosted index
 
@@ -158,6 +163,9 @@ delete or reset `gemini_384` during an application rollback.
   90-item/minute cap to stay below the current free-tier embedding limit. The
   deployed corpus profile uses 3,000/300 chunks: 946 chunks across all 12 PDFs,
   including local Tesseract OCR for the three image-only sources.
+- Vercel AI Gateway includes $5 in monthly credits per team. Grounded answer
+  generation uses `google/gemini-2.5-flash` through OIDC and stops cleanly if
+  that credit is exhausted; no automatic top-up is configured.
 - The local JSONL diagnostics stored by Vercel are ephemeral because serverless
   filesystems are not durable application storage.
 
@@ -169,3 +177,4 @@ Official references:
 - [Neon connection pooling](https://neon.com/docs/connect/connection-pooling)
 - [Neon pricing](https://neon.com/pricing)
 - [Gemini Embedding 2](https://ai.google.dev/gemini-api/docs/models/gemini-embedding-2)
+- [Vercel AI Gateway](https://vercel.com/docs/ai-gateway)

@@ -27,8 +27,10 @@ def health() -> dict[str, object]:
         "environment": config.app_env,
         "embedding_provider": config.embedding_provider,
         "embedding_namespace": config.resolved_embedding_namespace,
+        "generation_provider": config.generation_provider,
         "database_configured": bool(config.database_url),
         "gemini_configured": bool(config.gemini_api_key),
+        "generation_configured": config.generation_configured,
     }
 
 

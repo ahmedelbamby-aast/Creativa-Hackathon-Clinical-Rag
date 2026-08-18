@@ -85,6 +85,18 @@ class AppConfig:
     # ── Gemini ─────────────────────────────────────────────────────────────
     gemini_api_key: str = field(default_factory=lambda: os.environ.get("GEMINI_API_KEY", ""))
     gemini_model: str = field(default_factory=lambda: os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"))
+    generation_provider: str = field(
+        default_factory=lambda: os.environ.get("GENERATION_PROVIDER", "gemini").lower()
+    )
+    ai_gateway_model: str = field(
+        default_factory=lambda: os.environ.get("AI_GATEWAY_MODEL", "google/gemini-2.5-flash")
+    )
+    ai_gateway_api_key: str = field(
+        default_factory=lambda: os.environ.get("AI_GATEWAY_API_KEY", "")
+    )
+    vercel_oidc_token: str = field(
+        default_factory=lambda: os.environ.get("VERCEL_OIDC_TOKEN", "")
+    )
 
     # ── Embedding ──────────────────────────────────────────────────────────
     embedding_provider: str = field(
@@ -163,13 +175,21 @@ class AppConfig:
 
     def validate(self) -> None:
         """Log warnings for missing or suspicious configuration values."""
-        if not self.gemini_api_key:
+        if self.embedding_provider == "gemini" and not self.gemini_api_key:
             logger.warning(
-                "GEMINI_API_KEY is not set. Generation will fail. "
+                "GEMINI_API_KEY is not set. Hosted embeddings will fail. "
                 "Configure the key in .env.development or the deployment environment."
             )
+        if self.generation_provider == "gemini" and not self.gemini_api_key:
+            logger.warning("Direct Gemini generation is selected without GEMINI_API_KEY")
+        if self.generation_provider == "vercel_gateway" and not self.generation_configured:
+            logger.warning("AI Gateway credentials are unavailable outside the Vercel runtime")
         if self.embedding_provider not in {"local", "gemini"}:
             raise ValueError("EMBEDDING_PROVIDER must be 'local' or 'gemini'")
+        if self.generation_provider not in {"gemini", "vercel_gateway"}:
+            raise ValueError("GENERATION_PROVIDER must be 'gemini' or 'vercel_gateway'")
+        if self.generation_provider == "vercel_gateway" and "/" not in self.ai_gateway_model:
+            raise ValueError("AI_GATEWAY_MODEL must use provider/model format")
         if self.is_deployment and self.embedding_provider != "gemini":
             raise ValueError(
                 "Deployment requires EMBEDDING_PROVIDER=gemini; the local provider "
@@ -212,6 +232,13 @@ class AppConfig:
     def schema_database_url(self) -> str:
         """Prefer Neon's direct connection for schema operations and migrations."""
         return self.database_url_unpooled or self.database_url
+
+    @property
+    def generation_configured(self) -> bool:
+        """Return whether the active generation provider has runtime credentials."""
+        if self.generation_provider == "vercel_gateway":
+            return bool(self.ai_gateway_api_key or self.vercel_oidc_token)
+        return bool(self.gemini_api_key)
 
 
 # ---------------------------------------------------------------------------

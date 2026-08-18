@@ -364,8 +364,10 @@ uv run python scripts/evaluate.py --category nutrition
 | `ONLINE_EMBEDDING_MODEL` | `gemini-embedding-2` | Hosted embedding model |
 | `EMBEDDING_DIMENSION` | `384` | Shared pgvector dimension |
 | `EMBEDDING_NAMESPACE` | provider-derived | Optional database partition namespace |
-| `GEMINI_API_KEY` | empty | Generation and hosted embeddings |
+| `GEMINI_API_KEY` | empty | Hosted embeddings and optional direct local generation |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Free-tier grounded generation model |
+| `GENERATION_PROVIDER` | `gemini` | `gemini` locally or `vercel_gateway` in production |
+| `AI_GATEWAY_MODEL` | `google/gemini-2.5-flash` | Vercel AI Gateway production model |
 | `ONLINE_EMBEDDING_BATCH_SIZE` | `16` | Maximum documents per Gemini embedding request |
 | `ONLINE_EMBEDDING_RPM` | `90` | Rolling embedded-item cap with free-tier headroom |
 | `OCR_LANGUAGE` / `OCR_DPI` | `eng` / `150` | Local Tesseract fallback for image-only PDFs |
@@ -393,7 +395,7 @@ flowchart LR
     browser["Browser"]
     vercel["Vercel Hobby<br/>FastAPI + mounted Gradio"]
     queryEmbedding["Gemini query embedding"]
-    generation["Gemini grounded generation"]
+    generation["Vercel AI Gateway<br/>Gemini 2.5 Flash generation"]
 
     corpus --> admin --> parsing --> documentEmbeddings --> neon
     browser --> vercel --> queryEmbedding --> neon
@@ -401,8 +403,9 @@ flowchart LR
 ```
 
 Vercel uses `backend/server.py`, Fluid Compute, the Frankfurt function region,
-Gemini embeddings, and a pooled Neon connection. The raw corpus and local Torch
-runtime are omitted only from the serverless function bundle. See
+Gemini embeddings, AI Gateway generation through runtime OIDC, and a pooled
+Neon connection. The raw corpus and local Torch runtime are omitted only from
+the serverless function bundle. See
 [DEPLOYMENT_VERCEL.md](DEPLOYMENT_VERCEL.md) for provisioning, environment,
 ingestion, deployment, and rollback instructions.
 
