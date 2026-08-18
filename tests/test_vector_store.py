@@ -48,6 +48,8 @@ def test_query_maps_postgres_row_to_retrieved_result(monkeypatch) -> None:
         "category": "treatment",
         "content_type": "text",
         "language": "en",
+        "source_id": "guide",
+        "source_url": "https://example.test/guide",
         "quality_score": 0.8,
         "distance": 0.2,
     }
@@ -64,6 +66,7 @@ def test_query_maps_postgres_row_to_retrieved_result(monkeypatch) -> None:
     assert results[0]["id"] == "chunk-1"
     assert results[0]["score"] == 0.8
     assert results[0]["metadata"]["page_number"] == 4
+    assert results[0]["metadata"]["source_url"] == "https://example.test/guide"
 
 
 def test_query_rejects_wrong_dimension() -> None:
@@ -83,3 +86,4 @@ def test_schema_uses_partitioned_pgvector_table() -> None:
     assert "CREATE EXTENSION IF NOT EXISTS vector" in schema
     assert "embedding vector(384)" in schema
     assert "PARTITION BY LIST (namespace)" in schema
+    assert "source_url text NOT NULL DEFAULT ''" in schema

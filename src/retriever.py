@@ -32,6 +32,8 @@ class RetrievedChunk:
     category: str
     content_type: str
     language: str
+    source_id: str = ""
+    source_url: str = ""
 
 
 def retrieve(
@@ -102,6 +104,8 @@ def retrieve(
             category=meta.get("category", ""),
             content_type=meta.get("content_type", "text"),
             language=meta.get("language", "en"),
+            source_id=meta.get("source_id", ""),
+            source_url=meta.get("source_url", ""),
         )
         chunks.append(chunk)
 

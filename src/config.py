@@ -52,6 +52,12 @@ CATEGORY_ALL = "all"
 
 ALL_CATEGORIES = [CATEGORY_TREATMENT, CATEGORY_PREVENTION, CATEGORY_NUTRITION]
 
+CHUNK_PROFILES: dict[str, tuple[int, int]] = {
+    "small": (1200, 0),
+    "balanced": (2000, 200),
+    "large": (3000, 300),
+}
+
 # ---------------------------------------------------------------------------
 # Document → category mapping
 # Covers the 12 PDFs in data/rew_data/books/.
@@ -120,6 +126,9 @@ class AppConfig:
     embedding_namespace: str = field(
         default_factory=lambda: os.environ.get("EMBEDDING_NAMESPACE", "")
     )
+    active_index_namespace: str = field(
+        default_factory=lambda: os.environ.get("ACTIVE_INDEX_NAMESPACE", "")
+    )
     online_embedding_batch_size: int = field(
         default_factory=lambda: int(os.environ.get("ONLINE_EMBEDDING_BATCH_SIZE", "16"))
     )
@@ -129,6 +138,9 @@ class AppConfig:
 
     # ── Retrieval ──────────────────────────────────────────────────────────
     top_k: int = field(default_factory=lambda: int(os.environ.get("TOP_K", "5")))
+    retrieval_profile: str = field(
+        default_factory=lambda: os.environ.get("RETRIEVAL_PROFILE", "balanced").lower()
+    )
     similarity_threshold: float = field(
         default_factory=lambda: float(os.environ.get("SIMILARITY_THRESHOLD", "0.30"))
     )
@@ -203,6 +215,20 @@ class AppConfig:
             raise ValueError("ONLINE_EMBEDDING_BATCH_SIZE must be at least 1")
         if self.online_embedding_rpm < 1:
             raise ValueError("ONLINE_EMBEDDING_RPM must be at least 1")
+        if self.retrieval_profile not in CHUNK_PROFILES:
+            raise ValueError(
+                "RETRIEVAL_PROFILE must be one of "
+                + ", ".join(sorted(CHUNK_PROFILES))
+            )
+        if self.active_index_namespace and self.embedding_namespace and (
+            self.active_index_namespace != self.embedding_namespace
+        ):
+            raise ValueError(
+                "ACTIVE_INDEX_NAMESPACE and EMBEDDING_NAMESPACE conflict; "
+                "use ACTIVE_INDEX_NAMESPACE only"
+            )
+        if self.top_k not in {3, 4, 5}:
+            raise ValueError("TOP_K must be one of 3, 4, or 5")
         if not self.database_url.startswith(("postgresql://", "postgres://")):
             raise ValueError("DATABASE_URL must be a PostgreSQL connection URL")
         if self.chunk_overlap >= self.chunk_size:
@@ -222,9 +248,16 @@ class AppConfig:
     @property
     def resolved_embedding_namespace(self) -> str:
         """Return an explicit or provider-derived database namespace."""
-        if self.embedding_namespace:
+        if self.active_index_namespace:
+            return self.active_index_namespace
+        if self.embedding_namespace:  # Backward-compatible migration fallback.
             return self.embedding_namespace
         return f"{self.embedding_provider}_{self.embedding_dimension}"
+
+    @property
+    def selected_chunk_profile(self) -> tuple[int, int]:
+        """Return the fixed character settings for the selected named profile."""
+        return CHUNK_PROFILES[self.retrieval_profile]
 
     @property
     def is_deployment(self) -> bool:

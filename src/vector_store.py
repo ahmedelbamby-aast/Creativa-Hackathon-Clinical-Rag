@@ -108,12 +108,12 @@ class VectorStore:
             INSERT INTO rag_chunks (
                 namespace, chunk_id, document_name, page_number,
                 section_title, subsection_title, category, content_type,
-                language, content, char_count, word_count, quality_score,
+                language, source_id, source_url, content, char_count, word_count, quality_score,
                 embedding
             ) VALUES (
                 %(namespace)s, %(chunk_id)s, %(document_name)s, %(page_number)s,
                 %(section_title)s, %(subsection_title)s, %(category)s,
-                %(content_type)s, %(language)s, %(content)s, %(char_count)s,
+                %(content_type)s, %(language)s, %(source_id)s, %(source_url)s, %(content)s, %(char_count)s,
                 %(word_count)s, %(quality_score)s, %(embedding)s
             )
             ON CONFLICT (namespace, chunk_id) DO UPDATE SET
@@ -124,6 +124,8 @@ class VectorStore:
                 category = EXCLUDED.category,
                 content_type = EXCLUDED.content_type,
                 language = EXCLUDED.language,
+                source_id = EXCLUDED.source_id,
+                source_url = EXCLUDED.source_url,
                 content = EXCLUDED.content,
                 char_count = EXCLUDED.char_count,
                 word_count = EXCLUDED.word_count,
@@ -152,6 +154,8 @@ class VectorStore:
                     "category": category,
                     "content_type": record.get("content_type", "text"),
                     "language": record.get("language", "en"),
+                    "source_id": record.get("source_id", ""),
+                    "source_url": record.get("source_url", ""),
                     "content": record["text"],
                     "char_count": record.get("char_count", len(record["text"])),
                     "word_count": record.get("word_count", len(record["text"].split())),
@@ -217,6 +221,8 @@ class VectorStore:
                 category,
                 content_type,
                 language,
+                source_id,
+                source_url,
                 quality_score,
                 embedding <=> %s AS distance
             FROM rag_chunks
