@@ -45,6 +45,7 @@ _ARABIC_EXPANSIONS = {
     "النوع": {"type"},
     "الثاني": {"2", "two"},
 }
+_TRAILING_FRAGMENT_WORDS = {"a", "an", "and", "for", "of", "the", "to", "with"}
 
 
 def _query_terms(query: str) -> set[str]:
@@ -66,11 +67,22 @@ def _trim_excerpt(text: str, limit: int = 420) -> str:
     return clipped + "…"
 
 
+def _is_usable(sentence: str) -> bool:
+    words = _TOKEN.findall(sentence)
+    if len(sentence) < 70 or len(words) < 9:
+        return False
+    if words[-1].lower() in _TRAILING_FRAGMENT_WORDS:
+        return False
+    digit_count = sum(character.isdigit() for character in sentence)
+    return digit_count / max(len(sentence), 1) < 0.18
+
+
 def _best_excerpt(text: str, terms: set[str]) -> str:
     sentences = [_clean_sentence(part) for part in _BOUNDARY.split(text)]
-    candidates = [sentence for sentence in sentences if len(sentence) >= 45]
+    candidates = [sentence for sentence in sentences if _is_usable(sentence)]
     if not candidates:
-        return _trim_excerpt(_clean_sentence(text))
+        cleaned = _clean_sentence(text)
+        return _trim_excerpt(cleaned) if _is_usable(cleaned) else ""
 
     def score(item: tuple[int, str]) -> tuple[int, int, int]:
         index, sentence = item
@@ -105,7 +117,9 @@ def build_extractive_answer(
     bullets: list[str] = []
     seen: set[str] = set()
 
-    for index, chunk in enumerate(chunks[:max_passages]):
+    for index, chunk in enumerate(chunks):
+        if len(bullets) >= max_passages:
+            break
         excerpt = _best_excerpt(chunk.text, terms)
         normalized = excerpt.casefold()
         if not excerpt or normalized in seen:

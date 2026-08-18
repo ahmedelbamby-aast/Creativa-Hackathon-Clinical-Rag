@@ -55,11 +55,27 @@ def test_extractive_answer_expands_arabic_query_terms() -> None:
     assert "[المصدر 1, صفحة 12]" in answer
 
 
-def test_extractive_answer_handles_short_or_duplicate_passages() -> None:
+def test_extractive_answer_skips_short_duplicate_passages() -> None:
     first = _chunk("Short evidence", page=1)
     duplicate = _chunk("Short evidence", page=2)
 
     answer = build_extractive_answer("evidence", [first, duplicate])
 
-    assert answer.count("Short evidence") == 1
-    assert "[Source 1, Page 1]" in answer
+    assert "reliable answer" in answer
+    assert "Short evidence" not in answer
+
+
+def test_extractive_answer_skips_fragments_and_uses_later_passage() -> None:
+    fragment = _chunk("The high risk of early-onset type 2 diabetes and the", page=2)
+    complete = _chunk(
+        "Regular physical activity, balanced nutrition, and healthy weight management can reduce the risk of type 2 diabetes.",
+        page=3,
+    )
+
+    answer = build_extractive_answer(
+        "How can type 2 diabetes be prevented?", [fragment, complete]
+    )
+
+    assert "early-onset" not in answer
+    assert "Regular physical activity" in answer
+    assert "[Source 2, Page 3]" in answer
