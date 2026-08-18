@@ -81,6 +81,10 @@ APP_ENV=deployment
 EMBEDDING_PROVIDER=gemini
 ONLINE_EMBEDDING_MODEL=gemini-embedding-2
 ONLINE_EMBEDDING_RPM=90
+CHUNK_SIZE=3000
+CHUNK_OVERLAP=300
+OCR_LANGUAGE=eng
+OCR_DPI=150
 EMBEDDING_DIMENSION=384
 EMBEDDING_NAMESPACE=gemini_384
 AUTO_CREATE_SCHEMA=false
@@ -147,7 +151,9 @@ delete or reset `gemini_384` during an application rollback.
   storage/network transfer.
 - Gemini usage is governed separately by the Google API account and quota. The
   ingestion client honors provider retry delays and defaults to a rolling
-  90-item/minute cap to stay below the current free-tier embedding limit.
+  90-item/minute cap to stay below the current free-tier embedding limit. The
+  deployed corpus profile uses 3,000/300 chunks: 946 chunks across all 12 PDFs,
+  including local Tesseract OCR for the three image-only sources.
 - The local JSONL diagnostics stored by Vercel are ephemeral because serverless
   filesystems are not durable application storage.
 

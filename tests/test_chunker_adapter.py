@@ -51,4 +51,6 @@ def test_table_is_a_standalone_semantic_unit() -> None:
         min_quality_score=0.0,
     )
 
-    assert [chunk["content_type"] for chunk in chunks] == ["text", "table", "text"]
+    assert [chunk["content_type"] for chunk in chunks] == ["text", "table"]
+    assert "before the table" in chunks[0]["text"]
+    assert "after the table" in chunks[0]["text"]

@@ -128,6 +128,8 @@ class AppConfig:
     min_quality_score: float = field(
         default_factory=lambda: float(os.environ.get("MIN_QUALITY_SCORE", "0.1"))
     )
+    ocr_language: str = field(default_factory=lambda: os.environ.get("OCR_LANGUAGE", "eng"))
+    ocr_dpi: int = field(default_factory=lambda: int(os.environ.get("OCR_DPI", "150")))
 
     # ── Data / Storage ─────────────────────────────────────────────────────
     data_dir: Path = field(
@@ -186,6 +188,10 @@ class AppConfig:
                 f"CHUNK_OVERLAP ({self.chunk_overlap}) must be less than "
                 f"CHUNK_SIZE ({self.chunk_size})"
             )
+        if not self.ocr_language.strip():
+            raise ValueError("OCR_LANGUAGE must not be empty")
+        if not 72 <= self.ocr_dpi <= 600:
+            raise ValueError("OCR_DPI must be between 72 and 600")
         if not self.data_dir.exists():
             logger.warning(f"DATA_DIR does not exist: {self.data_dir}")
         logger.debug("Configuration loaded: model=%s, top_k=%d, threshold=%.2f",

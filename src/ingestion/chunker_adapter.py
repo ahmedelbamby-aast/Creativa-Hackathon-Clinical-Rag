@@ -79,11 +79,12 @@ def chunk_elements(
 ) -> list[ChunkRecord]:
     """Convert parsed DocumentElements into chunk records.
 
-    Consecutive text elements on the same page, in the same category and
-    language, are merged before chunking. PDF parsers commonly emit one tiny
-    element per visual block; embedding those blocks independently produces
-    weak context and quickly exhausts hosted embedding quotas. Page boundaries
-    remain hard boundaries so citations stay exact. Tables remain standalone.
+    Text elements on the same page are merged before chunking. PDF parsers
+    commonly emit one tiny element per visual block; embedding those blocks
+    independently produces weak context and quickly exhausts hosted embedding
+    quotas. Page boundaries remain hard boundaries so citations stay exact.
+    Tables remain standalone, and category/language classification runs on the
+    final contextual chunk rather than on unreliable tiny layout fragments.
 
     Tables are passed as single chunks (the SmartChunker protects them
     via its BLOCK_PATTERNS if they are in Markdown table format).
@@ -111,13 +112,7 @@ def chunk_elements(
     )
 
     semantic_units: list[dict] = []
-    pending: dict | None = None
-
-    def flush_pending() -> None:
-        nonlocal pending
-        if pending is not None:
-            semantic_units.append(pending)
-            pending = None
+    page_text_units: dict[tuple[str, int], dict] = {}
 
     for element in elements:
         raw_content = _clean_content(element.get("content", ""))
@@ -130,15 +125,6 @@ def chunk_elements(
         subsection = element.get("subsection_title", "")
         content_type = element.get("content_type", "text")
 
-        # Assign category
-        category = classify_chunk(
-            document_name=doc_name,
-            section_title=section,
-            subsection_title=subsection,
-            content=raw_content,
-            content_type=content_type,
-        )
-
         prepared = {
             "content": raw_content,
             "document_name": doc_name,
@@ -146,40 +132,32 @@ def chunk_elements(
             "section_title": section,
             "subsection_title": subsection,
             "content_type": content_type,
-            "category": category,
-            "language": document_language,
         }
 
         if content_type == "table":
-            flush_pending()
             semantic_units.append(prepared)
             continue
 
-        # Short PDF blocks are too small for reliable language identification
-        # and caused false Dutch/Swahili/etc. labels that fragmented pages.
-        # Detect language after the page-scoped text has been assembled.
-        unit_key = (doc_name, page_num, category)
-        if pending is not None and pending["_key"] == unit_key:
-            pending["content"] += "\n\n" + raw_content
-            if pending["content_type"] == "heading" and content_type != "heading":
-                pending["content_type"] = "text"
-            if not pending["section_title"] and section:
-                pending["section_title"] = section
-            if not pending["subsection_title"] and subsection:
-                pending["subsection_title"] = subsection
+        unit_key = (doc_name, page_num)
+        page_unit = page_text_units.get(unit_key)
+        if page_unit is None:
+            page_text_units[unit_key] = prepared
+            semantic_units.append(prepared)
             continue
 
-        flush_pending()
-        pending = {**prepared, "_key": unit_key}
-
-    flush_pending()
+        page_unit["content"] += "\n\n" + raw_content
+        if page_unit["content_type"] == "heading" and content_type != "heading":
+            page_unit["content_type"] = "text"
+        if not page_unit["section_title"] and section:
+            page_unit["section_title"] = section
+        if not page_unit["subsection_title"] and subsection:
+            page_unit["subsection_title"] = subsection
 
     records: list[ChunkRecord] = []
     global_index = 0
     for unit in semantic_units:
         raw_content = unit["content"]
         content_type = unit["content_type"]
-        unit["language"] = detect_language(raw_content[:1500]) or document_language
 
         # Tables: pass as one chunk (don't split them)
         if content_type == "table":
@@ -194,6 +172,14 @@ def chunk_elements(
         scored = filter_chunks(raw_chunks, min_score=min_quality_score)
 
         for chunk_text, score in scored:
+            category = classify_chunk(
+                document_name=unit["document_name"],
+                section_title=unit["section_title"],
+                subsection_title=unit["subsection_title"],
+                content=chunk_text,
+                content_type=content_type,
+            )
+            language = detect_language(chunk_text[:1500]) or document_language
             record = build_chunk_record(
                 chunk_text=chunk_text,
                 quality_score=score,
@@ -202,8 +188,8 @@ def chunk_elements(
                 section_title=unit["section_title"],
                 subsection_title=unit["subsection_title"],
                 content_type=content_type,
-                category=unit["category"],
-                language=unit["language"],
+                category=category,
+                language=language,
                 global_index=global_index,
             )
             records.append(record)

@@ -13,6 +13,15 @@ def test_gemini_model_default_and_template_are_consistent(monkeypatch):
         assert "GEMINI_MODEL=gemini-3.6-flash" in template
 
 
+def test_deployment_template_fits_free_embedding_quota_profile() -> None:
+    template = Path(".env.deployment.example").read_text(encoding="utf-8")
+
+    assert "CHUNK_SIZE=3000" in template
+    assert "CHUNK_OVERLAP=300" in template
+    assert "ONLINE_EMBEDDING_RPM=90" in template
+    assert "OCR_LANGUAGE=eng" in template
+
+
 def test_deployment_rejects_local_embeddings() -> None:
     config = AppConfig(app_env="deployment", embedding_provider="local")
     try:

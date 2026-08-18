@@ -368,6 +368,7 @@ uv run python scripts/evaluate.py --category nutrition
 | `GEMINI_MODEL` | `gemini-3.6-flash` | Generation model |
 | `ONLINE_EMBEDDING_BATCH_SIZE` | `16` | Maximum documents per Gemini embedding request |
 | `ONLINE_EMBEDDING_RPM` | `90` | Rolling embedded-item cap with free-tier headroom |
+| `OCR_LANGUAGE` / `OCR_DPI` | `eng` / `150` | Local Tesseract fallback for image-only PDFs |
 | `TOP_K` | `5` | Final retrieved chunks |
 | `SIMILARITY_THRESHOLD` | `0.30` | Minimum cosine similarity |
 | `CHUNK_SIZE` | `2000` | Maximum chunk characters |
@@ -404,6 +405,11 @@ Gemini embeddings, and a pooled Neon connection. The raw corpus and local Torch
 runtime are omitted only from the serverless function bundle. See
 [DEPLOYMENT_VERCEL.md](DEPLOYMENT_VERCEL.md) for provisioning, environment,
 ingestion, deployment, and rollback instructions.
+
+Production ingestion uses 3,000-character chunks with 300-character overlap.
+The measured 12-document corpus is 946 page-grounded chunks, leaving headroom
+under Gemini Embedding 2's 1,000-item daily free-tier quota. Development keeps
+the 2,000/200 defaults for local experiments.
 
 ## Safety
 

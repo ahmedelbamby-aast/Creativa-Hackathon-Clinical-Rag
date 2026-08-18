@@ -23,8 +23,11 @@ Normalised output format per element:
 import logging
 import os
 import re
+import shutil
 from pathlib import Path
 from typing import Optional
+
+from src.config import config
 
 logger = logging.getLogger(__name__)
 
@@ -360,6 +363,93 @@ def _extract_txt(file_path: str) -> list[DocumentElement]:
         return []
 
 
+def _configure_tessdata() -> bool:
+    """Locate Tesseract language data for PyMuPDF's built-in OCR bridge."""
+    configured = os.environ.get("TESSDATA_PREFIX", "").strip()
+    candidates = [Path(configured)] if configured else []
+    executable = shutil.which("tesseract")
+    if executable:
+        candidates.append(Path(executable).resolve().parent / "tessdata")
+    candidates.extend(
+        [
+            Path(r"C:\Program Files\Tesseract-OCR\tessdata"),
+            Path(r"C:\Program Files (x86)\Tesseract-OCR\tessdata"),
+            Path("/usr/share/tesseract-ocr/5/tessdata"),
+            Path("/usr/share/tesseract-ocr/4.00/tessdata"),
+            Path("/usr/share/tessdata"),
+        ]
+    )
+    for candidate in candidates:
+        if candidate.is_dir() and (candidate / "eng.traineddata").is_file():
+            os.environ["TESSDATA_PREFIX"] = str(candidate)
+            return True
+    return False
+
+
+def _extract_with_ocr(file_path: str) -> list[DocumentElement]:
+    """OCR image-only PDF pages with PyMuPDF and a local Tesseract install."""
+    if not _configure_tessdata():
+        logger.warning(
+            "[%s] OCR unavailable: install Tesseract and its English language data",
+            os.path.basename(file_path),
+        )
+        return []
+
+    try:
+        import pymupdf
+    except ImportError:
+        import fitz as pymupdf
+
+    document_name = os.path.basename(file_path)
+    elements: list[DocumentElement] = []
+    try:
+        doc = pymupdf.open(file_path)
+    except Exception as exc:
+        logger.error("OCR could not open %s: %s", file_path, exc)
+        return []
+
+    num_pages = doc.page_count
+    try:
+        for page_index in range(num_pages):
+            try:
+                page = doc[page_index]
+                text_page = page.get_textpage_ocr(
+                    language=config.ocr_language,
+                    dpi=config.ocr_dpi,
+                    full=True,
+                )
+                text = (page.get_text(textpage=text_page) or "").strip()
+            except Exception as exc:
+                logger.warning(
+                    "[%s] OCR failed on page %d: %s",
+                    document_name,
+                    page_index + 1,
+                    exc,
+                )
+                continue
+            if text:
+                elements.append(
+                    {
+                        "document_name": document_name,
+                        "page_number": page_index + 1,
+                        "section_title": "",
+                        "subsection_title": "",
+                        "content": text,
+                        "content_type": "text",
+                    }
+                )
+    finally:
+        doc.close()
+
+    logger.info(
+        "[%s] Tesseract OCR extracted %d/%d pages",
+        document_name,
+        len(elements),
+        num_pages,
+    )
+    return elements
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -378,7 +468,13 @@ def parse_document(file_path: str) -> list[DocumentElement]:
         elements = _extract_with_fitz(file_path)
         if not elements:
             logger.warning(
-                "[%s] PyMuPDF returned no elements -- falling back to pypdf",
+                "[%s] PyMuPDF returned no elements -- trying local OCR",
+                os.path.basename(file_path),
+            )
+            elements = _extract_with_ocr(file_path)
+        if not elements:
+            logger.warning(
+                "[%s] OCR returned no elements -- falling back to pypdf",
                 os.path.basename(file_path),
             )
             elements = _extract_with_pypdf(file_path)
