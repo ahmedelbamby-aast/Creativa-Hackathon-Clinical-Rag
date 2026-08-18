@@ -79,3 +79,19 @@ def test_extractive_answer_skips_fragments_and_uses_later_passage() -> None:
     assert "early-onset" not in answer
     assert "Regular physical activity" in answer
     assert "[Source 2, Page 3]" in answer
+
+
+def test_extractive_answer_skips_markdown_table_rows() -> None:
+    table = _chunk(
+        "Subdomain | Indicator | | --- | --- | | Risk factors | Physical inactivity prevalence and overweight prevalence |.",
+        page=4,
+    )
+    prose = _chunk(
+        "Tobacco use, hypertension, excess weight, and physical inactivity are important modifiable diabetes risk factors.",
+        page=5,
+    )
+
+    answer = build_extractive_answer("diabetes risk factors", [table, prose])
+
+    assert "Subdomain" not in answer
+    assert "Tobacco use" in answer

@@ -71,7 +71,11 @@ def _is_usable(sentence: str) -> bool:
     words = _TOKEN.findall(sentence)
     if len(sentence) < 70 or len(words) < 9:
         return False
+    if "|" in sentence or "---" in sentence:
+        return False
     if words[-1].lower() in _TRAILING_FRAGMENT_WORDS:
+        return False
+    if not sentence.rstrip().endswith((".", "!", "?", "؟", ")", "]", '"', "”")):
         return False
     digit_count = sum(character.isdigit() for character in sentence)
     return digit_count / max(len(sentence), 1) < 0.18
