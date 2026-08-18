@@ -55,3 +55,18 @@ def test_extractive_generation_requires_no_runtime_credential() -> None:
     config.validate()
 
     assert config.generation_configured is True
+
+
+def test_auto_generation_accepts_a_configured_groq_fallback() -> None:
+    config = AppConfig(
+        generation_provider="auto",
+        generation_primary_provider="gemini",
+        generation_fallback_provider="groq",
+        gemini_api_key="",
+        groq_api_key="configured",
+    )
+
+    config.validate()
+
+    assert config.generation_configured is True
+    assert config.configured_generation_provider_label == "Gemini → Groq (automatic)"

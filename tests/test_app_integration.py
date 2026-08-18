@@ -70,11 +70,12 @@ def test_ui_generation_uses_the_staged_envelope_only(monkeypatch):
     monkeypatch.setattr(app, "generate_from_evidence", lambda value, memory: (received.append(value) or ("Answer", "Sources", "Debug")))
 
     history, _, staged, _ = app.retrieve_for_ui("Question", [], "all", ConversationMemory())
-    updated, citations, _, _ = app.generate_for_ui(history, staged, ConversationMemory())
+    updated, citations, _, _, provider_status = app.generate_for_ui(history, staged, ConversationMemory())
 
     assert received == [envelope]
     assert citations == "Sources"
     assert updated[-1]["content"] == "Answer"
+    assert "Answer provider" in provider_status
 
 
 @pytest.mark.parametrize(

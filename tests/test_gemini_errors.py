@@ -9,6 +9,7 @@ from src.gemini_errors import GeminiResponseError, classify_gemini_error, gemini
     ("error", "code", "english_fragment", "arabic_fragment"),
     [
         (RuntimeError("GEMINI_API_KEY is not set"), "missing_api_key", "not configured", "غير مُعدة"),
+        (RuntimeError("GROQ_API_KEY is not set"), "missing_api_key", "not configured", "غير مُعدة"),
         (RuntimeError("400 API_KEY_INVALID"), "invalid_api_key", "temporarily unavailable", "غير متاحة"),
         (RuntimeError("401 UNAUTHENTICATED"), "authentication_failed", "temporarily unavailable", "غير متاحة"),
         (RuntimeError("403 PERMISSION_DENIED"), "permission_denied", "temporarily unavailable", "غير متاحة"),

@@ -215,6 +215,9 @@
       $('feedback').textContent = message;
       $('feedback').className = `feedback${error ? ' error' : ''}`;
     }
+    function providerText(provider, model) {
+      return provider && model ? `Answer provider: ${provider} · ${model}` : 'Answer provider: checking…';
+    }
     function renderEvidence(chunks) {
       $('evidence').textContent = chunks.length
         ? chunks.map((chunk, index) => `${index + 1}. ${chunk.document_name} · score ${Number(chunk.score).toFixed(3)}\nSection: ${chunk.section_title || 'Not specified'} · Page ${chunk.page_number}\nSource: ${chunk.source_url}\n\n${chunk.text}`).join('\n\n────────\n\n')
@@ -230,7 +233,7 @@
         state.configured = Boolean(health.generation_configured);
         status.className = `status ${state.ready && state.configured ? 'ready' : 'error'}`;
         status.lastElementChild.textContent = state.ready
-          ? `${ready.indexed_chunks} indexed passages · ${state.configured ? 'Answer generation ready' : 'Generation key required'}`
+          ? `${ready.indexed_chunks} indexed passages · ${state.configured ? providerText(health.configured_generation_provider, health.active_generation_model) : 'Generation key required'}`
           : 'Knowledge base unavailable';
         if (!state.configured) setFeedback('Answer generation needs its deployment credential before questions can be sent.', true);
       } catch (_) {
@@ -287,7 +290,7 @@
         $('sources').textContent = data.citations || 'No sources were returned for this response.';
         $('debug').textContent = data.debug || '';
         $('debug-wrap').hidden = !data.debug;
-        setFeedback('Answer complete.');
+        setFeedback(`${data.generation_provider ? providerText(data.generation_provider, data.generation_model) : 'Answer complete.'}`);
       } catch (error) {
         addMessage('assistant', `I could not complete that request. ${error.message}`);
         setFeedback(`${error.message} Please try again.`, true);

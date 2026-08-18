@@ -10,6 +10,7 @@ Run with:
     python app.py
 """
 
+import html
 import logging
 import re
 import sys
@@ -210,14 +211,20 @@ def generate_for_ui(
     chat_history: list[dict],
     envelope: RetrievalEnvelope | None,
     memory: ConversationMemory,
-) -> tuple[list[dict], str, str, ConversationMemory]:
+) -> tuple[list[dict], str, str, ConversationMemory, str]:
     """Second UI event: answer using only the envelope emitted by retrieve_for_ui."""
     if envelope is None:
-        return chat_history, "", "", memory
+        return chat_history, "", "", memory, generation_provider_status()
     answer, citations, debug = generate_from_evidence(envelope, memory)
     memory.add_user(envelope.original_query, category=envelope.requested_category)
     memory.add_assistant(answer)
-    return chat_history + [{"role": "assistant", "content": answer}], citations, debug, memory
+    return (
+        chat_history + [{"role": "assistant", "content": answer}],
+        citations,
+        debug,
+        memory,
+        generation_provider_status(),
+    )
 
 
 def clear_chat(memory: ConversationMemory) -> tuple:
@@ -257,12 +264,23 @@ def knowledge_status_html() -> str:
     except Exception:
         state = "offline"
         label = "Knowledge base unavailable"
-    model_label = config.gemini_model.removeprefix("gemini-")
+    provider_label = html.escape(config.configured_generation_provider_label)
+    model_label = html.escape(generator.active_model)
     return (
         f'<div id="knowledge-status" class="status-{state}" role="status">'
         f'<span class="status-dot" aria-hidden="true"></span>{label}'
-        f'<span class="status-meta">Local multilingual retrieval · Gemini {model_label}</span>'
+        f'<span class="status-meta">Local multilingual retrieval · Answer provider: {provider_label} · {model_label}</span>'
         "</div>"
+    )
+
+
+def generation_provider_status() -> str:
+    """Return the provider and model that produced (or will produce) the answer."""
+    if config.generation_provider == "extractive":
+        return "**Answer provider:** Evidence excerpts (no LLM call)"
+    return (
+        f"**Answer provider:** {config.configured_generation_provider_label} "
+        f"· `{generator.active_model}`"
     )
 
 CUSTOM_CSS = """
@@ -581,6 +599,7 @@ def build_ui() -> gr.Blocks:
             '<span class="status-dot" aria-hidden="true"></span>Checking knowledge base…'
             '</div>'
         )
+        provider_output = gr.Markdown(value=generation_provider_status(), elem_id="provider-status")
         demo.load(
             fn=knowledge_status_html,
             outputs=knowledge_status_output,
@@ -727,6 +746,7 @@ def build_ui() -> gr.Blocks:
                 "*Sources will appear here after your first question.*",
                 "",
                 "",
+                generation_provider_status(),
                 mem,
             )
 
@@ -739,7 +759,7 @@ def build_ui() -> gr.Blocks:
         send_event.success(
             fn=generate_for_ui,
             inputs=[chatbot, evidence_state, memory_state],
-            outputs=[chatbot, citations_output, debug_output, memory_state],
+            outputs=[chatbot, citations_output, debug_output, memory_state, provider_output],
             queue=True,
         )
 
@@ -752,14 +772,14 @@ def build_ui() -> gr.Blocks:
         submit_event.success(
             fn=generate_for_ui,
             inputs=[chatbot, evidence_state, memory_state],
-            outputs=[chatbot, citations_output, debug_output, memory_state],
+            outputs=[chatbot, citations_output, debug_output, memory_state, provider_output],
             queue=True,
         )
 
         clear_btn.click(
             fn=on_clear,
             inputs=[memory_state],
-            outputs=[chatbot, evidence_output, citations_output, debug_output, query_input, memory_state],
+            outputs=[chatbot, evidence_output, citations_output, debug_output, query_input, provider_output, memory_state],
             queue=False,
         )
 

@@ -40,7 +40,9 @@ def test_gemini_response_without_text_maps_safety_and_empty_cases(monkeypatch) -
 def test_exhausted_transient_retries_raise_a_sanitized_error(monkeypatch) -> None:
     generator = GeminiGenerator()
     generator._initialised = True
-    monkeypatch.setattr(generator, "_generate_once", lambda _: (_ for _ in ()).throw(RuntimeError("429 RESOURCE_EXHAUSTED")))
+    monkeypatch.setattr("src.generator.config.generation_provider", "gemini")
+    monkeypatch.setattr("src.generator.config.generation_fallback_provider", "")
+    monkeypatch.setattr(generator, "_generate_once", lambda *_: (_ for _ in ()).throw(RuntimeError("429 RESOURCE_EXHAUSTED")))
     monkeypatch.setattr("src.generator.time.sleep", lambda _: None)
 
     with pytest.raises(GeminiResponseError, match="rate_limited"):
@@ -66,6 +68,66 @@ def test_vercel_gateway_generation(monkeypatch) -> None:
     assert generator.generate("Evidence prompt") == "Grounded answer"
     assert calls[0]["model"] == "google/gemini-2.5-flash"
     assert [message["role"] for message in calls[0]["messages"]] == ["system", "user"]
+
+
+def test_groq_generation_uses_openai_compatible_chat_api(monkeypatch) -> None:
+    calls = []
+
+    class Completions:
+        def create(self, **kwargs):
+            calls.append(kwargs)
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(content="Groq grounded answer"))]
+            )
+
+    generator = GeminiGenerator()
+    generator._client = SimpleNamespace(chat=SimpleNamespace(completions=Completions()))
+    generator._initialised = True
+    monkeypatch.setattr("src.generator.config.generation_provider", "groq")
+    monkeypatch.setattr("src.generator.config.groq_model", "openai/gpt-oss-120b")
+
+    assert generator.generate("Evidence prompt") == "Groq grounded answer"
+    assert generator.active_provider == "groq"
+    assert generator.active_model == "openai/gpt-oss-120b"
+    assert calls[0]["model"] == "openai/gpt-oss-120b"
+
+
+def test_auto_routes_to_groq_when_gemini_fails(monkeypatch) -> None:
+    generator = GeminiGenerator()
+    calls = []
+
+    def fake_generate(_prompt, provider):
+        calls.append(provider)
+        if provider == "gemini":
+            raise RuntimeError("429 RESOURCE_EXHAUSTED")
+        return "Groq fallback answer"
+
+    monkeypatch.setattr(generator, "_generate_with_provider", fake_generate)
+    monkeypatch.setattr("src.generator.config.generation_provider", "auto")
+    monkeypatch.setattr("src.generator.config.generation_primary_provider", "gemini")
+    monkeypatch.setattr("src.generator.config.generation_fallback_provider", "groq")
+
+    assert generator.generate("Evidence prompt") == "Groq fallback answer"
+    assert calls == ["gemini", "groq"]
+    assert generator.active_provider == "groq"
+
+
+def test_auto_does_not_fail_over_safety_block(monkeypatch) -> None:
+    generator = GeminiGenerator()
+    calls = []
+
+    def fake_generate(_prompt, provider):
+        calls.append(provider)
+        raise GeminiResponseError("safety_blocked")
+
+    monkeypatch.setattr(generator, "_generate_with_provider", fake_generate)
+    monkeypatch.setattr("src.generator.config.generation_provider", "auto")
+    monkeypatch.setattr("src.generator.config.generation_primary_provider", "gemini")
+    monkeypatch.setattr("src.generator.config.generation_fallback_provider", "groq")
+
+    with pytest.raises(GeminiResponseError, match="safety_blocked"):
+        generator.generate("Evidence prompt")
+    assert calls == ["gemini"]
 
 
 def test_gateway_model_requires_provider_prefix() -> None:

@@ -94,6 +94,16 @@ class AppConfig:
     generation_provider: str = field(
         default_factory=lambda: os.environ.get("GENERATION_PROVIDER", "gemini").lower()
     )
+    generation_primary_provider: str = field(
+        default_factory=lambda: os.environ.get("GENERATION_PRIMARY_PROVIDER", "gemini").lower()
+    )
+    generation_fallback_provider: str = field(
+        default_factory=lambda: os.environ.get("GENERATION_FALLBACK_PROVIDER", "").lower()
+    )
+    groq_api_key: str = field(default_factory=lambda: os.environ.get("GROQ_API_KEY", ""))
+    groq_model: str = field(
+        default_factory=lambda: os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
+    )
     ai_gateway_model: str = field(
         default_factory=lambda: os.environ.get("AI_GATEWAY_MODEL", "google/gemini-2.5-flash")
     )
@@ -194,14 +204,24 @@ class AppConfig:
             )
         if self.generation_provider == "gemini" and not self.gemini_api_key:
             logger.warning("Direct Gemini generation is selected without GEMINI_API_KEY")
+        if self.generation_provider == "groq" and not self.groq_api_key:
+            logger.warning("Direct Groq generation is selected without GROQ_API_KEY")
         if self.generation_provider == "vercel_gateway" and not self.generation_configured:
             logger.warning("AI Gateway credentials are unavailable outside the Vercel runtime")
         if self.embedding_provider not in {"local", "gemini"}:
             raise ValueError("EMBEDDING_PROVIDER must be 'local' or 'gemini'")
-        if self.generation_provider not in {"extractive", "gemini", "vercel_gateway"}:
+        generation_providers = {"extractive", "gemini", "groq", "vercel_gateway", "auto"}
+        if self.generation_provider not in generation_providers:
             raise ValueError(
-                "GENERATION_PROVIDER must be 'extractive', 'gemini', or 'vercel_gateway'"
+                "GENERATION_PROVIDER must be 'extractive', 'gemini', 'groq', "
+                "'vercel_gateway', or 'auto'"
             )
+        if self.generation_primary_provider not in generation_providers - {"auto"}:
+            raise ValueError("GENERATION_PRIMARY_PROVIDER must name a concrete provider")
+        if self.generation_fallback_provider and self.generation_fallback_provider not in generation_providers - {"auto", "extractive"}:
+            raise ValueError("GENERATION_FALLBACK_PROVIDER must be blank, 'gemini', 'groq', or 'vercel_gateway'")
+        if self.generation_fallback_provider == self.generation_primary_provider:
+            raise ValueError("GENERATION_FALLBACK_PROVIDER must differ from GENERATION_PRIMARY_PROVIDER")
         if self.generation_provider == "vercel_gateway" and "/" not in self.ai_gateway_model:
             raise ValueError("AI_GATEWAY_MODEL must use provider/model format")
         if self.is_deployment and self.embedding_provider != "gemini":
@@ -271,11 +291,42 @@ class AppConfig:
     @property
     def generation_configured(self) -> bool:
         """Return whether the active generation provider has runtime credentials."""
-        if self.generation_provider == "vercel_gateway":
+        if self.generation_provider == "auto":
+            return any(
+                self.provider_configured(provider)
+                for provider in (self.generation_primary_provider, self.generation_fallback_provider)
+                if provider
+            )
+        return self.provider_configured(self.generation_provider)
+
+    def provider_configured(self, provider: str) -> bool:
+        """Return whether one concrete generation provider has credentials."""
+        if provider == "vercel_gateway":
             return bool(self.ai_gateway_api_key or self.vercel_oidc_token)
-        if self.generation_provider == "extractive":
+        if provider == "groq":
+            return bool(self.groq_api_key)
+        if provider == "extractive":
             return True
         return bool(self.gemini_api_key)
+
+    @property
+    def configured_generation_provider_label(self) -> str:
+        """Human-readable configured generation route before a request selects a fallback."""
+        labels = {
+            "gemini": "Gemini",
+            "groq": "Groq",
+            "vercel_gateway": "Vercel AI Gateway",
+            "extractive": "Evidence excerpts",
+        }
+        if self.generation_provider != "auto":
+            return labels.get(self.generation_provider, self.generation_provider)
+        primary = labels.get(self.generation_primary_provider, self.generation_primary_provider)
+        fallback = (
+            f" → {labels.get(self.generation_fallback_provider, self.generation_fallback_provider)}"
+            if self.generation_fallback_provider
+            else ""
+        )
+        return f"{primary}{fallback} (automatic)"
 
 
 # ---------------------------------------------------------------------------

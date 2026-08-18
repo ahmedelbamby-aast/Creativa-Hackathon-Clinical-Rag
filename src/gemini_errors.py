@@ -62,7 +62,11 @@ def classify_gemini_error(error: BaseException) -> GeminiErrorInfo:
         return GeminiErrorInfo("service_unavailable", status, True)
     if status == 400 or "invalid_argument" in message or "bad request" in message:
         return GeminiErrorInfo("invalid_request", status or 400, False)
-    if "gemini_api_key is not set" in message or "gemini_api_key is required" in message:
+    if (
+        "api_key is not set" in message
+        or "api key is not set" in message
+        or "api_key is required" in message
+    ):
         return GeminiErrorInfo("missing_api_key", status, False)
     return GeminiErrorInfo("unknown_error", status, False)
 

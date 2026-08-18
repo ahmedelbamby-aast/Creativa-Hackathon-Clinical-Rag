@@ -17,6 +17,7 @@ from src.config import (
     config,
 )
 from src.memory import ConversationMemory
+from src.generator import generator
 from src.evidence_service import rehydrate_evidence, stage_evidence
 from src.vector_store import vector_store
 
@@ -59,6 +60,8 @@ class ChatResponse(BaseModel):
     answer: str
     citations: str
     debug: str = ""
+    generation_provider: str = ""
+    generation_model: str = ""
 
 
 class EvidenceItem(BaseModel):
@@ -105,6 +108,9 @@ def health() -> dict[str, object]:
         "embedding_provider": config.embedding_provider,
         "embedding_namespace": config.resolved_embedding_namespace,
         "generation_provider": config.generation_provider,
+        "configured_generation_provider": config.configured_generation_provider_label,
+        "active_generation_provider": generator.active_provider,
+        "active_generation_model": generator.active_model,
         "database_configured": bool(config.database_url),
         "gemini_configured": bool(config.gemini_api_key),
         "generation_configured": config.generation_configured,
@@ -158,7 +164,13 @@ def chat_endpoint(request: ChatRequest) -> ChatResponse:
             detail="The assistant is temporarily unavailable. Please try again.",
         ) from exc
 
-    return ChatResponse(answer=answer, citations=citations, debug=debug)
+    return ChatResponse(
+        answer=answer,
+        citations=citations,
+        debug=debug,
+        generation_provider=generator.active_provider,
+        generation_model=generator.active_model,
+    )
 
 
 @api.post("/api/retrieve", response_model=RetrieveResponse, tags=["rag"])
@@ -208,7 +220,13 @@ def generate_endpoint(request: GenerateRequest) -> ChatResponse:
         return ChatResponse(answer=envelope.user_message, citations="", debug="")
     memory = _build_memory(request.history, category)
     answer, citations, debug = generate_from_evidence(envelope, memory)
-    return ChatResponse(answer=answer, citations=citations, debug=debug)
+    return ChatResponse(
+        answer=answer,
+        citations=citations,
+        debug=debug,
+        generation_provider=generator.active_provider,
+        generation_model=generator.active_model,
+    )
 
 
 @api.get("/", response_class=HTMLResponse, include_in_schema=False)

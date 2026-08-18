@@ -26,7 +26,9 @@ def test_health_reports_deployment_configuration() -> None:
     assert result["status"] == "ok"
     assert result["embedding_provider"] in {"local", "gemini"}
     assert result["embedding_namespace"]
-    assert result["generation_provider"] in {"extractive", "gemini", "vercel_gateway"}
+    assert result["generation_provider"] in {"extractive", "gemini", "groq", "vercel_gateway", "auto"}
+    assert result["active_generation_provider"] in {"extractive", "gemini", "groq", "vercel_gateway"}
+    assert result["active_generation_model"]
 
 
 def test_ready_reports_database_metadata(monkeypatch) -> None:
@@ -82,6 +84,8 @@ def test_chat_endpoint_rebuilds_bounded_memory(monkeypatch) -> None:
 
     assert result.answer == "Grounded answer"
     assert result.citations == "Guideline, Page 4"
+    assert result.generation_provider
+    assert result.generation_model
     assert captured["category"] == "prevention"
     assert len(captured["history"]) == 2
 
@@ -119,3 +123,4 @@ def test_retrieve_then_generate_uses_staged_chunk_ids(monkeypatch) -> None:
 
     assert result.answer == "Answer"
     assert received[0][-1] == ["chunk-1"]
+    assert result.generation_provider
