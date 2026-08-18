@@ -13,6 +13,7 @@ from src.rewriter import rewrite_query
 from src.router import route_query
 from src.safety import SafetyLevel, classify_safety, get_emergency_response
 from src.vector_store import vector_store
+from src.gemini_errors import classify_gemini_error, gemini_user_message
 
 
 def is_arabic(text: str) -> bool:
@@ -126,12 +127,13 @@ def stage_evidence(
                 user_message=_message("invalid_provenance", arabic),
             )
         return RetrievalEnvelope(**common, rewritten_query=rewritten, status="ready", chunks=evidence)
-    except Exception:
+    except Exception as error:
         return RetrievalEnvelope(
             **common,
             rewritten_query=query,
             status="infrastructure_failure",
-            user_message=_message("infrastructure_failure", arabic),
+            error_code=f"gemini:{classify_gemini_error(error).code}",
+            user_message=gemini_user_message(error, is_arabic=arabic, scope="retrieval"),
         )
 
 
@@ -219,11 +221,12 @@ def rehydrate_evidence(
                 user_message=_message("invalid_provenance", arabic),
             )
         return RetrievalEnvelope(**common, status="ready", chunks=chunks)
-    except Exception:
+    except Exception as error:
         return RetrievalEnvelope(
             **common,
             status="infrastructure_failure",
-            user_message=_message("infrastructure_failure", arabic),
+            error_code=f"gemini:{classify_gemini_error(error).code}",
+            user_message=gemini_user_message(error, is_arabic=arabic, scope="retrieval"),
         )
 
 

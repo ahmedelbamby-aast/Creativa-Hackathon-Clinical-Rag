@@ -6,6 +6,7 @@ import time
 from typing import Optional
 
 from src.config import config
+from src.gemini_errors import GeminiResponseError, classify_gemini_error, is_retryable_gemini_error
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,11 @@ def _is_rate_limited(error_text: str) -> bool:
     return bool(
         re.search(r"\b429\b|resource_exhausted|rate[ _-]?limit|quota", normalized)
     )
+
+
+def _is_retryable(error: BaseException) -> bool:
+    """Retry Gemini throttling, transient service failures, and timeouts only."""
+    return is_retryable_gemini_error(error)
 
 
 class GeminiGenerator:
@@ -101,7 +107,14 @@ class GeminiGenerator:
                 ],
             ),
         )
-        return response.text or ""
+        text = response.text or ""
+        if text:
+            return text
+        candidates = getattr(response, "candidates", []) or []
+        reason = str(getattr(candidates[0], "finish_reason", "")) if candidates else ""
+        if "safety" in reason.lower():
+            raise GeminiResponseError("safety_blocked")
+        raise GeminiResponseError("empty_response")
 
     def generate(
         self,
@@ -122,8 +135,8 @@ class GeminiGenerator:
                 return ""
             except Exception as exc:
                 last_error = exc
-                error_text = str(exc).lower()
-                if _is_rate_limited(error_text):
+                error_info = classify_gemini_error(exc)
+                if _is_retryable(exc):
                     wait = _RETRY_BACKOFF[min(attempt, len(_RETRY_BACKOFF) - 1)]
                     logger.warning(
                         "Generation rate limit hit; waiting %ds before retry %d/%d",
@@ -133,11 +146,21 @@ class GeminiGenerator:
                     )
                     time.sleep(wait)
                     continue
-                logger.error("Generation API error: %s", exc)
+                logger.error(
+                    "Gemini generation failed: code=%s status=%s type=%s",
+                    error_info.code,
+                    error_info.http_status,
+                    type(exc).__name__,
+                )
                 raise
 
-        logger.error("All generation retries exhausted. Last error: %s", last_error)
-        raise RuntimeError(f"Generation failed after {_MAX_RETRIES} retries: {last_error}")
+        error_info = classify_gemini_error(last_error or RuntimeError("unknown Gemini error"))
+        logger.error(
+            "Gemini generation retries exhausted: code=%s status=%s",
+            error_info.code,
+            error_info.http_status,
+        )
+        raise GeminiResponseError(error_info.code) from last_error
 
 
 generator = GeminiGenerator()

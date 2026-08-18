@@ -119,6 +119,7 @@ class RetrievalEnvelope:
     status: RetrievalStatus
     chunks: tuple[EvidenceChunk, ...] = ()
     user_message: str = ""
+    error_code: str = ""
     created_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )

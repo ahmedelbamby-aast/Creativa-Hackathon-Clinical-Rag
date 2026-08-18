@@ -18,6 +18,10 @@ from src.vector_store import vector_store
 logger = logging.getLogger(__name__)
 
 
+class RetrievalProviderError(RuntimeError):
+    """Embedding or vector-provider error that must not be mistaken for no evidence."""
+
+
 @dataclass
 class RetrievedChunk:
     """A single retrieved chunk with full provenance metadata."""
@@ -66,8 +70,8 @@ def retrieve(
     try:
         query_vector = embedder.embed_query(query.strip())
     except Exception as e:
-        logger.error("Failed to embed query: %s", e)
-        return []
+        logger.error("Failed to embed retrieval query: type=%s", type(e).__name__)
+        raise RetrievalProviderError("query_embedding_failed") from e
 
     # Query vector store
     raw_results = vector_store.query(

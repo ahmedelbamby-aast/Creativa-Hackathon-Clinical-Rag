@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 from src import evidence_service
 from src.retriever import RetrievedChunk
+from src.retriever import RetrievalProviderError
 
 
 def _chunk(*, source_url: str = "https://example.test/guide") -> RetrievedChunk:
@@ -60,6 +61,20 @@ def test_rehydrate_does_not_embed_or_reretrieve(monkeypatch) -> None:
 
     assert envelope.is_ready
     assert envelope.chunks[0].text == "Evidence"
+
+
+def test_embedding_api_error_has_search_message_and_trace_code(monkeypatch) -> None:
+    _ready_manifest(monkeypatch)
+
+    def failed_retrieve(*args, **kwargs):
+        raise RetrievalProviderError("query_embedding_failed") from RuntimeError("429 RESOURCE_EXHAUSTED")
+
+    monkeypatch.setattr(evidence_service, "retrieve", failed_retrieve)
+    envelope = evidence_service.stage_evidence("Question", "all")
+
+    assert envelope.status == "infrastructure_failure"
+    assert envelope.error_code == "gemini:rate_limited"
+    assert envelope.user_message == "The knowledge search is busy. Please try again in a minute."
 
 
 def envelope_chunks_ids(envelope) -> list[str]:

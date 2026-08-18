@@ -39,6 +39,7 @@ from src.observability import (
     run_retrieval_benchmark,
 )
 from src.evidence_service import envelope_chunks, render_evidence, stage_evidence
+from src.gemini_errors import classify_gemini_error, gemini_user_message
 from src.retrieval_contracts import RetrievalEnvelope
 
 logging.basicConfig(
@@ -126,22 +127,14 @@ def generate_from_evidence(
             if stage:
                 stage.__exit__(None, None, None)
     except RuntimeError as e:
-        answer = (
-            "أعتذر، خدمة الإجابة غير متاحة حالياً. يرجى المحاولة لاحقاً."
-            if is_ar
-            else "I’m sorry, but the answer service is temporarily unavailable. Please try again later."
-        )
+        answer = gemini_user_message(e, is_arabic=is_ar, scope="generation")
         if trace:
-            trace.error = str(e)[:300]
+            trace.error = f"gemini:{classify_gemini_error(e).code}"
     except Exception as e:
         logger.error("Generation failed: %s", e)
-        answer = (
-            "أعتذر، خدمة الإجابة غير متاحة حالياً. يرجى المحاولة لاحقاً."
-            if is_ar
-            else "I’m sorry, but the answer service is temporarily unavailable. Please try again later."
-        )
+        answer = gemini_user_message(e, is_arabic=is_ar, scope="generation")
         if trace:
-            trace.error = str(e)[:300]
+            trace.error = f"gemini:{classify_gemini_error(e).code}"
 
     # Step 8: Append safety disclaimer
     disclaimer = get_disclaimer(safety_level, is_arabic=is_ar)
