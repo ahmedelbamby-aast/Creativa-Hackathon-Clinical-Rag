@@ -12,13 +12,10 @@ from src.config import CHUNK_PROFILES
 def test_chunk_profiles_definitions():
     """Verify that Small, Balanced, and Large profiles have correct size and overlap."""
     assert "small" in CHUNK_PROFILES
-    assert CHUNK_PROFILES["small"]["chunk_size"] == 1200
-    assert CHUNK_PROFILES["small"]["chunk_overlap"] == 0
+    assert CHUNK_PROFILES["small"] == (1200, 0)
 
     assert "balanced" in CHUNK_PROFILES
-    assert CHUNK_PROFILES["balanced"]["chunk_size"] == 2000
-    assert CHUNK_PROFILES["balanced"]["chunk_overlap"] == 200
+    assert CHUNK_PROFILES["balanced"] == (2000, 200)
 
     assert "large" in CHUNK_PROFILES
-    assert CHUNK_PROFILES["large"]["chunk_size"] == 3000
-    assert CHUNK_PROFILES["large"]["chunk_overlap"] == 300
+    assert CHUNK_PROFILES["large"] == (3000, 300)

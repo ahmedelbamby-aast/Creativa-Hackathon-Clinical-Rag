@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main, ramez, bamby]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install locked dependencies
+        run: uv sync --frozen
+      - name: Run test suite
+        run: uv run python -m pytest
+      - name: Validate Vercel configuration
+        run: uv run python -m json.tool vercel.json > /dev/null
+      - name: Import the deployment ASGI application
+        env:
+          APP_ENV: deployment
+          EMBEDDING_PROVIDER: gemini
+          GEMINI_API_KEY: ci-placeholder
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          AUTO_CREATE_SCHEMA: "false"
+        run: uv run python -c "from backend.server import app; assert app is not None"

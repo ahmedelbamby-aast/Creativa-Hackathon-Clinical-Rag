@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "fluid": true,
+  "regions": ["fra1"],
+  "functions": {
+    "backend/server.py": {
+      "maxDuration": 300,
+      "excludeFiles": "{data/**,chunking/**,example/**,tests/**,scripts/**,.runtime/**,Dockerfile,compose.yaml,QUICKSTART_*.md,**/*.pdf}"
+    }
+  }
+}

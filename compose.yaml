@@ -2,18 +2,49 @@ services:
   postgres:
     image: pgvector/pgvector:0.8.6-pg16
     environment:
-      POSTGRES_USER: creativa
-      POSTGRES_PASSWORD: creativa-local
-      POSTGRES_DB: creativa_diabetes
+      POSTGRES_DB: ${POSTGRES_DB:-creativa_diabetes}
+      POSTGRES_USER: ${POSTGRES_USER:-creativa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-creativa-local}
     ports:
-      - "5433:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U creativa -d creativa_diabetes"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-creativa} -d ${POSTGRES_DB:-creativa_diabetes}"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env.development
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-creativa}:${POSTGRES_PASSWORD:-creativa-local}@postgres:5432/${POSTGRES_DB:-creativa_diabetes}
+      HF_HOME: /cache/huggingface
+      HF_HUB_DISABLE_XET: "1"
+      HF_HUB_DOWNLOAD_TIMEOUT: "300"
+    ports:
+      - "${GRADIO_PORT:-7860}:7860"
+    volumes:
+      - model_cache:/cache/huggingface
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - uv run python -c "from urllib.request import urlopen; assert urlopen('http://localhost:7860', timeout=5).status == 200"
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 600s
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+  model_cache:

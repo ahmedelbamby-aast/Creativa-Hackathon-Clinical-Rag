@@ -22,6 +22,12 @@ def test_content_type_and_extractor_detection(name, content_type, extractor):
     assert cleaner.get_extractor_label(name) == extractor
 
 
+def test_unknown_and_extensionless_files_share_plain_text_fallback(tmp_path):
+    for path in (tmp_path / "unknown.bin", tmp_path / "README"):
+        assert cleaner.detect_content_type(path) == "text/plain"
+        assert cleaner.get_extractor_label(path) == "plain-text"
+
+
 def test_extract_utf8_and_latin1_text(tmp_path):
     utf8 = tmp_path / "utf8.txt"
     utf8.write_text("  diabetes café  ", encoding="utf-8")

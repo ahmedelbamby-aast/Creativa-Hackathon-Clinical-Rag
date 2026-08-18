@@ -80,3 +80,53 @@ def test_pdf_parser_supports_tablefinder_and_avoids_duplicate_table_text(monkeyp
     assert elements[0]["content"] == "| Group | HbA1c |\n| --- | --- |\n| Treatment | 6.4 |"
     assert elements[1]["content"] == "Clinical follow-up text"
     assert sum("Treatment 6.4" in element["content"] for element in elements) == 0
+
+
+def test_ocr_extracts_image_only_pages(monkeypatch):
+    class Page:
+        def get_textpage_ocr(self, **kwargs):
+            assert kwargs == {"language": "eng", "dpi": 150, "full": True}
+            return "ocr-text-page"
+
+        def get_text(self, *, textpage):
+            assert textpage == "ocr-text-page"
+            return "OCR diabetes guidance"
+
+    class Document:
+        page_count = 1
+
+        def __getitem__(self, index):
+            assert index == 0
+            return Page()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(parser, "_configure_tessdata", lambda: True)
+    monkeypatch.setitem(sys.modules, "pymupdf", SimpleNamespace(open=lambda _: Document()))
+
+    assert parser._extract_with_ocr("scan.pdf") == [
+        {
+            "document_name": "scan.pdf",
+            "page_number": 1,
+            "section_title": "",
+            "subsection_title": "",
+            "content": "OCR diabetes guidance",
+            "content_type": "text",
+        }
+    ]
+
+
+def test_pdf_parser_uses_ocr_before_plain_text_fallback(monkeypatch):
+    ocr_elements = [{"content": "from OCR"}]
+    fallback = SimpleNamespace(called=False)
+    monkeypatch.setattr(parser, "_extract_with_fitz", lambda _: [])
+    monkeypatch.setattr(parser, "_extract_with_ocr", lambda _: ocr_elements)
+    monkeypatch.setattr(
+        parser,
+        "_extract_with_pypdf",
+        lambda _: setattr(fallback, "called", True) or [],
+    )
+
+    assert parser.parse_document("scan.pdf") is ocr_elements
+    assert fallback.called is False

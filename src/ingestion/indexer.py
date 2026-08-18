@@ -191,7 +191,7 @@ def ingest_certified_corpus(
             f"Unknown chunk profile {chunk_profile!r}. "
             f"Valid choices: {list(CHUNK_PROFILES)}"
         )
-    profile_params = CHUNK_PROFILES[chunk_profile]
+    profile_size, profile_overlap = CHUNK_PROFILES[chunk_profile]
 
     # Load and validate source manifest
     sources = load_sources(sources_path)
@@ -232,8 +232,8 @@ def ingest_certified_corpus(
         chunk_records = chunk_elements(
             elements,
             document_language=doc_language,
-            chunk_size=profile_params["chunk_size"],
-            chunk_overlap=profile_params["chunk_overlap"],
+            chunk_size=profile_size,
+            chunk_overlap=profile_overlap,
         )
         if not chunk_records:
             raise ValueError(f"No valid chunks produced from {file_name}")

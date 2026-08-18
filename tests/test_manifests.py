@@ -163,7 +163,25 @@ def test_config_accepts_valid_retrieval_profile(monkeypatch):
 
 
 def test_config_accepts_valid_top_k(monkeypatch):
-    """Test case 12: a positive TOP_K passes validate() without error."""
+    """Test case 12: a benchmark-supported TOP_K passes validate()."""
+    monkeypatch.setenv("TOP_K", "5")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/db")
+    monkeypatch.setenv("EMBEDDING_PROVIDER", "local")
+    monkeypatch.setenv("EMBEDDING_DIMENSION", "384")
+    monkeypatch.setenv("CHUNK_SIZE", "2000")
+    monkeypatch.setenv("CHUNK_OVERLAP", "200")
+    import src.config as cfg_module
+    fresh = cfg_module.AppConfig()
+    assert fresh.top_k == 5
+    # The Phase 2 experiment supports k values 3, 4, and 5 only.
+    try:
+        fresh.validate()
+    except ValueError as exc:
+        assert "TOP_K" not in str(exc), f"Unexpected TOP_K error: {exc}"
+
+
+def test_config_rejects_invalid_top_k(monkeypatch):
+    """Test case 13: unsupported TOP_K values raise ValueError in validate()."""
     monkeypatch.setenv("TOP_K", "10")
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/db")
     monkeypatch.setenv("EMBEDDING_PROVIDER", "local")
@@ -173,24 +191,5 @@ def test_config_accepts_valid_top_k(monkeypatch):
     import src.config as cfg_module
     fresh = cfg_module.AppConfig()
     assert fresh.top_k == 10
-    # validate() should not raise for top_k=10
-    # (data_dir warning is fine; we only care no ValueError is raised for top_k)
-    try:
-        fresh.validate()
-    except ValueError as exc:
-        assert "TOP_K" not in str(exc), f"Unexpected TOP_K error: {exc}"
-
-
-def test_config_rejects_invalid_top_k(monkeypatch):
-    """Test case 13: TOP_K <= 0 raises ValueError in validate()."""
-    monkeypatch.setenv("TOP_K", "0")
-    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/db")
-    monkeypatch.setenv("EMBEDDING_PROVIDER", "local")
-    monkeypatch.setenv("EMBEDDING_DIMENSION", "384")
-    monkeypatch.setenv("CHUNK_SIZE", "2000")
-    monkeypatch.setenv("CHUNK_OVERLAP", "200")
-    import src.config as cfg_module
-    fresh = cfg_module.AppConfig()
-    assert fresh.top_k == 0
     with pytest.raises(ValueError, match="TOP_K"):
         fresh.validate()

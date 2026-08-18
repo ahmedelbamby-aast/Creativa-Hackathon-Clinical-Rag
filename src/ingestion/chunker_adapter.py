@@ -93,8 +93,12 @@ def chunk_elements(
 ) -> list[ChunkRecord]:
     """Convert parsed DocumentElements into chunk records.
 
-    Each element is chunked independently so chunks never span across
-    section boundaries (a key property for medical RAG accuracy).
+    Text elements on the same page are merged before chunking. PDF parsers
+    commonly emit one tiny element per visual block; embedding those blocks
+    independently produces weak context and quickly exhausts hosted embedding
+    quotas. Page boundaries remain hard boundaries so citations stay exact.
+    Tables remain standalone, and category/language classification runs on the
+    final contextual chunk rather than on unreliable tiny layout fragments.
 
     Tables are passed as single chunks (the SmartChunker protects them
     via its BLOCK_PATTERNS if they are in Markdown table format).
@@ -110,8 +114,9 @@ def chunk_elements(
     Returns:
         List of ChunkRecord dicts with full metadata.
     """
-    chunk_size = chunk_size or config.chunk_size
-    chunk_overlap = chunk_overlap or config.chunk_overlap
+    profile_size, profile_overlap = config.selected_chunk_profile
+    chunk_size = chunk_size or profile_size
+    chunk_overlap = chunk_overlap if chunk_overlap is not None else profile_overlap
     min_chunk_size = min_chunk_size or config.min_chunk_size
     min_quality_score = min_quality_score if min_quality_score is not None else config.min_quality_score
 
@@ -121,8 +126,8 @@ def chunk_elements(
         min_chunk_size=min_chunk_size,
     )
 
-    records: list[ChunkRecord] = []
-    global_index = 0
+    semantic_units: list[dict] = []
+    page_text_units: dict[tuple[str, int], dict] = {}
 
     for element in elements:
         raw_content = _clean_content(element.get("content", ""))
@@ -135,17 +140,39 @@ def chunk_elements(
         subsection = element.get("subsection_title", "")
         content_type = element.get("content_type", "text")
 
-        # Assign category
-        category = classify_chunk(
-            document_name=doc_name,
-            section_title=section,
-            subsection_title=subsection,
-            content=raw_content,
-            content_type=content_type,
-        )
+        prepared = {
+            "content": raw_content,
+            "document_name": doc_name,
+            "page_number": page_num,
+            "section_title": section,
+            "subsection_title": subsection,
+            "content_type": content_type,
+        }
 
-        # Detect per-element language (Arabic documents may mix languages)
-        lang = detect_language(raw_content[:500]) or document_language
+        if content_type == "table":
+            semantic_units.append(prepared)
+            continue
+
+        unit_key = (doc_name, page_num)
+        page_unit = page_text_units.get(unit_key)
+        if page_unit is None:
+            page_text_units[unit_key] = prepared
+            semantic_units.append(prepared)
+            continue
+
+        page_unit["content"] += "\n\n" + raw_content
+        if page_unit["content_type"] == "heading" and content_type != "heading":
+            page_unit["content_type"] = "text"
+        if not page_unit["section_title"] and section:
+            page_unit["section_title"] = section
+        if not page_unit["subsection_title"] and subsection:
+            page_unit["subsection_title"] = subsection
+
+    records: list[ChunkRecord] = []
+    global_index = 0
+    for unit in semantic_units:
+        raw_content = unit["content"]
+        content_type = unit["content_type"]
 
         # Tables: pass as one chunk (don't split them)
         if content_type == "table":
@@ -160,24 +187,33 @@ def chunk_elements(
         scored = filter_chunks(raw_chunks, min_score=min_quality_score)
 
         for chunk_text, score in scored:
+            category = classify_chunk(
+                document_name=unit["document_name"],
+                section_title=unit["section_title"],
+                subsection_title=unit["subsection_title"],
+                content=chunk_text,
+                content_type=content_type,
+            )
+            language = detect_language(chunk_text[:1500]) or document_language
             record = build_chunk_record(
                 chunk_text=chunk_text,
                 quality_score=score,
-                document_name=doc_name,
-                page_number=page_num,
-                section_title=section,
-                subsection_title=subsection,
+                document_name=unit["document_name"],
+                page_number=unit["page_number"],
+                section_title=unit["section_title"],
+                subsection_title=unit["subsection_title"],
                 content_type=content_type,
                 category=category,
-                language=lang,
+                language=language,
                 global_index=global_index,
             )
             records.append(record)
             global_index += 1
 
     logger.info(
-        "Chunked %d elements → %d chunk records",
+        "Chunked %d elements via %d page-scoped semantic units → %d chunk records",
         len(elements),
+        len(semantic_units),
         len(records),
     )
     return records

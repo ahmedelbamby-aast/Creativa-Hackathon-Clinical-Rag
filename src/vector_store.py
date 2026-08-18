@@ -45,7 +45,7 @@ class VectorStore:
     def ensure_schema(self) -> None:
         """Enable pgvector and create the current namespace partition/index."""
         schema_sql = SCHEMA_PATH.read_text(encoding="utf-8")
-        with psycopg.connect(self.database_url, autocommit=True) as connection:
+        with psycopg.connect(config.schema_database_url, autocommit=True) as connection:
             connection.execute(schema_sql)
             register_vector(connection)
 
@@ -86,7 +86,7 @@ class VectorStore:
         self._schema_ready = True
 
     def _connect(self):
-        if not self._schema_ready:
+        if not self._schema_ready and config.auto_create_schema:
             self.ensure_schema()
         connection = psycopg.connect(self.database_url, row_factory=dict_row)
         register_vector(connection)
@@ -108,12 +108,12 @@ class VectorStore:
             INSERT INTO rag_chunks (
                 namespace, chunk_id, document_name, page_number,
                 section_title, subsection_title, category, content_type,
-                language, content, char_count, word_count, quality_score,
+                language, source_id, source_url, content, char_count, word_count, quality_score,
                 embedding
             ) VALUES (
                 %(namespace)s, %(chunk_id)s, %(document_name)s, %(page_number)s,
                 %(section_title)s, %(subsection_title)s, %(category)s,
-                %(content_type)s, %(language)s, %(content)s, %(char_count)s,
+                %(content_type)s, %(language)s, %(source_id)s, %(source_url)s, %(content)s, %(char_count)s,
                 %(word_count)s, %(quality_score)s, %(embedding)s
             )
             ON CONFLICT (namespace, chunk_id) DO UPDATE SET
@@ -124,6 +124,8 @@ class VectorStore:
                 category = EXCLUDED.category,
                 content_type = EXCLUDED.content_type,
                 language = EXCLUDED.language,
+                source_id = EXCLUDED.source_id,
+                source_url = EXCLUDED.source_url,
                 content = EXCLUDED.content,
                 char_count = EXCLUDED.char_count,
                 word_count = EXCLUDED.word_count,
@@ -152,6 +154,8 @@ class VectorStore:
                     "category": category,
                     "content_type": record.get("content_type", "text"),
                     "language": record.get("language", "en"),
+                    "source_id": record.get("source_id", ""),
+                    "source_url": record.get("source_url", ""),
                     "content": record["text"],
                     "char_count": record.get("char_count", len(record["text"])),
                     "word_count": record.get("word_count", len(record["text"].split())),
@@ -217,6 +221,8 @@ class VectorStore:
                 category,
                 content_type,
                 language,
+                source_id,
+                source_url,
                 quality_score,
                 embedding <=> %s AS distance
             FROM rag_chunks
@@ -244,6 +250,46 @@ class VectorStore:
                 }
             )
         return results
+
+    def get_chunks(self, chunk_ids: list[str]) -> list[dict]:
+        """Load exact evidence by ID without embedding or nearest-neighbor search."""
+        if not chunk_ids:
+            return []
+        unique_ids = list(dict.fromkeys(chunk_ids))
+        statement = """
+            SELECT
+                chunk_id AS id,
+                content AS document,
+                document_name,
+                page_number,
+                section_title,
+                subsection_title,
+                category,
+                content_type,
+                language,
+                source_id,
+                source_url,
+                quality_score
+            FROM rag_chunks
+            WHERE namespace = %s AND chunk_id = ANY(%s)
+        """
+        with self._connect() as connection:
+            rows = connection.execute(statement, (self.namespace, unique_ids)).fetchall()
+        by_id = {
+            row["id"]: {
+                "id": row["id"],
+                "document": row["document"],
+                "metadata": {
+                    key: value
+                    for key, value in row.items()
+                    if key not in {"id", "document"}
+                },
+                "distance": 0.0,
+                "score": 0.0,
+            }
+            for row in rows
+        }
+        return [by_id[chunk_id] for chunk_id in chunk_ids if chunk_id in by_id]
 
     def collection_stats(self) -> dict[str, int]:
         """Return category counts, including general chunks in each category."""

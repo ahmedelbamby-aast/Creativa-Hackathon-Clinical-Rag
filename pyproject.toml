@@ -5,10 +5,12 @@ description = "Bilingual diabetes RAG assistant"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = [
+    "fastapi>=0.115.0",
     "google-genai>=1.0.0",
     "gradio>=4.40.0",
     "langdetect>=1.0.9",
     "numpy>=1.26.0",
+    "openai>=2.0.0",
     "pymupdf>=1.24.0",
     "pgvector>=0.4.0",
     "psycopg[binary]>=3.2.0",
@@ -21,7 +23,22 @@ dependencies = [
 [project.optional-dependencies]
 local = [
     "sentence-transformers>=2.7.0",
+    "torch>=2.7.0",
 ]
+
+[project.scripts]
+app = "backend.server:app"
+
+[tool.vercel.fastapi.static]
+cdn = false
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
 
 [dependency-groups]
 dev = [

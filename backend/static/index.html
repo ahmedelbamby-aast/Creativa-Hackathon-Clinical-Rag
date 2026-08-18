@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A bilingual, citation-grounded diabetes information assistant.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%232563eb' d='M32 4C22 18 12 28 12 40a20 20 0 0 0 40 0C52 28 42 18 32 4Z'/%3E%3Cpath fill='none' stroke='%23fff' stroke-width='5' stroke-linecap='round' d='M23 39h18M32 30v18'/%3E%3C/svg%3E">
+  <title>Creativa Diabetes RAG Assistant</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #07111f;
+      --surface: #101d30;
+      --surface-raised: #162740;
+      --surface-soft: #0c192a;
+      --text: #f8fbff;
+      --muted: #b7cae2;
+      --accent: #60a5fa;
+      --accent-strong: #2563eb;
+      --accent-soft: #172f52;
+      --border: #365170;
+      --success: #6ee7b7;
+      --danger: #fda4af;
+      --focus: #bae6fd;
+      --radius: 18px;
+      --shadow: 0 20px 60px rgba(0, 0, 0, .28);
+    }
+    * { box-sizing: border-box; }
+    html { min-width: 320px; background: var(--page); }
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(37, 99, 235, .22), transparent 34rem),
+        radial-gradient(circle at 88% 8%, rgba(14, 165, 233, .14), transparent 28rem),
+        var(--page);
+      font: 16px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button, select, textarea { font: inherit; }
+    button, select { min-height: 48px; }
+    button { touch-action: manipulation; }
+    .skip-link {
+      position: fixed; top: 8px; left: 8px; z-index: 10; padding: 10px 14px;
+      color: #06101d; background: var(--focus); border-radius: 8px;
+      transform: translateY(-140%); transition: transform 180ms ease-out;
+    }
+    .skip-link:focus { transform: translateY(0); }
+    .shell { width: min(1040px, calc(100% - 32px)); margin: 0 auto; padding: 40px 0 32px; }
+    header { display: grid; gap: 10px; margin-bottom: 22px; }
+    .eyebrow { color: var(--accent); font-size: .8rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 0; max-width: 18ch; font-size: clamp(2rem, 5vw, 3.35rem); line-height: 1.08; letter-spacing: -.035em; }
+    .subtitle { margin: 0; max-width: 68ch; color: var(--muted); }
+    .status {
+      display: flex; align-items: center; gap: 10px; width: fit-content; min-height: 44px;
+      padding: 8px 14px; color: var(--muted); background: rgba(16, 29, 48, .78);
+      border: 1px solid var(--border); border-radius: 999px;
+    }
+    .status-dot { width: 10px; height: 10px; flex: none; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 4px rgba(183, 202, 226, .1); }
+    .status.ready .status-dot { background: var(--success); box-shadow: 0 0 0 4px rgba(110, 231, 183, .12); }
+    .status.error .status-dot { background: var(--danger); box-shadow: 0 0 0 4px rgba(253, 164, 175, .12); }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
+    .card { background: rgba(16, 29, 48, .94); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .chat-card { min-width: 0; overflow: hidden; }
+    .toolbar { display: grid; gap: 8px; padding: 18px 18px 0; }
+    label, .label { color: var(--muted); font-size: .88rem; font-weight: 700; }
+    select, textarea {
+      width: 100%; color: var(--text); background: var(--surface-soft);
+      border: 1px solid var(--border); border-radius: 12px; outline: none;
+    }
+    select { padding: 10px 38px 10px 12px; cursor: pointer; }
+    textarea { min-height: 92px; resize: vertical; padding: 13px 14px; }
+    select:focus-visible, textarea:focus-visible, button:focus-visible, summary:focus-visible {
+      outline: 3px solid var(--focus); outline-offset: 2px;
+    }
+    .conversation { min-height: 360px; max-height: 58dvh; overflow-y: auto; padding: 20px 18px; scroll-behavior: smooth; }
+    .empty { display: grid; place-items: center; min-height: 310px; padding: 32px; color: var(--muted); text-align: center; }
+    .message { display: grid; gap: 6px; margin-bottom: 18px; }
+    .message.user { justify-items: end; }
+    .message .role { color: var(--muted); font-size: .76rem; font-weight: 750; text-transform: uppercase; letter-spacing: .08em; }
+    .bubble { max-width: min(82%, 70ch); padding: 13px 15px; border-radius: 15px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .user .bubble { background: var(--accent-strong); color: white; border-bottom-right-radius: 5px; }
+    .assistant .bubble { background: var(--surface-raised); border: 1px solid var(--border); border-bottom-left-radius: 5px; }
+    .composer { display: grid; gap: 10px; padding: 18px; background: rgba(7, 17, 31, .42); border-top: 1px solid var(--border); }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    button {
+      padding: 10px 17px; color: var(--text); background: var(--surface-raised);
+      border: 1px solid var(--border); border-radius: 12px; cursor: pointer;
+      transition: background 180ms ease-out, border-color 180ms ease-out, opacity 180ms ease-out;
+    }
+    button:hover { background: var(--accent-soft); border-color: var(--accent); }
+    button:active { opacity: .82; }
+    button.primary { flex: 1 1 180px; background: var(--accent-strong); border-color: #60a5fa; font-weight: 750; }
+    button.primary:hover { background: #1d4ed8; }
+    button:disabled { cursor: not-allowed; opacity: .46; }
+    .feedback { min-height: 26px; color: var(--muted); }
+    .feedback.error { color: var(--danger); }
+    .sidebar { display: grid; gap: 18px; }
+    .panel { padding: 18px; }
+    .panel h2 { margin: 0 0 12px; font-size: 1rem; }
+    .sources, .evidence { color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+    .evidence { max-height: 360px; overflow: auto; font-size: .86rem; }
+    .examples { display: grid; gap: 10px; }
+    .examples button { min-height: 52px; text-align: start; }
+    details { margin-top: 14px; }
+    summary { min-height: 44px; padding: 8px 0; color: var(--muted); cursor: pointer; }
+    pre { max-height: 240px; overflow: auto; padding: 12px; color: var(--muted); background: var(--surface-soft); border-radius: 10px; white-space: pre-wrap; }
+    footer { max-width: 75ch; margin: 24px auto 0; color: var(--muted); font-size: .82rem; text-align: center; }
+    [dir="rtl"] .message.user { justify-items: start; }
+    [dir="rtl"] .user .bubble { border-bottom-right-radius: 15px; border-bottom-left-radius: 5px; }
+    @media (max-width: 780px) {
+      .shell { width: min(100% - 24px, 680px); padding-top: 24px; }
+      .workspace { grid-template-columns: 1fr; }
+      .sidebar { grid-template-columns: 1fr; }
+      .conversation { max-height: none; }
+      .bubble { max-width: 92%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#question">Skip to question</a>
+  <div class="shell">
+    <header>
+      <div class="eyebrow">Verified diabetes guidance</div>
+      <h1>Diabetes RAG Assistant</h1>
+      <p class="subtitle">Ask in English or العربية. Every answer is retrieved from the indexed guideline corpus and returned with document and page citations.</p>
+      <div id="status" class="status" role="status" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><span>Checking knowledge base…</span></div>
+    </header>
+
+    <main class="workspace">
+      <section class="card chat-card" aria-labelledby="assistant-heading">
+        <h2 id="assistant-heading" style="position:absolute;left:-9999px">Assistant conversation</h2>
+        <div class="toolbar">
+          <label for="category">Knowledge category</label>
+          <select id="category">
+            <option value="all">All categories</option>
+            <option value="treatment">Treatment</option>
+            <option value="prevention">Prevention</option>
+            <option value="nutrition">Nutrition</option>
+          </select>
+        </div>
+        <div id="conversation" class="conversation" role="log" aria-live="polite" aria-relevant="additions">
+          <div class="empty">Ask a question to receive a grounded answer with document and page citations.</div>
+        </div>
+        <form id="chat-form" class="composer">
+          <label for="question">Your question</label>
+          <textarea id="question" maxlength="2000" required placeholder="Ask about diabetes treatment, prevention, nutrition…"></textarea>
+          <div class="actions">
+            <button id="send" class="primary" type="submit" disabled>Send question</button>
+            <button id="clear" type="button">Clear chat</button>
+          </div>
+          <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
+        </form>
+      </section>
+
+      <aside class="sidebar" aria-label="Sources and examples">
+        <section class="card panel">
+          <h2>Retrieved evidence</h2>
+          <div id="evidence" class="evidence">Evidence will appear here before an answer is generated.</div>
+        </section>
+        <section class="card panel">
+          <h2>Sources</h2>
+          <div id="sources" class="sources">Sources will appear after your first question.</div>
+          <details id="debug-wrap" hidden>
+            <summary>Developer diagnostics</summary>
+            <pre id="debug"></pre>
+          </details>
+        </section>
+        <section class="card panel">
+          <h2>Example questions</h2>
+          <div class="examples">
+            <button type="button" data-example="What role do preventive cardiologists have in diabetes care?">Preventive cardiology and diabetes care</button>
+            <button type="button" data-example="What are the main risk factors for type 2 diabetes?">Risk factors for type 2 diabetes</button>
+            <button type="button" lang="ar" dir="rtl" data-example="ما هي الأطعمة الموصى بها لمريض السكري؟">الأطعمة الموصى بها لمريض السكري</button>
+            <button type="button" lang="ar" dir="rtl" data-example="كيف يمكن الوقاية من مرض السكري النوع الثاني؟">الوقاية من السكري النوع الثاني</button>
+          </div>
+        </section>
+      </aside>
+    </main>
+    <footer>For educational purposes only. This assistant is not a substitute for professional medical advice; always consult a qualified healthcare professional.</footer>
+  </div>
+
+  <script>
+    const state = { history: [], ready: false, configured: false };
+    const $ = (id) => document.getElementById(id);
+    const form = $('chat-form');
+    const input = $('question');
+    const send = $('send');
+    const conversation = $('conversation');
+
+    function isArabic(text) { return /[\u0600-\u06ff]/.test(text); }
+    function safeText(text) {
+      return String(text).replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+    }
+    function addMessage(role, content) {
+      const empty = conversation.querySelector('.empty');
+      if (empty) empty.remove();
+      const item = document.createElement('article');
+      item.className = `message ${role}`;
+      item.dir = isArabic(content) ? 'rtl' : 'ltr';
+      item.innerHTML = `<span class="role">${role === 'user' ? 'You' : 'Assistant'}</span><div class="bubble">${safeText(content)}</div>`;
+      conversation.appendChild(item);
+      conversation.scrollTop = conversation.scrollHeight;
+    }
+    function setBusy(busy) {
+      send.disabled = busy || !state.ready || !state.configured;
+      input.disabled = busy;
+      $('category').disabled = busy;
+      send.textContent = busy ? 'Finding grounded answer…' : 'Send question';
+    }
+    function setFeedback(message, error = false) {
+      $('feedback').textContent = message;
+      $('feedback').className = `feedback${error ? ' error' : ''}`;
+    }
+    function providerText(provider, model) {
+      return provider && model ? `Answer provider: ${provider} · ${model}` : 'Answer provider: checking…';
+    }
+    function renderEvidence(chunks) {
+      $('evidence').textContent = chunks.length
+        ? chunks.map((chunk, index) => `${index + 1}. ${chunk.document_name} · score ${Number(chunk.score).toFixed(3)}\nSection: ${chunk.section_title || 'Not specified'} · Page ${chunk.page_number}\nSource: ${chunk.source_url}\n\n${chunk.text}`).join('\n\n────────\n\n')
+        : 'No usable evidence was retrieved for this question.';
+    }
+    async function checkStatus() {
+      const status = $('status');
+      try {
+        const [healthResponse, readyResponse] = await Promise.all([fetch('/api/health'), fetch('/api/ready')]);
+        const health = await healthResponse.json();
+        const ready = await readyResponse.json();
+        state.ready = readyResponse.ok && ready.status === 'ready';
+        state.configured = Boolean(health.generation_configured);
+        status.className = `status ${state.ready && state.configured ? 'ready' : 'error'}`;
+        status.lastElementChild.textContent = state.ready
+          ? `${ready.indexed_chunks} indexed passages · ${state.configured ? providerText(health.configured_generation_provider, health.active_generation_model) : 'Generation key required'}`
+          : 'Knowledge base unavailable';
+        if (!state.configured) setFeedback('Answer generation needs its deployment credential before questions can be sent.', true);
+      } catch (_) {
+        status.className = 'status error';
+        status.lastElementChild.textContent = 'Unable to reach the knowledge service';
+        setFeedback('Check your connection and reload the page.', true);
+      }
+      setBusy(false);
+    }
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const message = input.value.trim();
+      if (!message || !state.ready || !state.configured) return;
+      const priorHistory = state.history.slice(-12);
+      addMessage('user', message);
+      state.history.push({ role: 'user', content: message });
+      input.value = '';
+      setFeedback('Retrieving the most relevant guideline passages…');
+      setBusy(true);
+      try {
+        const retrieveResponse = await fetch('/api/retrieve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, category: $('category').value, history: priorHistory }),
+        });
+        const retrieved = await retrieveResponse.json();
+        if (!retrieveResponse.ok) throw new Error(retrieved.detail || 'The assistant could not retrieve evidence.');
+        renderEvidence(retrieved.chunks || []);
+        if (retrieved.status !== 'ready') {
+          const answer = retrieved.message || 'The available evidence is insufficient to answer this question safely.';
+          addMessage('assistant', answer);
+          state.history.push({ role: 'assistant', content: answer });
+          setFeedback('No answer was generated because usable evidence was unavailable.', true);
+          return;
+        }
+        setFeedback('Evidence retrieved. Generating only from the displayed passages…');
+        await new Promise(requestAnimationFrame);
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message,
+            category: $('category').value,
+            history: priorHistory,
+            namespace: retrieved.namespace,
+            index_manifest_hash: retrieved.index_manifest_hash,
+            chunk_ids: retrieved.chunks.map((chunk) => chunk.chunk_id),
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'The assistant could not answer this question.');
+        addMessage('assistant', data.answer);
+        state.history.push({ role: 'assistant', content: data.answer });
+        $('sources').textContent = data.citations || 'No sources were returned for this response.';
+        $('debug').textContent = data.debug || '';
+        $('debug-wrap').hidden = !data.debug;
+        setFeedback(`${data.generation_provider ? providerText(data.generation_provider, data.generation_model) : 'Answer complete.'}`);
+      } catch (error) {
+        addMessage('assistant', `I could not complete that request. ${error.message}`);
+        setFeedback(`${error.message} Please try again.`, true);
+      } finally {
+        setBusy(false);
+        input.focus();
+      }
+    });
+    $('clear').addEventListener('click', () => {
+      state.history = [];
+      conversation.innerHTML = '<div class="empty">Ask a question to receive a grounded answer with document and page citations.</div>';
+      $('sources').textContent = 'Sources will appear after your first question.';
+      $('evidence').textContent = 'Evidence will appear here before an answer is generated.';
+      $('debug-wrap').hidden = true;
+      setFeedback('Conversation cleared.');
+      input.focus();
+    });
+    document.querySelectorAll('[data-example]').forEach((button) => button.addEventListener('click', () => {
+      input.value = button.dataset.example;
+      input.dir = isArabic(input.value) ? 'rtl' : 'ltr';
+      input.focus();
+    }));
+    input.addEventListener('input', () => { input.dir = isArabic(input.value) ? 'rtl' : 'ltr'; });
+    checkStatus();
+  </script>
+</body>
+</html>

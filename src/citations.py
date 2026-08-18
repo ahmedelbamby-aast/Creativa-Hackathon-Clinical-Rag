@@ -115,7 +115,7 @@ def build_debug_info(
 ) -> str:
     """Build a debug information block showing retrieval internals.
 
-    Only displayed when DEBUG=true in .env.
+    Only displayed when DEBUG=true in the selected environment.
     """
     lines = [
         "```",

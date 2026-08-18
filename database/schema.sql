@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS rag_chunks (
     category varchar(32) NOT NULL,
     content_type varchar(32) NOT NULL DEFAULT 'text',
     language varchar(16) NOT NULL DEFAULT 'en',
+    source_id text NOT NULL DEFAULT '',
+    source_url text NOT NULL DEFAULT '',
     content text NOT NULL,
     char_count integer NOT NULL,
     word_count integer NOT NULL,
@@ -19,6 +21,9 @@ CREATE TABLE IF NOT EXISTS rag_chunks (
     updated_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (namespace, chunk_id)
 ) PARTITION BY LIST (namespace);
+
+ALTER TABLE rag_chunks ADD COLUMN IF NOT EXISTS source_id text NOT NULL DEFAULT '';
+ALTER TABLE rag_chunks ADD COLUMN IF NOT EXISTS source_url text NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS rag_chunks_document_idx
     ON rag_chunks (namespace, document_name);
