@@ -43,6 +43,7 @@ from src.ingestion.pipeline import (
     print_ingestion_summary,
 )
 from src.vector_store import vector_store
+from src.index_manifests import build_index_manifest, write_index_manifest
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -94,6 +95,11 @@ def main() -> None:
         action="store_true",
         help="Enable debug logging",
     )
+    parser.add_argument(
+        "--write-index-manifest",
+        action="store_true",
+        help="Write a reproducibility manifest after successful ingestion",
+    )
     args = parser.parse_args()
 
     setup_logging(args.verbose)
@@ -105,8 +111,10 @@ def main() -> None:
     print(f"  Database         : PostgreSQL/pgvector")
     print(f"  Namespace        : {config.resolved_embedding_namespace}")
     print(f"  Embedding model  : {embedder.model_name}")
-    print(f"  Chunk size       : {config.chunk_size} chars")
-    print(f"  Chunk overlap    : {config.chunk_overlap} chars")
+    profile_size, profile_overlap = config.selected_chunk_profile
+    print(f"  Chunk profile    : {config.retrieval_profile}")
+    print(f"  Chunk size       : {profile_size} chars")
+    print(f"  Chunk overlap    : {profile_overlap} chars")
     print()
 
     # ── Stats only ─────────────────────────────────────────────────────
@@ -133,6 +141,13 @@ def main() -> None:
         print(f"  Ingesting single file: {file_path.name}\n")
         stats = ingest_document(file_path, force=args.force)
         print_ingestion_summary([stats])
+        if args.write_index_manifest and not stats["error"]:
+            manifest = build_index_manifest(
+                config.resolved_embedding_namespace,
+                [file_path],
+                stats.get("token_count", 0),
+            )
+            print(f"  Index manifest      : {write_index_manifest(manifest)}")
         return
 
     # ── Directory ingestion ────────────────────────────────────────────
@@ -149,6 +164,17 @@ def main() -> None:
 
     all_stats = ingest_directory(data_dir, force=args.force)
     print_ingestion_summary(all_stats)
+    if args.write_index_manifest and not any(item["error"] for item in all_stats):
+        corpus_paths = sorted(
+            path for path in data_dir.rglob("*")
+            if path.is_file() and path.suffix.lower() in {".pdf", ".docx", ".txt"}
+        )
+        manifest = build_index_manifest(
+            config.resolved_embedding_namespace,
+            corpus_paths,
+            sum(item.get("token_count", 0) for item in all_stats),
+        )
+        print(f"  Index manifest      : {write_index_manifest(manifest)}")
 
 
 if __name__ == "__main__":

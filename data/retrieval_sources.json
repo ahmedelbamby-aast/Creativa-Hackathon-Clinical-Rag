@@ -1,0 +1,16 @@
+{
+  "sources": [
+    {
+      "source_id": "idf_diabetes_atlas_2025",
+      "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+      "source_url": "https://diabetesatlas.org/resources/idf-diabetes-atlas-2025/",
+      "enabled": true
+    },
+    {
+      "source_id": "who_diabetes_pregnancy_2025",
+      "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+      "source_url": "https://www.who.int/publications/i/item/9789240117044",
+      "enabled": true
+    }
+  ]
+}
