@@ -182,10 +182,14 @@ def run_grid(run_dir: Path, providers: tuple[str, ...]) -> None:
                 for case_id, chunks in raw["rankings"].items()
             }
             label_rows.extend(build_review_labels(key, rankings, cases))
-    with (run_dir / "review-labels.csv").open("w", newline="", encoding="utf-8") as handle:
+    review_path = run_dir / "review-labels.csv"
+    new_run_ids = {row["run_id"] for row in label_rows}
+    existing_rows = _read_labels(review_path) if review_path.exists() else []
+    merged_rows = [row for row in existing_rows if row.get("run_id") not in new_run_ids] + label_rows
+    with review_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=FIELDNAMES, extrasaction="ignore")
         writer.writeheader()
-        writer.writerows(label_rows)
+        writer.writerows(merged_rows)
 
 
 def _read_labels(path: Path) -> list[dict]:

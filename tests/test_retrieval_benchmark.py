@@ -1,6 +1,7 @@
 """Phase 2 metric, labeling, and model-selection tests."""
 
 import pytest
+from pathlib import Path
 
 from src.retrieval_benchmark import (
     CandidateResult,
@@ -12,7 +13,7 @@ from src.retrieval_benchmark import (
     select_candidate,
 )
 from src.retrieval_contracts import EvidenceChunk, RetrievalCase
-from scripts.benchmark_retrieval import FIELDNAMES, experiment_namespace, finalize
+from scripts.benchmark_retrieval import FIELDNAMES, experiment_namespace, finalize, run_grid
 
 
 def _chunk(chunk_id: str = "chunk-1") -> EvidenceChunk:
@@ -149,3 +150,35 @@ def test_finalize_persists_failed_report_for_unresolved_review(tmp_path) -> None
     result = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
     assert result["selection"]["accepted"] is False
     assert "cross-review" in result["selection"]["error"]
+
+
+def test_partial_grid_preserves_existing_other_provider_labels(tmp_path, monkeypatch) -> None:
+    import csv
+    import json
+    from types import SimpleNamespace
+
+    existing = {"run_id": "small-local-384", "case_id": "existing", "rank": 1, "relevance": "relevant"}
+    with (tmp_path / "review-labels.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=FIELDNAMES)
+        writer.writeheader()
+        writer.writerow(existing)
+
+    monkeypatch.setattr("scripts.benchmark_retrieval.load_retrieval_cases", lambda: _cases())
+    monkeypatch.setattr("scripts.benchmark_retrieval.CHUNK_PROFILES", {"small": (1200, 0)})
+
+    def fake_run(command, **kwargs):
+        output = next(Path(value) for index, value in enumerate(command) if command[index - 1] == "--single-output")
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps({
+            "run_id": "small-gemini-384",
+            "rankings": {"positive": [__import__("dataclasses").asdict(_chunk())], "negative": []},
+        }), encoding="utf-8")
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr("scripts.benchmark_retrieval.subprocess.run", fake_run)
+    run_grid(tmp_path, ("gemini",))
+
+    with (tmp_path / "review-labels.csv").open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert any(row["run_id"] == "small-local-384" for row in rows)
+    assert any(row["run_id"] == "small-gemini-384" for row in rows)
