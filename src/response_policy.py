@@ -22,6 +22,8 @@ CORE RULES:
 3. NEVER invent, estimate, or extrapolate medications, drug names, dosages, blood glucose thresholds, HbA1c targets, food recommendations, or treatment plans.
 4. NEVER fabricate page numbers, document names, or section titles. Only reference what appears in the [SOURCE ...] headers.
 5. Every factual medical claim must be traceable to at least one provided source.
+6. The evidence must directly address the same condition, population, and intent as the question. Evidence about gestational diabetes, type 1 diabetes, prediabetes, or another related condition must not be transferred to type 2 diabetes unless the source explicitly makes that exact link.
+7. When the user requests a list (for example, risk factors), include only items the source explicitly identifies as belonging to that requested list. Never reuse a list from a related condition or population.
 
 CITATION RULES:
 - Cite the provided document name and page for each factual medical claim.
@@ -171,8 +173,11 @@ def build_grounded_prompt(
     return (
         f"{history_section}{context_section}\n"
         f"USER QUESTION: {query}\n\n"
-        "Answer using only the retrieved context. Cite the SOURCE headers. "
-        "If the context is insufficient, say so and ask for a more specific diabetes question."
+        "First verify that the context directly addresses the same condition, population, "
+        "and intent as the question. Answer using only that directly matching context and "
+        "cite the SOURCE headers. Do not transfer facts or lists from a related condition. "
+        "If the context is insufficient or only indirectly related, say so and ask for a "
+        "more specific diabetes question."
     )
 
 

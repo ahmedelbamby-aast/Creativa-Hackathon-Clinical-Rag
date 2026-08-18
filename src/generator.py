@@ -138,7 +138,7 @@ class GeminiGenerator:
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
                 ],
-                temperature=0.1,
+                temperature=0.0,
                 max_tokens=2048,
             )
             text = response.choices[0].message.content or ""
@@ -153,7 +153,7 @@ class GeminiGenerator:
             contents=user_prompt,
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_PROMPT,
-                temperature=0.1,
+                temperature=0.0,
                 top_p=0.95,
                 max_output_tokens=2048,
                 safety_settings=[

@@ -46,8 +46,10 @@ def test_grounded_prompt_contains_only_supplied_evidence_and_history_is_not_evid
     assert "Diabetes prevention guidance" in prompt
     assert "Prior conversational context" in prompt
     assert "never treat it as medical evidence" in prompt
-    assert "Answer using only the retrieved context" in prompt
+    assert "Answer using only that directly matching context" in prompt
+    assert "Do not transfer facts or lists from a related condition" in prompt
     assert "Do not use your own training knowledge" in SYSTEM_PROMPT
+    assert "Never reuse a list from a related condition" in SYSTEM_PROMPT
 
 
 def test_controlled_copy_is_bilingual_and_actionable() -> None:
