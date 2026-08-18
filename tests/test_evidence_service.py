@@ -1,0 +1,49 @@
+"""Evidence staging safety and provenance tests."""
+
+from types import SimpleNamespace
+
+from src import evidence_service
+from src.retriever import RetrievedChunk
+
+
+def _chunk(*, source_url: str = "https://example.test/guide") -> RetrievedChunk:
+    return RetrievedChunk(
+        chunk_id="chunk-1", text="Evidence", score=0.8, distance=0.2,
+        document_name="guide.pdf", page_number=4, section_title="Care",
+        subsection_title="", category="treatment", content_type="text", language="en",
+        source_id="guide", source_url=source_url,
+    )
+
+
+def _ready_manifest(monkeypatch) -> None:
+    monkeypatch.setattr(evidence_service, "load_index_manifest", lambda _: SimpleNamespace())
+    monkeypatch.setattr(evidence_service, "manifest_matches_runtime", lambda *args: True)
+    monkeypatch.setattr(evidence_service, "index_manifest_hash", lambda _: "manifest")
+    monkeypatch.setattr(evidence_service, "rewrite_query", lambda query, **_: query)
+    monkeypatch.setattr(evidence_service, "route_query", lambda query, **_: "treatment")
+
+
+def test_stage_rejects_missing_provenance(monkeypatch) -> None:
+    _ready_manifest(monkeypatch)
+    monkeypatch.setattr(evidence_service, "retrieve", lambda *args, **kwargs: [_chunk(source_url="")])
+
+    envelope = evidence_service.stage_evidence("Question", "all")
+
+    assert envelope.status == "invalid_provenance"
+    assert not envelope.chunks
+
+
+def test_stage_and_render_preserve_exact_evidence(monkeypatch) -> None:
+    _ready_manifest(monkeypatch)
+    monkeypatch.setattr(evidence_service, "retrieve", lambda *args, **kwargs: [_chunk()])
+
+    envelope = evidence_service.stage_evidence("Question", "all")
+    rendered = evidence_service.render_evidence(envelope)
+
+    assert envelope.is_ready
+    assert envelope_chunks_ids(envelope) == ["chunk-1"]
+    assert "Evidence" in rendered and "https://example.test/guide" in rendered
+
+
+def envelope_chunks_ids(envelope) -> list[str]:
+    return [chunk.chunk_id for chunk in evidence_service.envelope_chunks(envelope)]
