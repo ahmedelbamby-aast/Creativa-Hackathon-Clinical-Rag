@@ -10,9 +10,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test:
-        - CMD-SHELL
-        - pg_isready -U ${POSTGRES_USER:-creativa} -d ${POSTGRES_DB:-creativa_diabetes}
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-creativa} -d ${POSTGRES_DB:-creativa_diabetes}"]
       interval: 5s
       timeout: 5s
       retries: 12

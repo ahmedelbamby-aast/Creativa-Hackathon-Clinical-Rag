@@ -98,7 +98,8 @@
     .sidebar { display: grid; gap: 18px; }
     .panel { padding: 18px; }
     .panel h2 { margin: 0 0 12px; font-size: 1rem; }
-    .sources { color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+    .sources, .evidence { color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+    .evidence { max-height: 360px; overflow: auto; font-size: .86rem; }
     .examples { display: grid; gap: 10px; }
     .examples button { min-height: 52px; text-align: start; }
     details { margin-top: 14px; }
@@ -157,6 +158,10 @@
 
       <aside class="sidebar" aria-label="Sources and examples">
         <section class="card panel">
+          <h2>Retrieved evidence</h2>
+          <div id="evidence" class="evidence">Evidence will appear here before an answer is generated.</div>
+        </section>
+        <section class="card panel">
           <h2>Sources</h2>
           <div id="sources" class="sources">Sources will appear after your first question.</div>
           <details id="debug-wrap" hidden>
@@ -210,6 +215,14 @@
       $('feedback').textContent = message;
       $('feedback').className = `feedback${error ? ' error' : ''}`;
     }
+    function providerText(provider, model) {
+      return provider && model ? `Answer provider: ${provider} · ${model}` : 'Answer provider: checking…';
+    }
+    function renderEvidence(chunks) {
+      $('evidence').textContent = chunks.length
+        ? chunks.map((chunk, index) => `${index + 1}. ${chunk.document_name} · score ${Number(chunk.score).toFixed(3)}\nSection: ${chunk.section_title || 'Not specified'} · Page ${chunk.page_number}\nSource: ${chunk.source_url}\n\n${chunk.text}`).join('\n\n────────\n\n')
+        : 'No usable evidence was retrieved for this question.';
+    }
     async function checkStatus() {
       const status = $('status');
       try {
@@ -220,7 +233,7 @@
         state.configured = Boolean(health.generation_configured);
         status.className = `status ${state.ready && state.configured ? 'ready' : 'error'}`;
         status.lastElementChild.textContent = state.ready
-          ? `${ready.indexed_chunks} indexed passages · ${state.configured ? 'Answer generation ready' : 'Generation key required'}`
+          ? `${ready.indexed_chunks} indexed passages · ${state.configured ? providerText(health.configured_generation_provider, health.active_generation_model) : 'Generation key required'}`
           : 'Knowledge base unavailable';
         if (!state.configured) setFeedback('Answer generation needs its deployment credential before questions can be sent.', true);
       } catch (_) {
@@ -241,10 +254,34 @@
       setFeedback('Retrieving the most relevant guideline passages…');
       setBusy(true);
       try {
-        const response = await fetch('/api/chat', {
+        const retrieveResponse = await fetch('/api/retrieve', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message, category: $('category').value, history: priorHistory }),
+        });
+        const retrieved = await retrieveResponse.json();
+        if (!retrieveResponse.ok) throw new Error(retrieved.detail || 'The assistant could not retrieve evidence.');
+        renderEvidence(retrieved.chunks || []);
+        if (retrieved.status !== 'ready') {
+          const answer = retrieved.message || 'The available evidence is insufficient to answer this question safely.';
+          addMessage('assistant', answer);
+          state.history.push({ role: 'assistant', content: answer });
+          setFeedback('No answer was generated because usable evidence was unavailable.', true);
+          return;
+        }
+        setFeedback('Evidence retrieved. Generating only from the displayed passages…');
+        await new Promise(requestAnimationFrame);
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message,
+            category: $('category').value,
+            history: priorHistory,
+            namespace: retrieved.namespace,
+            index_manifest_hash: retrieved.index_manifest_hash,
+            chunk_ids: retrieved.chunks.map((chunk) => chunk.chunk_id),
+          }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'The assistant could not answer this question.');
@@ -253,7 +290,7 @@
         $('sources').textContent = data.citations || 'No sources were returned for this response.';
         $('debug').textContent = data.debug || '';
         $('debug-wrap').hidden = !data.debug;
-        setFeedback('Answer complete.');
+        setFeedback(`${data.generation_provider ? providerText(data.generation_provider, data.generation_model) : 'Answer complete.'}`);
       } catch (error) {
         addMessage('assistant', `I could not complete that request. ${error.message}`);
         setFeedback(`${error.message} Please try again.`, true);
@@ -266,6 +303,7 @@
       state.history = [];
       conversation.innerHTML = '<div class="empty">Ask a question to receive a grounded answer with document and page citations.</div>';
       $('sources').textContent = 'Sources will appear after your first question.';
+      $('evidence').textContent = 'Evidence will appear here before an answer is generated.';
       $('debug-wrap').hidden = true;
       setFeedback('Conversation cleared.');
       input.focus();

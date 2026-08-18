@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
-from app import rag_pipeline
+from app import generate_from_evidence, rag_pipeline
 from src.config import (
     CATEGORY_ALL,
     CATEGORY_NUTRITION,
@@ -17,6 +17,8 @@ from src.config import (
     config,
 )
 from src.memory import ConversationMemory
+from src.generator import generator
+from src.evidence_service import rehydrate_evidence, stage_evidence
 from src.vector_store import vector_store
 
 
@@ -58,6 +60,43 @@ class ChatResponse(BaseModel):
     answer: str
     citations: str
     debug: str = ""
+    generation_provider: str = ""
+    generation_model: str = ""
+
+
+class EvidenceItem(BaseModel):
+    chunk_id: str
+    text: str
+    score: float
+    document_name: str
+    page_number: int
+    section_title: str
+    source_id: str
+    source_url: str
+
+
+class RetrieveResponse(BaseModel):
+    status: str
+    message: str = ""
+    namespace: str
+    index_manifest_hash: str = ""
+    chunks: list[EvidenceItem] = Field(default_factory=list)
+
+
+class GenerateRequest(ChatRequest):
+    namespace: str
+    index_manifest_hash: str
+    chunk_ids: list[str] = Field(min_length=1, max_length=5)
+
+
+def _build_memory(history: list[ChatMessage], category: str) -> ConversationMemory:
+    memory = ConversationMemory()
+    for message in history[-(config.max_memory_turns * 2) :]:
+        if message.role == "user":
+            memory.add_user(message.content, category=category)
+        else:
+            memory.add_assistant(message.content)
+    return memory
 
 
 @api.get("/api/health", tags=["operations"])
@@ -69,6 +108,9 @@ def health() -> dict[str, object]:
         "embedding_provider": config.embedding_provider,
         "embedding_namespace": config.resolved_embedding_namespace,
         "generation_provider": config.generation_provider,
+        "configured_generation_provider": config.configured_generation_provider_label,
+        "active_generation_provider": generator.active_provider,
+        "active_generation_model": generator.active_model,
         "database_configured": bool(config.database_url),
         "gemini_configured": bool(config.gemini_api_key),
         "generation_configured": config.generation_configured,
@@ -111,12 +153,7 @@ def chat_endpoint(request: ChatRequest) -> ChatResponse:
             detail="Answer generation is not configured for this deployment",
         )
 
-    memory = ConversationMemory()
-    for message in request.history[-(config.max_memory_turns * 2) :]:
-        if message.role == "user":
-            memory.add_user(message.content, category=category)
-        else:
-            memory.add_assistant(message.content)
+    memory = _build_memory(request.history, category)
 
     try:
         answer, citations, debug = rag_pipeline(request.message, category, memory)
@@ -127,7 +164,69 @@ def chat_endpoint(request: ChatRequest) -> ChatResponse:
             detail="The assistant is temporarily unavailable. Please try again.",
         ) from exc
 
-    return ChatResponse(answer=answer, citations=citations, debug=debug)
+    return ChatResponse(
+        answer=answer,
+        citations=citations,
+        debug=debug,
+        generation_provider=generator.active_provider,
+        generation_model=generator.active_model,
+    )
+
+
+@api.post("/api/retrieve", response_model=RetrieveResponse, tags=["rag"])
+def retrieve_endpoint(request: ChatRequest) -> RetrieveResponse:
+    """Stage and expose evidence before the browser requests answer generation."""
+    category = request.category.strip().lower()
+    if category not in VALID_CATEGORIES:
+        raise HTTPException(status_code=422, detail="Unsupported knowledge category")
+    envelope = stage_evidence(request.message, category, _build_memory(request.history, category).get_history())
+    return RetrieveResponse(
+        status=envelope.status,
+        message=envelope.user_message,
+        namespace=envelope.namespace,
+        index_manifest_hash=envelope.index_manifest_hash,
+        chunks=[
+            EvidenceItem(
+                chunk_id=item.chunk_id,
+                text=item.text,
+                score=item.score,
+                document_name=item.document_name,
+                page_number=item.page_number,
+                section_title=item.section_title,
+                source_id=item.source_id,
+                source_url=item.source_url,
+            )
+            for item in envelope.chunks
+        ],
+    )
+
+
+@api.post("/api/generate", response_model=ChatResponse, tags=["rag"])
+def generate_endpoint(request: GenerateRequest) -> ChatResponse:
+    """Generate from only the exact evidence IDs returned by /api/retrieve."""
+    category = request.category.strip().lower()
+    if category not in VALID_CATEGORIES:
+        raise HTTPException(status_code=422, detail="Unsupported knowledge category")
+    if not config.generation_configured:
+        raise HTTPException(status_code=503, detail="Answer generation is not configured for this deployment")
+    envelope = rehydrate_evidence(
+        request.message,
+        category,
+        request.namespace,
+        request.index_manifest_hash,
+        request.chunk_ids,
+    )
+    if not envelope.is_ready:
+        return ChatResponse(answer=envelope.user_message, citations="", debug="")
+    memory = _build_memory(request.history, category)
+    answer, citations, debug = generate_from_evidence(envelope, memory)
+    return ChatResponse(
+        answer=answer,
+        citations=citations,
+        debug=debug,
+        generation_provider=generator.active_provider,
+        generation_model=generator.active_model,
+    )
 
 
 @api.get("/", response_class=HTMLResponse, include_in_schema=False)

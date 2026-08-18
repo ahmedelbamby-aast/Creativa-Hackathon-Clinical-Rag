@@ -20,6 +20,7 @@ from src.ingestion.parser import parse_document, propagate_section_titles
 from src.ingestion.chunker_adapter import chunk_elements
 from src.ingestion.core.language_detector import detect_document_language
 from src.embeddings import embedder
+from src.source_catalog import enrich_chunk_records
 from src.vector_store import vector_store
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,7 @@ def ingest_document(
         "pages": 0,
         "elements": 0,
         "chunks": 0,
+        "token_count": 0,
         "categories": {},
         "elapsed_s": 0.0,
         "skipped": False,
@@ -94,7 +96,13 @@ def ingest_document(
         if not chunk_records:
             raise ValueError(f"No valid chunks produced from {file_name}")
 
+        enrich_chunk_records(chunk_records)
+
         stats["chunks"] = len(chunk_records)
+        stats["token_count"] = sum(
+            record.get("word_count", len(record.get("text", "").split()))
+            for record in chunk_records
+        )
         cat_counts = {}
         for r in chunk_records:
             cat = r.get("category", "unknown")
@@ -180,6 +188,7 @@ def print_ingestion_summary(all_stats: list[dict]) -> None:
     failed = [s for s in all_stats if s["error"]]
     total_pages = sum(s["pages"] for s in successful)
     total_chunks = sum(s["chunks"] for s in successful)
+    total_tokens = sum(s.get("token_count", 0) for s in successful)
 
     # Aggregate category counts
     cat_totals: dict[str, int] = {}
@@ -198,6 +207,7 @@ def print_ingestion_summary(all_stats: list[dict]) -> None:
     print(f"  Failed              : {len(failed)}")
     print(f"  Pages processed     : {total_pages}")
     print(f"  Chunks created      : {total_chunks}")
+    print(f"  Reference tokens    : {total_tokens}")
     print()
     print("  Chunk distribution (by category label):")
     for cat, count in sorted(cat_totals.items()):

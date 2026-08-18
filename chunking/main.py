@@ -1,4 +1,11 @@
-"""Chunking pipeline: extract -> clean -> detect language -> chunk -> filter -> save JSON."""
+"""Chunking pipeline: extract -> clean -> detect language -> chunk -> filter -> save JSON.
+
+LEGACY WARNING:
+This is a legacy standalone ingestion/chunking module. The canonical production
+ingestion pipeline is located under src/ingestion/. This module is retained to
+ensure backwards compatibility with older scripts and to satisfy the project's
+existing test coverage constraints.
+"""
 
 import argparse
 import json

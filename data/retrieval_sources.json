@@ -1,0 +1,26 @@
+{
+  "sources": [
+    {
+      "source_id": "idf_diabetes_atlas_2025",
+      "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+      "source_url": "https://diabetesatlas.org/resources/idf-diabetes-atlas-2025/",
+      "publisher": "International Diabetes Federation",
+      "publication_date": "2025",
+      "license_note": "Copyright and reuse terms are stated by the publisher; use is limited to this evaluation corpus pending formal Phase 1 certification.",
+      "reuse_status": "evaluation-only-unverified",
+      "checksum": "81d01e73d486adbe7d4f14752644e109ed43151738e3e852303ebd3967a81d0d",
+      "enabled": true
+    },
+    {
+      "source_id": "who_diabetes_pregnancy_2025",
+      "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+      "source_url": "https://www.who.int/publications/i/item/9789240117044",
+      "publisher": "World Health Organization",
+      "publication_date": "2025-11-14",
+      "license_note": "CC BY-NC-SA 3.0 IGO; attribution and non-commercial terms apply.",
+      "reuse_status": "evaluation-only-unverified",
+      "checksum": "fb0dcf418df0757764bd6fd2d142c8d7e2690d6659ef67d049db39ac4537c606",
+      "enabled": true
+    }
+  ]
+}

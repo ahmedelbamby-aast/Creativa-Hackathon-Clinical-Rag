@@ -50,6 +50,13 @@ def build_chunk_record(
     category: str,
     language: str,
     global_index: int,
+    # Source-level provenance fields (optional; default empty for backward compatibility)
+    source_id: str = "",
+    source_url: str = "",
+    publisher: str = "",
+    publication_date: str = "",
+    source_checksum: str = "",
+    chunk_profile: str = "",
 ) -> ChunkRecord:
     """Build a metadata-rich chunk record ready for pgvector storage."""
     chunk_id = _make_chunk_id(document_name, page_number, global_index)
@@ -66,6 +73,13 @@ def build_chunk_record(
         "char_count": len(chunk_text),
         "word_count": len(chunk_text.split()),
         "quality_score": round(quality_score, 4),
+        # Source-level provenance metadata
+        "source_id": source_id,
+        "source_url": source_url,
+        "publisher": publisher,
+        "publication_date": publication_date,
+        "source_checksum": source_checksum,
+        "chunk_profile": chunk_profile,
     }
 
 
@@ -100,8 +114,9 @@ def chunk_elements(
     Returns:
         List of ChunkRecord dicts with full metadata.
     """
-    chunk_size = chunk_size or config.chunk_size
-    chunk_overlap = chunk_overlap or config.chunk_overlap
+    profile_size, profile_overlap = config.selected_chunk_profile
+    chunk_size = chunk_size or profile_size
+    chunk_overlap = chunk_overlap if chunk_overlap is not None else profile_overlap
     min_chunk_size = min_chunk_size or config.min_chunk_size
     min_quality_score = min_quality_score if min_quality_score is not None else config.min_quality_score
 

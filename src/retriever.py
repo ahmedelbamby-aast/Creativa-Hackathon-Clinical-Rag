@@ -18,6 +18,10 @@ from src.vector_store import vector_store
 logger = logging.getLogger(__name__)
 
 
+class RetrievalProviderError(RuntimeError):
+    """Embedding or vector-provider error that must not be mistaken for no evidence."""
+
+
 @dataclass
 class RetrievedChunk:
     """A single retrieved chunk with full provenance metadata."""
@@ -32,6 +36,13 @@ class RetrievedChunk:
     category: str
     content_type: str
     language: str
+    # Source-level provenance fields (populated when ingested with manifest metadata)
+    source_id: str = ""
+    source_url: str = ""
+    publisher: str = ""
+    publication_date: str = ""
+    source_checksum: str = ""
+    chunk_profile: str = ""
 
 
 def retrieve(
@@ -64,8 +75,8 @@ def retrieve(
     try:
         query_vector = embedder.embed_query(query.strip())
     except Exception as e:
-        logger.error("Failed to embed query: %s", e)
-        return []
+        logger.error("Failed to embed retrieval query: type=%s", type(e).__name__)
+        raise RetrievalProviderError("query_embedding_failed") from e
 
     # Query vector store
     raw_results = vector_store.query(
@@ -102,6 +113,12 @@ def retrieve(
             category=meta.get("category", ""),
             content_type=meta.get("content_type", "text"),
             language=meta.get("language", "en"),
+            source_id=meta.get("source_id", ""),
+            source_url=meta.get("source_url", ""),
+            publisher=meta.get("publisher", ""),
+            publication_date=meta.get("publication_date", ""),
+            source_checksum=meta.get("source_checksum", ""),
+            chunk_profile=meta.get("chunk_profile", ""),
         )
         chunks.append(chunk)
 

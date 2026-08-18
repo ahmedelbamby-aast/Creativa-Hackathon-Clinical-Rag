@@ -21,6 +21,8 @@ def test_deployment_template_fits_free_embedding_quota_profile() -> None:
     assert "CHUNK_SIZE=3000" in template
     assert "CHUNK_OVERLAP=300" in template
     assert "ONLINE_EMBEDDING_RPM=90" in template
+    assert "ACTIVE_INDEX_NAMESPACE=phase2_SELECTED_AFTER_SIGNOFF" in template
+    assert "RETRIEVAL_PROFILE=large" in template
     assert "OCR_LANGUAGE=eng" in template
 
 
@@ -53,3 +55,18 @@ def test_extractive_generation_requires_no_runtime_credential() -> None:
     config.validate()
 
     assert config.generation_configured is True
+
+
+def test_auto_generation_accepts_a_configured_groq_fallback() -> None:
+    config = AppConfig(
+        generation_provider="auto",
+        generation_primary_provider="gemini",
+        generation_fallback_provider="groq",
+        gemini_api_key="",
+        groq_api_key="configured",
+    )
+
+    config.validate()
+
+    assert config.generation_configured is True
+    assert config.configured_generation_provider_label == "Gemini → Groq (automatic)"

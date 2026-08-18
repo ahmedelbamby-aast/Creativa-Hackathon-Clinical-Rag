@@ -10,6 +10,7 @@ Run with:
     python app.py
 """
 
+import html
 import logging
 import re
 import sys
@@ -26,11 +27,8 @@ import gradio as gr
 
 from src.config import config, CATEGORY_ALL, CATEGORY_TREATMENT, CATEGORY_PREVENTION, CATEGORY_NUTRITION
 from src.memory import ConversationMemory
-from src.retriever import retrieve, is_retrieval_sufficient
-from src.router import route_query
-from src.rewriter import rewrite_query
-from src.safety import classify_safety, SafetyLevel, get_disclaimer, get_emergency_response
-from src.prompts import build_user_prompt, NO_RESULTS_RESPONSE_EN, NO_RESULTS_RESPONSE_AR
+from src.safety import classify_safety, get_disclaimer
+from src.prompts import build_user_prompt
 from src.citations import build_citation_list, build_debug_info
 from src.generator import generator
 from src.extractive import build_extractive_answer
@@ -41,6 +39,9 @@ from src.observability import (
     record_trace,
     run_retrieval_benchmark,
 )
+from src.evidence_service import envelope_chunks, render_evidence, stage_evidence
+from src.gemini_errors import classify_gemini_error, gemini_user_message
+from src.retrieval_contracts import RetrievalEnvelope
 
 logging.basicConfig(
     level=logging.DEBUG if config.debug else logging.INFO,
@@ -78,89 +79,75 @@ def rag_pipeline(
     if not query:
         return "Please enter a question.", "", ""
 
-    is_ar = _is_arabic(query)
     trace = RequestTrace(query=query[:200], requested_category=category)
-
-    # Step 1: Safety check
-    with trace.stage("safety"):
-        safety_level = classify_safety(query)
-
-    if safety_level == SafetyLevel.EMERGENCY:
-        logger.warning("Emergency query detected: %r", query[:80])
-        response = get_emergency_response(is_arabic=is_ar)
+    history = memory.get_history()
+    with trace.stage("retrieval"):
+        envelope = stage_evidence(query, category, history)
+    trace.routed_category = envelope.routed_category
+    trace.retrieval_count = len(envelope.chunks)
+    trace.best_score = round(envelope.chunks[0].score, 4) if envelope.chunks else 0.0
+    if not envelope.is_ready:
+        response = envelope.user_message
         memory.add_user(query, category=category)
         memory.add_assistant(response)
-        trace.finish("emergency")
+        trace.finish(envelope.status)
         record_trace(trace)
-        return response, "", ""
+        return response, "", render_evidence(envelope)
+    answer, citations, debug = generate_from_evidence(envelope, memory, trace)
+    memory.add_user(query, category=category)
+    memory.add_assistant(answer)
+    return answer, citations, debug
 
-    # Step 2: Rewrite query for better retrieval
-    history = memory.get_history()
-    with trace.stage("rewrite"):
-        rewritten = rewrite_query(query, conversation_history=history)
 
-    # Step 3: Route to category
-    with trace.stage("route"):
-        routed_category = route_query(rewritten, user_selected_category=category)
-    trace.routed_category = routed_category
-
-    # Step 4: Retrieve
-    with trace.stage("retrieval"):
-        chunks = retrieve(rewritten, category=routed_category, top_k=config.top_k)
-    trace.retrieval_count = len(chunks)
-    trace.best_score = round(chunks[0].score, 4) if chunks else 0.0
-
-    # Step 5: Check sufficiency
-    if not is_retrieval_sufficient(chunks):
-        logger.info("Insufficient retrieval for query: %r", query[:80])
-        no_info = NO_RESULTS_RESPONSE_AR if is_ar else NO_RESULTS_RESPONSE_EN
-        memory.add_user(query, category=category)
-        memory.add_assistant(no_info)
-        trace.finish("insufficient_retrieval")
-        record_trace(trace)
-        return no_info, "", ""
-
-    # Step 6: Build citations
+def generate_from_evidence(
+    envelope: RetrievalEnvelope,
+    memory: ConversationMemory,
+    trace: RequestTrace | None = None,
+) -> tuple[str, str, str]:
+    """Generate strictly from the previously displayed, immutable evidence envelope."""
+    if not envelope.is_ready:
+        return envelope.user_message, "", render_evidence(envelope)
+    query = envelope.original_query
+    is_ar = _is_arabic(query)
+    chunks = envelope_chunks(envelope)
     citations = build_citation_list(chunks, is_arabic=is_ar)
+    safety_level = classify_safety(query)
 
     # Step 7: Generate answer
     try:
-        with trace.stage("generation"):
+        stage = trace.stage("generation") if trace else None
+        if stage:
+            stage.__enter__()
+        try:
             if config.generation_provider == "extractive":
                 answer = build_extractive_answer(query, chunks, is_arabic=is_ar)
             else:
-                prompt = build_user_prompt(query, chunks, conversation_history=history)
+                prompt = build_user_prompt(query, chunks, conversation_history=memory.get_history())
                 answer = generator.generate(prompt)
+        finally:
+            if stage:
+                stage.__exit__(None, None, None)
     except RuntimeError as e:
-        if "GEMINI_API_KEY" in str(e):
-            answer = (
-                "⚠️ **Configuration Error**: Gemini API key is not set.\n\n"
-                "Please configure `GEMINI_API_KEY` in `.env.development` or the deployment environment."
-            )
-        else:
-            answer = f"⚠️ **Generation error**: {e}"
-        trace.error = str(e)[:300]
+        answer = gemini_user_message(e, is_arabic=is_ar, scope="generation")
+        if trace:
+            trace.error = f"gemini:{classify_gemini_error(e).code}"
     except Exception as e:
         logger.error("Generation failed: %s", e)
-        answer = f"⚠️ **An error occurred during generation**: {e}"
-        trace.error = str(e)[:300]
+        answer = gemini_user_message(e, is_arabic=is_ar, scope="generation")
+        if trace:
+            trace.error = f"gemini:{classify_gemini_error(e).code}"
 
     # Step 8: Append safety disclaimer
     disclaimer = get_disclaimer(safety_level, is_arabic=is_ar)
     if disclaimer:
         answer += disclaimer
 
-    # Step 9: Update memory
-    memory.add_user(query, category=category)
-    memory.add_assistant(answer)
-
-    # Step 10: Debug info
-    debug = ""
+    debug = render_evidence(envelope)
     if config.debug:
-        debug = build_debug_info(query, rewritten, routed_category, chunks)
-
-    trace.finish("generation_error" if trace.error else "ok", trace.error)
-    record_trace(trace)
+        debug += "\n\n" + build_debug_info(query, envelope.rewritten_query, envelope.routed_category, chunks)
+    if trace:
+        trace.finish("generation_error" if trace.error else "ok", trace.error)
+        record_trace(trace)
     return answer, citations, debug
 
 
@@ -202,6 +189,44 @@ def chat(
     return chat_history, citations, debug, "", memory
 
 
+def retrieve_for_ui(
+    message: str,
+    chat_history: list[dict],
+    category: str,
+    memory: ConversationMemory,
+) -> tuple[list[dict], str, RetrievalEnvelope | None, str]:
+    """First UI event: render evidence before the chained generation event starts."""
+    if not message.strip():
+        return chat_history, "", None, ""
+    envelope = stage_evidence(message, category, memory.get_history())
+    return (
+        chat_history + [{"role": "user", "content": message}],
+        render_evidence(envelope),
+        envelope,
+        "",
+    )
+
+
+def generate_for_ui(
+    chat_history: list[dict],
+    envelope: RetrievalEnvelope | None,
+    memory: ConversationMemory,
+) -> tuple[list[dict], str, str, ConversationMemory, str]:
+    """Second UI event: answer using only the envelope emitted by retrieve_for_ui."""
+    if envelope is None:
+        return chat_history, "", "", memory, generation_provider_status()
+    answer, citations, debug = generate_from_evidence(envelope, memory)
+    memory.add_user(envelope.original_query, category=envelope.requested_category)
+    memory.add_assistant(answer)
+    return (
+        chat_history + [{"role": "assistant", "content": answer}],
+        citations,
+        debug,
+        memory,
+        generation_provider_status(),
+    )
+
+
 def clear_chat(memory: ConversationMemory) -> tuple:
     memory.clear()
     return [], "*Sources will appear here after your first question.*", "", "", memory
@@ -239,12 +264,23 @@ def knowledge_status_html() -> str:
     except Exception:
         state = "offline"
         label = "Knowledge base unavailable"
-    model_label = config.gemini_model.removeprefix("gemini-")
+    provider_label = html.escape(config.configured_generation_provider_label)
+    model_label = html.escape(generator.active_model)
     return (
         f'<div id="knowledge-status" class="status-{state}" role="status">'
         f'<span class="status-dot" aria-hidden="true"></span>{label}'
-        f'<span class="status-meta">Local multilingual retrieval · Gemini {model_label}</span>'
+        f'<span class="status-meta">Local multilingual retrieval · Answer provider: {provider_label} · {model_label}</span>'
         "</div>"
+    )
+
+
+def generation_provider_status() -> str:
+    """Return the provider and model that produced (or will produce) the answer."""
+    if config.generation_provider == "extractive":
+        return "**Answer provider:** Evidence excerpts (no LLM call)"
+    return (
+        f"**Answer provider:** {config.configured_generation_provider_label} "
+        f"· `{generator.active_model}`"
     )
 
 CUSTOM_CSS = """
@@ -536,6 +572,7 @@ def build_ui() -> gr.Blocks:
 
         # Session state
         memory_state = gr.State(value=create_memory)
+        evidence_state = gr.State(value=None)
 
         # ── Header ─────────────────────────────────────────────────────
         with gr.Column(elem_id="header-box"):
@@ -562,6 +599,7 @@ def build_ui() -> gr.Blocks:
             '<span class="status-dot" aria-hidden="true"></span>Checking knowledge base…'
             '</div>'
         )
+        provider_output = gr.Markdown(value=generation_provider_status(), elem_id="provider-status")
         demo.load(
             fn=knowledge_status_html,
             outputs=knowledge_status_output,
@@ -610,7 +648,12 @@ def build_ui() -> gr.Blocks:
                 send_btn = gr.Button("Send question", elem_id="send-btn", variant="primary")
                 clear_btn = gr.Button("Clear chat", elem_id="clear-btn", variant="secondary")
 
-        # ── Citations Panel ─────────────────────────────────────────────
+        # ── Evidence and citations panels ───────────────────────────────
+        gr.HTML('<div class="section-label" style="margin-top:16px">Retrieved evidence</div>')
+        evidence_output = gr.Markdown(
+            value="*Evidence will appear here before an answer is generated.*",
+            elem_id="evidence-box",
+        )
         gr.HTML('<div class="section-label" style="margin-top:16px">Sources</div>')
         citations_output = gr.Markdown(
             value="*Sources will appear here after your first question.*",
@@ -691,35 +734,52 @@ def build_ui() -> gr.Blocks:
         def _get_category_value(display_label: str) -> str:
             return CATEGORY_CHOICES.get(display_label, CATEGORY_ALL)
 
-        def on_send(message, chat_hist, cat_display, mem):
+        def on_retrieve(message, chat_hist, cat_display, mem):
             cat = _get_category_value(cat_display)
-            updated_hist, cits, dbg, empty_msg, updated_mem = chat(
-                message, chat_hist, cat, mem
-            )
-            return updated_hist, cits, dbg, empty_msg, updated_mem
+            return retrieve_for_ui(message, chat_hist, cat, mem)
 
         def on_clear(mem):
             mem.clear()
-            return [], "*Sources will appear here after your first question.*", "", "", mem
+            return (
+                [],
+                "*Evidence will appear here before an answer is generated.*",
+                "*Sources will appear here after your first question.*",
+                "",
+                "",
+                generation_provider_status(),
+                mem,
+            )
 
-        send_btn.click(
-            fn=on_send,
+        send_event = send_btn.click(
+            fn=on_retrieve,
             inputs=[query_input, chatbot, category_input, memory_state],
-            outputs=[chatbot, citations_output, debug_output, query_input, memory_state],
-            queue=False,
+            outputs=[chatbot, evidence_output, evidence_state, query_input],
+            queue=True,
+        )
+        send_event.success(
+            fn=generate_for_ui,
+            inputs=[chatbot, evidence_state, memory_state],
+            outputs=[chatbot, citations_output, debug_output, memory_state, provider_output],
+            queue=True,
         )
 
-        query_input.submit(
-            fn=on_send,
+        submit_event = query_input.submit(
+            fn=on_retrieve,
             inputs=[query_input, chatbot, category_input, memory_state],
-            outputs=[chatbot, citations_output, debug_output, query_input, memory_state],
-            queue=False,
+            outputs=[chatbot, evidence_output, evidence_state, query_input],
+            queue=True,
+        )
+        submit_event.success(
+            fn=generate_for_ui,
+            inputs=[chatbot, evidence_state, memory_state],
+            outputs=[chatbot, citations_output, debug_output, memory_state, provider_output],
+            queue=True,
         )
 
         clear_btn.click(
             fn=on_clear,
             inputs=[memory_state],
-            outputs=[chatbot, citations_output, debug_output, query_input, memory_state],
+            outputs=[chatbot, evidence_output, citations_output, debug_output, query_input, provider_output, memory_state],
             queue=False,
         )
 

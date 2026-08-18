@@ -368,9 +368,12 @@ uv run python scripts/evaluate.py --category nutrition
 | `EMBEDDING_DIMENSION` | `384` | Shared pgvector dimension |
 | `EMBEDDING_NAMESPACE` | provider-derived | Optional database partition namespace |
 | `GEMINI_API_KEY` | empty | Hosted embeddings and optional direct local generation |
-| `GENERATION_PROVIDER` | `gemini` locally / `extractive` deployed | Generation strategy |
+| `GENERATION_PROVIDER` | `auto` | `gemini`, `groq`, `vercel_gateway`, `extractive`, or automatic routing |
+| `GENERATION_PRIMARY_PROVIDER` | `gemini` | First provider when automatic routing is enabled |
+| `GENERATION_FALLBACK_PROVIDER` | blank | Fallback provider when automatic routing is enabled |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Optional direct generation model |
-| `GENERATION_PROVIDER` | `gemini` | `gemini` locally or `vercel_gateway` in production |
+| `GROQ_API_KEY` | empty | Groq generation credential |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` | Groq OpenAI-compatible generation model |
 | `AI_GATEWAY_MODEL` | `google/gemini-2.5-flash` | Vercel AI Gateway production model |
 | `ONLINE_EMBEDDING_BATCH_SIZE` | `16` | Maximum documents per Gemini embedding request |
 | `ONLINE_EMBEDDING_RPM` | `90` | Rolling embedded-item cap with free-tier headroom |
@@ -399,7 +402,7 @@ flowchart LR
     browser["Browser"]
     vercel["Vercel Hobby<br/>FastAPI + static bilingual client"]
     queryEmbedding["Gemini query embedding"]
-    generation["Card-free extractive answer<br/>optional hosted generation"]
+    generation["Gemini answer generation<br/>Groq automatic fallback"]
 
     corpus --> admin --> parsing --> documentEmbeddings --> neon
     browser --> vercel --> queryEmbedding --> neon
@@ -407,12 +410,11 @@ flowchart LR
 ```
 
 Vercel uses `backend/server.py`, Fluid Compute, the Frankfurt function region,
-Gemini embeddings, deterministic extractive answers, and a pooled Neon
-connection. Browser-owned bounded history keeps `/api/chat` stateless. Hosted
-generation remains optional because the free Gateway currently requires card
-verification and this Google project has zero text-generation quota. The raw
-corpus and local Torch runtime are omitted only from the serverless function
-bundle. See
+Gemini embeddings, Gemini primary generation with a Groq fallback, and a pooled
+Neon connection. Browser-owned bounded history keeps `/api/chat` stateless. The
+active answer provider and model are displayed in the frontend and returned by
+the API. The raw corpus and local Torch runtime are omitted only from the
+serverless function bundle. See
 [DEPLOYMENT_VERCEL.md](DEPLOYMENT_VERCEL.md) for provisioning, environment,
 ingestion, deployment, and rollback instructions.
 

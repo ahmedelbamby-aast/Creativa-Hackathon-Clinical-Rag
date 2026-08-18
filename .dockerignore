@@ -1,3 +1,4 @@
+# Secrets and environment files never enter image layers.
 .git
 .github
 .venv
@@ -12,3 +13,5 @@ chunking/output
 .env.*
 !.env.development.example
 !.env.deployment.example
+.cache
+models

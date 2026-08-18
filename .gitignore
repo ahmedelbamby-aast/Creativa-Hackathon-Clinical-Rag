@@ -1,5 +1,8 @@
 # Environment
 .env
+/.env.development
+/.env.deployment
+/.vercel/
 *.env.local
 .env.*
 !.env.development.example
