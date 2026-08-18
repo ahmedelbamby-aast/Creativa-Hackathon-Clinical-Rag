@@ -153,7 +153,14 @@ def require_complete_labels(rankings: dict[str, list[EvidenceChunk]], labels: It
         if lookup.get((case_id, rank), "unjudged") == "unjudged"
     ]
     if missing:
-        raise ValueError("unjudged top-five relevance labels: " + ", ".join(missing))
+        raise ValueError("unjudged top-five relevance labels: " + _preview_items(missing))
+
+
+def _preview_items(items: list[str], limit: int = 10) -> str:
+    """Keep CLI failure reports readable while preserving details in their CSV artifact."""
+    preview = ", ".join(items[:limit])
+    remaining = len(items) - limit
+    return preview + (f" … and {remaining} more" if remaining > 0 else "")
 
 
 def require_cross_review(labels: Iterable[dict]) -> None:
@@ -174,7 +181,7 @@ def require_cross_review(labels: Iterable[dict]) -> None:
         ):
             incomplete.append(f"{label.get('case_id')}#{label.get('rank')}")
     if incomplete:
-        raise ValueError("unresolved cross-review labels: " + ", ".join(incomplete))
+        raise ValueError("unresolved cross-review labels: " + _preview_items(incomplete))
 
 
 def calculate_metrics(
