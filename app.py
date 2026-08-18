@@ -126,18 +126,20 @@ def generate_from_evidence(
             if stage:
                 stage.__exit__(None, None, None)
     except RuntimeError as e:
-        if "GEMINI_API_KEY" in str(e):
-            answer = (
-                "⚠️ **Configuration Error**: Gemini API key is not set.\n\n"
-                "Please configure `GEMINI_API_KEY` in `.env.development` or the deployment environment."
-            )
-        else:
-            answer = f"⚠️ **Generation error**: {e}"
+        answer = (
+            "أعتذر، خدمة الإجابة غير متاحة حالياً. يرجى المحاولة لاحقاً."
+            if is_ar
+            else "I’m sorry, but the answer service is temporarily unavailable. Please try again later."
+        )
         if trace:
             trace.error = str(e)[:300]
     except Exception as e:
         logger.error("Generation failed: %s", e)
-        answer = f"⚠️ **An error occurred during generation**: {e}"
+        answer = (
+            "أعتذر، خدمة الإجابة غير متاحة حالياً. يرجى المحاولة لاحقاً."
+            if is_ar
+            else "I’m sorry, but the answer service is temporarily unavailable. Please try again later."
+        )
         if trace:
             trace.error = str(e)[:300]
 

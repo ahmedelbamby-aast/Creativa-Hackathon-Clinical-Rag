@@ -43,7 +43,8 @@ def test_generation_error_keeps_retrieved_citations(monkeypatch):
         "How can complications be prevented?", "prevention", ConversationMemory()
     )
 
-    assert "Configuration Error" in answer
+    assert "temporarily unavailable" in answer
+    assert "GEMINI_API_KEY" not in answer
     assert "guideline" in citations
     assert "Page 4" in citations
     assert traces[0]["status"] == "generation_error"
