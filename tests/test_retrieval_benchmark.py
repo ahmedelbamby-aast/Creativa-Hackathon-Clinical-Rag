@@ -12,7 +12,7 @@ from src.retrieval_benchmark import (
     select_candidate,
 )
 from src.retrieval_contracts import EvidenceChunk, RetrievalCase
-from scripts.benchmark_retrieval import experiment_namespace
+from scripts.benchmark_retrieval import FIELDNAMES, experiment_namespace, finalize
 
 
 def _chunk(chunk_id: str = "chunk-1") -> EvidenceChunk:
@@ -134,3 +134,18 @@ def test_cross_review_requires_matching_named_reviewers() -> None:
 def test_benchmark_namespaces_are_provider_and_profile_isolated() -> None:
     assert experiment_namespace("small", "local") == "phase2_small_local_384"
     assert experiment_namespace("small", "gemini") == "phase2_small_gemini_384"
+
+
+def test_finalize_persists_failed_report_for_unresolved_review(tmp_path) -> None:
+    import csv
+    import json
+
+    with (tmp_path / "review-labels.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=FIELDNAMES)
+        writer.writeheader()
+        writer.writerow({"case_id": "case", "rank": 1, "relevance": "unjudged"})
+
+    assert finalize(tmp_path) == 1
+    result = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
+    assert result["selection"]["accepted"] is False
+    assert "cross-review" in result["selection"]["error"]

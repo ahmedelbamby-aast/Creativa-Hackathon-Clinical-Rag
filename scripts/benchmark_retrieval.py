@@ -193,11 +193,33 @@ def _read_labels(path: Path) -> list[dict]:
         return list(csv.DictReader(handle))
 
 
+def _write_failure_report(run_dir: Path, reason: str) -> int:
+    """Persist a machine- and human-readable failed gate result."""
+    output = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "results": [],
+        "selection": {"accepted": False, "error": reason},
+    }
+    (run_dir / "results.json").write_text(
+        json.dumps(output, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    (run_dir / "summary.md").write_text(
+        "# Phase 2 Retrieval Benchmark\n\n"
+        f"Run: `{run_dir.name}`\n\n"
+        f"**FAILED:** {reason}\n",
+        encoding="utf-8",
+    )
+    return 1
+
+
 def finalize(run_dir: Path) -> int:
     """Calculate results after cross-review and enforce Phase 2 acceptance gates."""
     cases = load_retrieval_cases()
     labels = _read_labels(run_dir / "review-labels.csv")
-    require_cross_review(labels)
+    try:
+        require_cross_review(labels)
+    except ValueError as error:
+        return _write_failure_report(run_dir, str(error))
     by_run: dict[str, list[dict]] = {}
     for label in labels:
         by_run.setdefault(label["run_id"], []).append(label)
