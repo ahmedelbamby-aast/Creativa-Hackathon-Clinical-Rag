@@ -77,11 +77,47 @@ def _is_usable(sentence: str) -> bool:
         return False
     if not sentence.rstrip().endswith((".", "!", "?", "؟", ")", "]", '"', "”")):
         return False
+    first_alpha = next((character for character in sentence if character.isalpha()), "")
+    if first_alpha.isascii() and not first_alpha.isupper():
+        return False
     digit_count = sum(character.isdigit() for character in sentence)
     return digit_count / max(len(sentence), 1) < 0.18
 
 
+def _table_excerpt(text: str, terms: set[str]) -> str:
+    if "|" not in text:
+        return ""
+    cells = []
+    for cell in text.split("|"):
+        cleaned = _clean_sentence(cell)
+        if not cleaned or re.fullmatch(r"[-: ]+", cleaned):
+            continue
+        if cleaned.casefold() in {"subdomain", "indicator"}:
+            continue
+        cells.append(cleaned)
+    if not cells:
+        return ""
+
+    def score(item: tuple[int, str]) -> tuple[int, int]:
+        index, cell = item
+        words = {token.lower() for token in _TOKEN.findall(cell)}
+        return len(words & terms), -index
+
+    best_index, heading = max(enumerate(cells), key=score)
+    if not ({token.lower() for token in _TOKEN.findall(heading)} & terms):
+        return ""
+    detail = cells[best_index + 1] if best_index + 1 < len(cells) else ""
+    detail = re.sub(r"\b\d+\.\s*", "", detail)
+    detail = re.sub(r"\s+(?=[A-Z][a-z]+(?:\s+[a-z]+){0,3}\s+(?:prevalence|control)\b)", "; ", detail)
+    excerpt = f"{heading}: {detail}" if detail else heading
+    excerpt = excerpt.rstrip(" ;:,.!") + "."
+    return _trim_excerpt(excerpt) if len(excerpt) >= 70 else ""
+
+
 def _best_excerpt(text: str, terms: set[str]) -> str:
+    table_excerpt = _table_excerpt(text, terms)
+    if table_excerpt:
+        return table_excerpt
     sentences = [_clean_sentence(part) for part in _BOUNDARY.split(text)]
     candidates = [sentence for sentence in sentences if _is_usable(sentence)]
     if not candidates:

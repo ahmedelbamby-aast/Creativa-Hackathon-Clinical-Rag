@@ -81,17 +81,15 @@ def test_extractive_answer_skips_fragments_and_uses_later_passage() -> None:
     assert "[Source 2, Page 3]" in answer
 
 
-def test_extractive_answer_skips_markdown_table_rows() -> None:
+def test_extractive_answer_converts_matching_table_row_to_prose() -> None:
     table = _chunk(
-        "Subdomain | Indicator | | --- | --- | | Risk factors | Physical inactivity prevalence and overweight prevalence |.",
+        "Subdomain | Indicator | | --- | --- | | Risk factors for diabetes | 29. Physical inactivity prevalence 30. Overweight and obesity prevalence 31. Tobacco use prevalence 32. Hypertension prevalence |.",
         page=4,
     )
-    prose = _chunk(
-        "Tobacco use, hypertension, excess weight, and physical inactivity are important modifiable diabetes risk factors.",
-        page=5,
-    )
 
-    answer = build_extractive_answer("diabetes risk factors", [table, prose])
+    answer = build_extractive_answer("diabetes risk factors", [table])
 
     assert "Subdomain" not in answer
-    assert "Tobacco use" in answer
+    assert "Risk factors for diabetes:" in answer
+    assert "Tobacco use prevalence" in answer
+    assert "|" not in answer
