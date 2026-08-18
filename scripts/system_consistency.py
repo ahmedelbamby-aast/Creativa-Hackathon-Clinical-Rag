@@ -43,13 +43,13 @@ def check(condition: bool, message: str) -> None:
 
 def check_configuration(require_key: bool) -> None:
     config.validate()
-    check(config.gemini_model == "gemini-3.6-flash", "GEMINI_MODEL must be gemini-3.6-flash")
+    check(config.gemini_model == "gemini-2.5-flash", "GEMINI_MODEL must be gemini-2.5-flash")
     check(config.embedding_provider == "local", "Deterministic tests require local embeddings")
     check(config.embedding_dimension == 384, "EMBEDDING_DIMENSION must be 384")
     check(config.resolved_embedding_namespace == "local_384", "Namespace must be local_384")
     if require_key:
         check(bool(config.gemini_api_key.strip()), "GEMINI_API_KEY is required for live checks")
-    print("[PASS] configuration: gemini-3.6-flash, local_384, 384 dimensions")
+    print("[PASS] configuration: gemini-2.5-flash, local_384, 384 dimensions")
 
 
 def check_database_and_retrieval() -> None:
@@ -100,7 +100,7 @@ def check_live_gemini() -> None:
         "Reply with exactly READY and no other text. This is a deterministic API readiness check."
     ).strip()
     check(response == "READY", f"Gemini readiness response was {response!r}, expected 'READY'")
-    print("[PASS] Gemini API: exact READY response from gemini-3.6-flash")
+    print("[PASS] Gemini API: exact READY response from gemini-2.5-flash")
 
 
 def check_live_gradio_query(base_url: str) -> None:

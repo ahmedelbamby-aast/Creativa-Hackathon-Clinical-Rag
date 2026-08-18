@@ -365,7 +365,7 @@ uv run python scripts/evaluate.py --category nutrition
 | `EMBEDDING_DIMENSION` | `384` | Shared pgvector dimension |
 | `EMBEDDING_NAMESPACE` | provider-derived | Optional database partition namespace |
 | `GEMINI_API_KEY` | empty | Generation and hosted embeddings |
-| `GEMINI_MODEL` | `gemini-3.6-flash` | Generation model |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Free-tier grounded generation model |
 | `ONLINE_EMBEDDING_BATCH_SIZE` | `16` | Maximum documents per Gemini embedding request |
 | `ONLINE_EMBEDDING_RPM` | `90` | Rolling embedded-item cap with free-tier headroom |
 | `OCR_LANGUAGE` / `OCR_DPI` | `eng` / `150` | Local Tesseract fallback for image-only PDFs |

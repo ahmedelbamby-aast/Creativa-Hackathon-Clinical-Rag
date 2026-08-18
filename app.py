@@ -562,6 +562,7 @@ def build_ui() -> gr.Blocks:
             fn=knowledge_status_html,
             outputs=knowledge_status_output,
             api_name="knowledge_status",
+            queue=False,
         )
 
         # ── Category Selector ───────────────────────────────────────────
@@ -655,6 +656,7 @@ def build_ui() -> gr.Blocks:
                 fn=diagnostics_markdown,
                 outputs=diagnostics_output,
                 api_name="refresh_diagnostics",
+                queue=False,
             )
 
             def run_benchmark_and_render():
@@ -665,6 +667,7 @@ def build_ui() -> gr.Blocks:
                 fn=run_benchmark_and_render,
                 outputs=diagnostics_output,
                 api_name="run_retrieval_benchmark",
+                queue=False,
             )
 
         # ── Footer ─────────────────────────────────────────────────────
@@ -699,18 +702,21 @@ def build_ui() -> gr.Blocks:
             fn=on_send,
             inputs=[query_input, chatbot, category_input, memory_state],
             outputs=[chatbot, citations_output, debug_output, query_input, memory_state],
+            queue=False,
         )
 
         query_input.submit(
             fn=on_send,
             inputs=[query_input, chatbot, category_input, memory_state],
             outputs=[chatbot, citations_output, debug_output, query_input, memory_state],
+            queue=False,
         )
 
         clear_btn.click(
             fn=on_clear,
             inputs=[memory_state],
             outputs=[chatbot, citations_output, debug_output, query_input, memory_state],
+            queue=False,
         )
 
     return demo

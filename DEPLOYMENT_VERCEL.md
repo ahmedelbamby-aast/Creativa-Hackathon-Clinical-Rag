@@ -129,6 +129,10 @@ Verification endpoints:
   non-empty index.
 - `/` serves the mounted Gradio application.
 
+All Gradio events run with `queue=False` in production. Vercel functions are
+stateless, so Gradio's in-memory SSE queue cannot safely share event IDs across
+separate `/queue/join` and `/queue/data` invocations.
+
 After deployment, verify one English and one Arabic query, confirm citations
 contain document/page metadata, and inspect Vercel runtime logs for 5xx errors.
 
