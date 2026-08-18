@@ -2,7 +2,12 @@
 
 from types import SimpleNamespace
 
-from src.generator import GeminiGenerator
+from src.generator import GeminiGenerator, _is_rate_limited
+
+
+def test_rate_limit_detection_does_not_match_generate() -> None:
+    assert _is_rate_limited("401 UNAUTHENTICATED GenerateContent") is False
+    assert _is_rate_limited("429 RESOURCE_EXHAUSTED") is True
 
 
 def test_vercel_gateway_generation(monkeypatch) -> None:

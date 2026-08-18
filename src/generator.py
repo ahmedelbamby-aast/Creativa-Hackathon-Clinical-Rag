@@ -1,6 +1,7 @@
 """Grounded text generation through Gemini or Vercel AI Gateway."""
 
 import logging
+import re
 import time
 from typing import Optional
 
@@ -10,6 +11,14 @@ logger = logging.getLogger(__name__)
 
 _MAX_RETRIES = 3
 _RETRY_BACKOFF = [2, 5, 10]
+
+
+def _is_rate_limited(error_text: str) -> bool:
+    """Recognise throttling without matching unrelated words such as 'generate'."""
+    normalized = error_text.lower()
+    return bool(
+        re.search(r"\b429\b|resource_exhausted|rate[ _-]?limit|quota", normalized)
+    )
 
 
 class GeminiGenerator:
@@ -114,7 +123,7 @@ class GeminiGenerator:
             except Exception as exc:
                 last_error = exc
                 error_text = str(exc).lower()
-                if any(marker in error_text for marker in ("rate", "quota", "429", "resource_exhausted")):
+                if _is_rate_limited(error_text):
                     wait = _RETRY_BACKOFF[min(attempt, len(_RETRY_BACKOFF) - 1)]
                     logger.warning(
                         "Generation rate limit hit; waiting %ds before retry %d/%d",
