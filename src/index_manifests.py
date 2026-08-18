@@ -91,4 +91,5 @@ def manifest_matches_runtime(manifest: IndexManifest, namespace: str) -> bool:
             if config.embedding_provider == "gemini"
             else config.embedding_model
         )
+        and manifest.source_catalog_hash == source_catalog_hash()
     )

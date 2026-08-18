@@ -44,6 +44,7 @@ from src.ingestion.pipeline import (
 )
 from src.vector_store import vector_store
 from src.index_manifests import build_index_manifest, write_index_manifest
+from src.source_catalog import load_source_catalog, validate_source_checksums
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -104,6 +105,7 @@ def main() -> None:
 
     setup_logging(args.verbose)
     config.validate()
+    validate_source_checksums(load_source_catalog())
 
     print("\n" + "=" * 60)
     print("  Diabetes RAG - Document Ingestion")

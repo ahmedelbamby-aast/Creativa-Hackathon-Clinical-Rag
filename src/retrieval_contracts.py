@@ -26,6 +26,11 @@ class SourceManifestEntry:
     source_id: str
     document_name: str
     source_url: str
+    publisher: str
+    publication_date: str
+    license_note: str
+    reuse_status: str
+    checksum: str
     enabled: bool = True
 
 

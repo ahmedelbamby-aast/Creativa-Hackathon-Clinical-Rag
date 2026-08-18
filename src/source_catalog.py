@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from src.config import config
@@ -29,12 +30,26 @@ def load_source_catalog(path: Path = DEFAULT_CATALOG_PATH) -> dict[str, SourceMa
             source_id=str(item["source_id"]).strip(),
             document_name=str(item["document_name"]).strip(),
             source_url=str(item["source_url"]).strip(),
+            publisher=str(item.get("publisher", "")).strip(),
+            publication_date=str(item.get("publication_date", "")).strip(),
+            license_note=str(item.get("license_note", "")).strip(),
+            reuse_status=str(item.get("reuse_status", "")).strip(),
+            checksum=str(item.get("checksum", "")).strip().lower(),
             enabled=bool(item.get("enabled", True)),
         )
         if not entry.source_id or not entry.document_name:
             raise ValueError("every source catalog entry requires source_id and document_name")
-        if entry.enabled and not entry.source_url.startswith("https://"):
-            raise ValueError(f"enabled source {entry.source_id} requires an https source_url")
+        if entry.enabled and (
+            not entry.source_url.startswith("https://")
+            or not entry.publisher
+            or not entry.publication_date
+            or not entry.license_note
+            or not entry.reuse_status
+            or not re.fullmatch(r"[0-9a-f]{64}", entry.checksum)
+        ):
+            raise ValueError(
+                f"enabled source {entry.source_id} requires complete provenance and SHA-256 checksum"
+            )
         if entry.document_name in catalog or entry.source_id in source_ids:
             raise ValueError(f"duplicate retrieval source catalog entry: {entry.document_name}")
         catalog[entry.document_name] = entry
@@ -71,3 +86,20 @@ def require_catalog_documents(document_names: set[str], catalog: dict[str, Sourc
     )
     if missing:
         raise ValueError("missing enabled source catalog entries: " + ", ".join(missing))
+
+
+def validate_source_checksums(
+    catalog: dict[str, SourceManifestEntry],
+    data_dir: Path = config.data_dir,
+) -> None:
+    """Fail closed if local source bytes do not match their cataloged SHA-256."""
+    mismatches = []
+    for entry in catalog.values():
+        if not entry.enabled:
+            continue
+        path = data_dir / entry.document_name
+        actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else "missing"
+        if actual != entry.checksum:
+            mismatches.append(entry.document_name)
+    if mismatches:
+        raise ValueError("source checksum mismatch: " + ", ".join(sorted(mismatches)))
