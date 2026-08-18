@@ -34,6 +34,17 @@ def test_dotenv_is_listed_in_gitignore():
     )
 
 
+def test_environment_variants_and_vercel_state_are_ignored():
+    """Local development/deployment secrets and Vercel state must never be staged."""
+    lines = [
+        line.strip()
+        for line in (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    ]
+    assert ".env.development" in lines or "/.env.development" in lines
+    assert ".env.deployment" in lines or "/.env.deployment" in lines
+    assert ".vercel/" in lines or "/.vercel/" in lines
+
+
 def test_dockerignore_excludes_dotenv():
     """.dockerignore must list .env so it is excluded from any Docker build context."""
     dockerignore = ROOT / ".dockerignore"
