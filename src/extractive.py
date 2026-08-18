@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from src.retriever import RetrievedChunk
+from src.response_policy import response_text
 
 
 _BOUNDARY = re.compile(r"(?<=[.!?؟])\s+|\n+")
@@ -141,6 +142,7 @@ def build_extractive_answer(
     *,
     is_arabic: bool = False,
     max_passages: int = 3,
+    provider_fallback: bool = False,
 ) -> str:
     """Return concise evidence excerpts without calling a generative model.
 
@@ -149,10 +151,9 @@ def build_extractive_answer(
     and citation metadata.
     """
     terms = _query_terms(query)
-    intro = (
-        "استنادًا إلى أكثر المقاطع صلة في المراجع المفهرسة:"
-        if is_arabic
-        else "Based on the most relevant passages in the indexed references:"
+    intro = response_text(
+        "provider_fallback_intro" if provider_fallback else "extractive_intro",
+        is_arabic=is_arabic,
     )
     bullets: list[str] = []
     seen: set[str] = set()
@@ -171,9 +172,6 @@ def build_extractive_answer(
         bullets.append(f"- {excerpt} **[{source_label} {index + 1}{page}]**")
 
     if not bullets:
-        return (
-            "لم أتمكن من استخراج إجابة موثوقة من المقاطع المسترجعة."
-            if is_arabic
-            else "I could not extract a reliable answer from the retrieved passages."
-        )
+        empty = response_text("extractive_empty", is_arabic=is_arabic)
+        return f"{intro}\n\n{empty}" if provider_fallback else empty
     return intro + "\n\n" + "\n\n".join(bullets)

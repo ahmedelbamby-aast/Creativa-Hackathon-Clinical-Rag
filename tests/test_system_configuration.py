@@ -69,4 +69,4 @@ def test_auto_generation_accepts_a_configured_groq_fallback() -> None:
     config.validate()
 
     assert config.generation_configured is True
-    assert config.configured_generation_provider_label == "Gemini → Groq (automatic)"
+    assert config.configured_generation_provider_label == "Gemini → Groq → Evidence excerpts (automatic)"

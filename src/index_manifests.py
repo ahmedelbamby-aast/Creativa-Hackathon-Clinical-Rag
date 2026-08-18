@@ -78,6 +78,30 @@ def index_manifest_hash(manifest: IndexManifest) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def runtime_index_hash(namespace: str) -> str:
+    """Fingerprint hosted retrieval settings when no local corpus manifest ships.
+
+    Hosted deployments query an already-certified pgvector namespace and do not
+    bundle the ingestion corpus. This fingerprint still makes the two-stage UI
+    reject changes to namespace, embedding configuration, or source catalogue
+    between retrieval and generation.
+    """
+    payload = {
+        "namespace": normalize_namespace(namespace),
+        "chunk_profile": config.retrieval_profile,
+        "embedding_provider": config.embedding_provider,
+        "embedding_model": (
+            config.online_embedding_model
+            if config.embedding_provider == "gemini"
+            else config.embedding_model
+        ),
+        "dimension": config.embedding_dimension,
+        "source_catalog_hash": source_catalog_hash(),
+    }
+    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
 def manifest_matches_runtime(manifest: IndexManifest, namespace: str) -> bool:
     """Return whether an index manifest is compatible with the active runtime."""
     return (

@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import html
+import logging
 import re
 
 from src.config import config
-from src.index_manifests import index_manifest_hash, load_index_manifest, manifest_matches_runtime
+from src.index_manifests import (
+    index_manifest_hash,
+    load_index_manifest,
+    manifest_matches_runtime,
+    runtime_index_hash,
+)
 from src.retrieval_contracts import EvidenceChunk, RetrievalEnvelope
 from src.retriever import RetrievedChunk, is_retrieval_sufficient, retrieve
 from src.rewriter import rewrite_query
@@ -14,40 +20,24 @@ from src.router import route_query
 from src.safety import SafetyLevel, classify_safety, get_emergency_response
 from src.vector_store import vector_store
 from src.gemini_errors import classify_gemini_error, gemini_user_message
+from src.response_policy import needs_clarification, response_text
+
+
+logger = logging.getLogger(__name__)
 
 
 def is_arabic(text: str) -> bool:
     return bool(re.search(r"[\u0600-\u06FF]", text))
 
 
-def _message(status: str, is_ar: bool, emergency: str = "") -> str:
-    if emergency:
-        return emergency
-    messages = {
-        "empty_evidence": (
-            "أعتذر، لكن الوثائق المتاحة لا تحتوي على معلومات كافية للإجابة على هذا السؤال.",
-            "The available documents do not contain sufficient information to answer this question.",
-        ),
-        "insufficient_evidence": (
-            "أعتذر، لكن الأدلة المسترجعة غير كافية للإجابة بأمان على هذا السؤال.",
-            "The retrieved evidence is insufficient to answer this question safely.",
-        ),
-        "invalid_provenance": (
-            "أعتذر، لا يمكن استخدام الأدلة المسترجعة لأن مصدرها غير مكتمل.",
-            "The retrieved evidence cannot be used because its source information is incomplete.",
-        ),
-        "stale_index": (
-            "أعتذر، قاعدة المعرفة غير جاهزة حالياً. يرجى المحاولة لاحقاً.",
-            "The knowledge base is not ready right now. Please try again later.",
-        ),
-        "infrastructure_failure": (
-            "أعتذر، تعذر الوصول إلى قاعدة المعرفة حالياً. يرجى المحاولة لاحقاً.",
-            "The knowledge base is temporarily unavailable. Please try again later.",
-        ),
-        "safety_blocked": ("", ""),
-    }
-    arabic, english = messages[status]
-    return arabic if is_ar else english
+def _active_index_hash(namespace: str) -> str:
+    """Return a compatible local manifest hash or a hosted runtime fingerprint."""
+    manifest = load_index_manifest(namespace)
+    if manifest is not None:
+        return index_manifest_hash(manifest) if manifest_matches_runtime(manifest, namespace) else ""
+    if config.is_deployment:
+        return runtime_index_hash(namespace)
+    return ""
 
 
 def stage_evidence(
@@ -66,7 +56,12 @@ def stage_evidence(
         "index_manifest_hash": "",
     }
     if not query:
-        return RetrievalEnvelope(**common, rewritten_query="", status="empty_evidence", user_message=_message("empty_evidence", arabic))
+        return RetrievalEnvelope(
+            **common,
+            rewritten_query="",
+            status="needs_clarification",
+            user_message=response_text("empty_question", is_arabic=arabic),
+        )
     safety = classify_safety(query)
     if safety == SafetyLevel.EMERGENCY:
         return RetrievalEnvelope(
@@ -75,32 +70,57 @@ def stage_evidence(
             status="safety_blocked",
             user_message=get_emergency_response(is_arabic=arabic),
         )
+    if needs_clarification(query, conversation_history):
+        return RetrievalEnvelope(
+            **common,
+            rewritten_query=query,
+            status="needs_clarification",
+            user_message=response_text("needs_clarification", is_arabic=arabic),
+        )
     try:
-        manifest = load_index_manifest(config.resolved_embedding_namespace)
-        if manifest is None or not manifest_matches_runtime(manifest, config.resolved_embedding_namespace):
+        active_hash = _active_index_hash(config.resolved_embedding_namespace)
+        if not active_hash:
             return RetrievalEnvelope(
                 **common,
                 rewritten_query=query,
                 status="stale_index",
-                user_message=_message("stale_index", arabic),
+                user_message=response_text("stale_index", is_arabic=arabic),
             )
         rewritten = rewrite_query(query, conversation_history=conversation_history)
         routed = route_query(rewritten, user_selected_category=category)
         chunks = retrieve(rewritten, category=routed, top_k=config.top_k)
-        common.update(routed_category=routed, index_manifest_hash=index_manifest_hash(manifest))
+        common.update(routed_category=routed, index_manifest_hash=active_hash)
         if not chunks:
             return RetrievalEnvelope(
                 **common,
                 rewritten_query=rewritten,
-                status="empty_evidence",
-                user_message=_message("empty_evidence", arabic),
+                status="out_of_scope",
+                user_message=response_text("out_of_scope", is_arabic=arabic),
             )
         if not is_retrieval_sufficient(chunks):
             return RetrievalEnvelope(
                 **common,
                 rewritten_query=rewritten,
-                status="insufficient_evidence",
-                user_message=_message("insufficient_evidence", arabic),
+                status="out_of_scope",
+                user_message=response_text("out_of_scope", is_arabic=arabic),
+            )
+        certified_chunks = [
+            chunk
+            for chunk in chunks
+            if chunk.source_id and chunk.source_url.startswith("https://")
+        ]
+        skipped_count = len(chunks) - len(certified_chunks)
+        if skipped_count:
+            logger.warning(
+                "Discarded %d retrieved chunk(s) without certified provenance",
+                skipped_count,
+            )
+        if not certified_chunks or not is_retrieval_sufficient(certified_chunks):
+            return RetrievalEnvelope(
+                **common,
+                rewritten_query=rewritten,
+                status="invalid_provenance",
+                user_message=response_text("invalid_provenance", is_arabic=arabic),
             )
         evidence = tuple(
             EvidenceChunk(
@@ -117,22 +137,21 @@ def stage_evidence(
                 source_id=chunk.source_id,
                 source_url=chunk.source_url,
             )
-            for chunk in chunks
+            for chunk in certified_chunks
         )
-        if any(not item.source_id or not item.source_url.startswith("https://") for item in evidence):
-            return RetrievalEnvelope(
-                **common,
-                rewritten_query=rewritten,
-                status="invalid_provenance",
-                user_message=_message("invalid_provenance", arabic),
-            )
         return RetrievalEnvelope(**common, rewritten_query=rewritten, status="ready", chunks=evidence)
     except Exception as error:
+        error_info = classify_gemini_error(error)
+        logger.exception(
+            "Evidence staging failed: code=%s error_type=%s",
+            error_info.code,
+            type(error).__name__,
+        )
         return RetrievalEnvelope(
             **common,
             rewritten_query=query,
             status="infrastructure_failure",
-            error_code=f"gemini:{classify_gemini_error(error).code}",
+            error_code=f"gemini:{error_info.code}",
             user_message=gemini_user_message(error, is_arabic=arabic, scope="retrieval"),
         )
 
@@ -179,23 +198,19 @@ def rehydrate_evidence(
     try:
         if namespace != config.resolved_embedding_namespace:
             raise ValueError("namespace changed")
-        manifest = load_index_manifest(namespace)
-        if (
-            manifest is None
-            or not manifest_matches_runtime(manifest, namespace)
-            or index_manifest_hash(manifest) != manifest_hash
-        ):
+        active_hash = _active_index_hash(namespace)
+        if not active_hash or active_hash != manifest_hash:
             return RetrievalEnvelope(
                 **common,
                 status="stale_index",
-                user_message=_message("stale_index", arabic),
+                user_message=response_text("stale_index", is_arabic=arabic),
             )
         raw_chunks = vector_store.get_chunks(chunk_ids)
         if len(raw_chunks) != len(chunk_ids):
             return RetrievalEnvelope(
                 **common,
                 status="stale_index",
-                user_message=_message("stale_index", arabic),
+                user_message=response_text("stale_index", is_arabic=arabic),
             )
         chunks = tuple(
             EvidenceChunk(
@@ -218,14 +233,20 @@ def rehydrate_evidence(
             return RetrievalEnvelope(
                 **common,
                 status="invalid_provenance",
-                user_message=_message("invalid_provenance", arabic),
+                user_message=response_text("invalid_provenance", is_arabic=arabic),
             )
         return RetrievalEnvelope(**common, status="ready", chunks=chunks)
     except Exception as error:
+        error_info = classify_gemini_error(error)
+        logger.exception(
+            "Evidence rehydration failed: code=%s error_type=%s",
+            error_info.code,
+            type(error).__name__,
+        )
         return RetrievalEnvelope(
             **common,
             status="infrastructure_failure",
-            error_code=f"gemini:{classify_gemini_error(error).code}",
+            error_code=f"gemini:{error_info.code}",
             user_message=gemini_user_message(error, is_arabic=arabic, scope="retrieval"),
         )
 

@@ -12,6 +12,7 @@ from psycopg.rows import dict_row
 
 from src.config import ALL_CATEGORIES, CATEGORY_ALL, CATEGORY_GENERAL, config
 from src.scoring import cosine_distance_to_score
+from src.source_catalog import load_source_catalog
 
 
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "database" / "schema.sql"
@@ -221,8 +222,6 @@ class VectorStore:
                 category,
                 content_type,
                 language,
-                source_id,
-                source_url,
                 quality_score,
                 embedding <=> %s AS distance
             FROM rag_chunks
@@ -236,10 +235,18 @@ class VectorStore:
             rows = connection.execute(statement, query_parameters).fetchall()
 
         results = []
+        source_catalog = load_source_catalog()
         for row in rows:
             distance = float(row.pop("distance"))
             chunk_id = row.pop("id")
             document = row.pop("document")
+            source = source_catalog.get(row.get("document_name", ""))
+            row["source_id"] = row.get("source_id") or (
+                source.source_id if source and source.enabled else ""
+            )
+            row["source_url"] = row.get("source_url") or (
+                source.source_url if source and source.enabled else ""
+            )
             results.append(
                 {
                     "id": chunk_id,
@@ -267,16 +274,23 @@ class VectorStore:
                 category,
                 content_type,
                 language,
-                source_id,
-                source_url,
                 quality_score
             FROM rag_chunks
             WHERE namespace = %s AND chunk_id = ANY(%s)
         """
         with self._connect() as connection:
             rows = connection.execute(statement, (self.namespace, unique_ids)).fetchall()
-        by_id = {
-            row["id"]: {
+        source_catalog = load_source_catalog()
+        by_id = {}
+        for row in rows:
+            source = source_catalog.get(row.get("document_name", ""))
+            row["source_id"] = row.get("source_id") or (
+                source.source_id if source and source.enabled else ""
+            )
+            row["source_url"] = row.get("source_url") or (
+                source.source_url if source and source.enabled else ""
+            )
+            by_id[row["id"]] = {
                 "id": row["id"],
                 "document": row["document"],
                 "metadata": {
@@ -287,8 +301,6 @@ class VectorStore:
                 "distance": 0.0,
                 "score": 0.0,
             }
-            for row in rows
-        }
         return [by_id[chunk_id] for chunk_id in chunk_ids if chunk_id in by_id]
 
     def collection_stats(self) -> dict[str, int]:

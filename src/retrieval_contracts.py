@@ -9,6 +9,8 @@ from typing import Literal
 
 RetrievalStatus = Literal[
     "ready",
+    "needs_clarification",
+    "out_of_scope",
     "empty_evidence",
     "insufficient_evidence",
     "invalid_provenance",

@@ -78,6 +78,7 @@ class EvidenceItem(BaseModel):
 class RetrieveResponse(BaseModel):
     status: str
     message: str = ""
+    error_code: str = ""
     namespace: str
     index_manifest_hash: str = ""
     chunks: list[EvidenceItem] = Field(default_factory=list)
@@ -183,6 +184,7 @@ def retrieve_endpoint(request: ChatRequest) -> RetrieveResponse:
     return RetrieveResponse(
         status=envelope.status,
         message=envelope.user_message,
+        error_code=envelope.error_code,
         namespace=envelope.namespace,
         index_manifest_hash=envelope.index_manifest_hash,
         chunks=[

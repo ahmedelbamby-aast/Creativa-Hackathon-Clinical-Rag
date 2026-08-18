@@ -42,6 +42,7 @@ from src.observability import (
 from src.evidence_service import envelope_chunks, render_evidence, stage_evidence
 from src.gemini_errors import classify_gemini_error, gemini_user_message
 from src.retrieval_contracts import RetrievalEnvelope
+from src.response_policy import response_text
 
 logging.basicConfig(
     level=logging.DEBUG if config.debug else logging.INFO,
@@ -121,21 +122,32 @@ def generate_from_evidence(
         try:
             if config.generation_provider == "extractive":
                 answer = build_extractive_answer(query, chunks, is_arabic=is_ar)
+                generator.mark_extractive_fallback()
             else:
                 prompt = build_user_prompt(query, chunks, conversation_history=memory.get_history())
                 answer = generator.generate(prompt)
         finally:
             if stage:
                 stage.__exit__(None, None, None)
-    except RuntimeError as e:
-        answer = gemini_user_message(e, is_arabic=is_ar, scope="generation")
-        if trace:
-            trace.error = f"gemini:{classify_gemini_error(e).code}"
     except Exception as e:
         logger.error("Generation failed: %s", e)
-        answer = gemini_user_message(e, is_arabic=is_ar, scope="generation")
+        error_info = classify_gemini_error(e)
+        if error_info.code in {"safety_blocked", "invalid_request"}:
+            answer = (
+                response_text("invalid_request", is_arabic=is_ar)
+                if error_info.code == "invalid_request"
+                else gemini_user_message(e, is_arabic=is_ar, scope="generation")
+            )
+        else:
+            answer = build_extractive_answer(
+                query,
+                chunks,
+                is_arabic=is_ar,
+                provider_fallback=True,
+            )
+            generator.mark_extractive_fallback()
         if trace:
-            trace.error = f"gemini:{classify_gemini_error(e).code}"
+            trace.error = f"generation:{error_info.code}"
 
     # Step 8: Append safety disclaimer
     disclaimer = get_disclaimer(safety_level, is_arabic=is_ar)

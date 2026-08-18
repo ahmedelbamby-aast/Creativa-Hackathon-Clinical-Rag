@@ -216,7 +216,9 @@
       $('feedback').className = `feedback${error ? ' error' : ''}`;
     }
     function providerText(provider, model) {
-      return provider && model ? `Answer provider: ${provider} · ${model}` : 'Answer provider: checking…';
+      if (provider === 'extractive') return 'Grounded evidence fallback (no LLM)';
+      const names = { gemini: 'Gemini', groq: 'Groq', vercel_gateway: 'Vercel AI Gateway' };
+      return provider && model ? `Answer provider: ${names[provider] || provider} · ${model}` : 'Answer provider: checking…';
     }
     function renderEvidence(chunks) {
       $('evidence').textContent = chunks.length
@@ -266,7 +268,14 @@
           const answer = retrieved.message || 'The available evidence is insufficient to answer this question safely.';
           addMessage('assistant', answer);
           state.history.push({ role: 'assistant', content: answer });
-          setFeedback('No answer was generated because usable evidence was unavailable.', true);
+          const guidance = {
+            needs_clarification: 'No provider was called. Add more detail and try again.',
+            out_of_scope: 'No provider was called because the indexed sources did not support this question.',
+            safety_blocked: 'Generation was stopped by the medical safety policy.',
+            stale_index: 'The knowledge index needs maintenance before generation can run.',
+            infrastructure_failure: 'Knowledge search failed before generation. Please try again shortly.',
+          };
+          setFeedback(guidance[retrieved.status] || 'No provider was called because usable evidence was unavailable.', true);
           return;
         }
         setFeedback('Evidence retrieved. Generating only from the displayed passages…');

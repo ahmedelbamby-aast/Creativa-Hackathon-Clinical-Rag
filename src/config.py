@@ -94,13 +94,13 @@ class AppConfig:
     gemini_api_key: str = field(default_factory=lambda: os.environ.get("GEMINI_API_KEY", ""))
     gemini_model: str = field(default_factory=lambda: os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"))
     generation_provider: str = field(
-        default_factory=lambda: os.environ.get("GENERATION_PROVIDER", "gemini").lower()
+        default_factory=lambda: os.environ.get("GENERATION_PROVIDER", "auto").lower()
     )
     generation_primary_provider: str = field(
         default_factory=lambda: os.environ.get("GENERATION_PRIMARY_PROVIDER", "gemini").lower()
     )
     generation_fallback_provider: str = field(
-        default_factory=lambda: os.environ.get("GENERATION_FALLBACK_PROVIDER", "").lower()
+        default_factory=lambda: os.environ.get("GENERATION_FALLBACK_PROVIDER", "groq").lower()
     )
     groq_api_key: str = field(default_factory=lambda: os.environ.get("GROQ_API_KEY", ""))
     groq_model: str = field(
@@ -300,14 +300,8 @@ class AppConfig:
 
     @property
     def generation_configured(self) -> bool:
-        """Return whether the active generation provider has runtime credentials."""
-        if self.generation_provider == "auto":
-            return any(
-                self.provider_configured(provider)
-                for provider in (self.generation_primary_provider, self.generation_fallback_provider)
-                if provider
-            )
-        return self.provider_configured(self.generation_provider)
+        """The deterministic evidence fallback keeps grounded answers available."""
+        return True
 
     def provider_configured(self, provider: str) -> bool:
         """Return whether one concrete generation provider has credentials."""
@@ -328,15 +322,15 @@ class AppConfig:
             "vercel_gateway": "Vercel AI Gateway",
             "extractive": "Evidence excerpts",
         }
-        if self.generation_provider != "auto":
-            return labels.get(self.generation_provider, self.generation_provider)
-        primary = labels.get(self.generation_primary_provider, self.generation_primary_provider)
-        fallback = (
-            f" → {labels.get(self.generation_fallback_provider, self.generation_fallback_provider)}"
-            if self.generation_fallback_provider
-            else ""
-        )
-        return f"{primary}{fallback} (automatic)"
+        if self.generation_provider == "extractive":
+            return labels["extractive"]
+        if self.generation_provider == "auto":
+            providers = [self.generation_primary_provider, self.generation_fallback_provider]
+        else:
+            providers = [self.generation_provider, self.generation_fallback_provider]
+        chain = [labels.get(provider, provider) for provider in providers if provider]
+        chain.append(labels["extractive"])
+        return " → ".join(dict.fromkeys(chain)) + " (automatic)"
 
 
 # ---------------------------------------------------------------------------

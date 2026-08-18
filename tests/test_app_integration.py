@@ -11,7 +11,7 @@ from src.retrieval_contracts import EvidenceChunk, RetrievalEnvelope
 def test_generation_error_keeps_retrieved_citations(monkeypatch):
     chunk = EvidenceChunk(
         chunk_id="chunk-1",
-        text="Regular screening and risk-factor control can reduce complications.",
+        text="Regular screening and careful risk-factor control can reduce diabetes complications over time.",
         score=0.8,
         distance=0.2,
         document_name="guideline.pdf",
@@ -44,11 +44,13 @@ def test_generation_error_keeps_retrieved_citations(monkeypatch):
         "How can complications be prevented?", "prevention", ConversationMemory()
     )
 
-    assert "not configured" in answer
+    assert "Gemini and Groq are temporarily unavailable" in answer
+    assert "Regular screening and careful risk-factor control" in answer
     assert "GEMINI_API_KEY" not in answer
     assert "guideline" in citations
     assert "Page 4" in citations
     assert traces[0]["status"] == "generation_error"
+    assert traces[0]["error"] == "generation:missing_api_key"
     assert traces[0]["retrieval_count"] == 1
     assert set(traces[0]["stages_ms"]) >= {"retrieval", "generation"}
 
@@ -81,10 +83,10 @@ def test_ui_generation_uses_the_staged_envelope_only(monkeypatch):
 @pytest.mark.parametrize(
     ("error", "expected", "code"),
     [
-        (RuntimeError("429 RESOURCE_EXHAUSTED"), "busy", "rate_limited"),
-        (RuntimeError("401 UNAUTHENTICATED"), "temporarily unavailable", "authentication_failed"),
-        (RuntimeError("504 timed out"), "took too long", "timeout"),
-        (RuntimeError("400 INVALID_ARGUMENT"), "rephrase", "invalid_request"),
+        (RuntimeError("429 RESOURCE_EXHAUSTED"), "Gemini and Groq are temporarily unavailable", "rate_limited"),
+        (RuntimeError("401 UNAUTHENTICATED"), "Gemini and Groq are temporarily unavailable", "authentication_failed"),
+        (RuntimeError("504 timed out"), "Gemini and Groq are temporarily unavailable", "timeout"),
+        (RuntimeError("400 INVALID_ARGUMENT"), "rephrase it clearly", "invalid_request"),
     ],
 )
 def test_generation_api_errors_have_simple_messages_and_trace_codes(monkeypatch, error, expected, code):
@@ -107,4 +109,4 @@ def test_generation_api_errors_have_simple_messages_and_trace_codes(monkeypatch,
 
     assert expected in answer
     assert "401" not in answer and "RESOURCE_EXHAUSTED" not in answer
-    assert traces[0]["error"] == f"gemini:{code}"
+    assert traces[0]["error"] == f"generation:{code}"

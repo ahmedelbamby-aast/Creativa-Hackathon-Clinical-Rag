@@ -112,6 +112,25 @@ def test_auto_routes_to_groq_when_gemini_fails(monkeypatch) -> None:
     assert generator.active_provider == "groq"
 
 
+def test_auto_attempts_gemini_then_groq_before_final_failure(monkeypatch) -> None:
+    generator = GeminiGenerator()
+    calls = []
+
+    def fake_generate(_prompt, provider):
+        calls.append(provider)
+        raise RuntimeError("503 provider unavailable")
+
+    monkeypatch.setattr(generator, "_generate_with_provider", fake_generate)
+    monkeypatch.setattr("src.generator.config.generation_provider", "auto")
+    monkeypatch.setattr("src.generator.config.generation_primary_provider", "gemini")
+    monkeypatch.setattr("src.generator.config.generation_fallback_provider", "groq")
+
+    with pytest.raises(RuntimeError, match="503 provider unavailable"):
+        generator.generate("Evidence prompt")
+
+    assert calls == ["gemini", "groq"]
+
+
 def test_auto_does_not_fail_over_safety_block(monkeypatch) -> None:
     generator = GeminiGenerator()
     calls = []

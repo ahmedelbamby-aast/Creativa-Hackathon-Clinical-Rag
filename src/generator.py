@@ -46,6 +46,10 @@ class GeminiGenerator:
         """Model used by the latest successful call, or the configured first choice."""
         return self._provider_model(self.active_provider)
 
+    def mark_extractive_fallback(self) -> None:
+        """Expose deterministic evidence mode after every LLM route fails."""
+        self._active_provider = "extractive"
+
     def _provider_order(self) -> list[str]:
         if config.generation_provider != "auto":
             providers = [config.generation_provider, config.generation_fallback_provider]
@@ -137,7 +141,10 @@ class GeminiGenerator:
                 temperature=0.1,
                 max_tokens=2048,
             )
-            return response.choices[0].message.content or ""
+            text = response.choices[0].message.content or ""
+            if text.strip():
+                return text
+            raise GeminiResponseError("empty_response")
 
         from google.genai import types
 

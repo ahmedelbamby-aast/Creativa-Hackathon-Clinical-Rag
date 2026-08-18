@@ -90,17 +90,18 @@ def test_chat_endpoint_rebuilds_bounded_memory(monkeypatch) -> None:
     assert len(captured["history"]) == 2
 
 
-def test_chat_endpoint_rejects_missing_generation_configuration(monkeypatch) -> None:
+def test_chat_endpoint_keeps_deterministic_fallback_without_llm_credentials(monkeypatch) -> None:
     monkeypatch.setattr(server.config, "generation_provider", "vercel_gateway")
     monkeypatch.setattr(server.config, "ai_gateway_api_key", "")
     monkeypatch.setattr(server.config, "vercel_oidc_token", "")
+    monkeypatch.setattr(server, "rag_pipeline", lambda *args: ("Evidence fallback", "Sources", ""))
 
-    try:
-        server.chat_endpoint(server.ChatRequest(message="Question", category="all"))
-    except HTTPException as exc:
-        assert exc.status_code == 503
-    else:
-        raise AssertionError("Expected an unavailable generation configuration")
+    result = server.chat_endpoint(
+        server.ChatRequest(message="What are diabetes risk factors?", category="all")
+    )
+
+    assert server.config.generation_configured is True
+    assert result.answer == "Evidence fallback"
 
 
 def test_retrieve_then_generate_uses_staged_chunk_ids(monkeypatch) -> None:
