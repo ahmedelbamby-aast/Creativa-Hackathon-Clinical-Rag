@@ -2,22 +2,18 @@ services:
   postgres:
     image: pgvector/pgvector:0.8.6-pg16
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-creativa_diabetes}
-      POSTGRES_USER: ${POSTGRES_USER:-creativa}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-creativa-local}
+      POSTGRES_USER: creativa
+      POSTGRES_PASSWORD: creativa-local
+      POSTGRES_DB: creativa_diabetes
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test:
-        - CMD-SHELL
-        - pg_isready -U ${POSTGRES_USER:-creativa} -d ${POSTGRES_DB:-creativa_diabetes}
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U creativa -d creativa_diabetes"]
+      interval: 10s
       timeout: 5s
-      retries: 12
-      start_period: 10s
-    restart: unless-stopped
+      retries: 5
 
 volumes:
   postgres_data:

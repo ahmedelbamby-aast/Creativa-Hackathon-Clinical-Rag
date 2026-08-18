@@ -35,6 +35,32 @@ CATEGORY_ALL = "all"
 ALL_CATEGORIES = [CATEGORY_TREATMENT, CATEGORY_PREVENTION, CATEGORY_NUTRITION]
 
 # ---------------------------------------------------------------------------
+# Named chunk profiles  — Phase 1 definition
+# Three profiles are defined for future Phase 2 evaluation.  Production uses
+# the "balanced" profile by default.  Do NOT change production behaviour here.
+# ---------------------------------------------------------------------------
+
+CHUNK_PROFILES: dict[str, dict] = {
+    "small": {
+        "chunk_size": 1200,
+        "chunk_overlap": 0,
+        "description": "Short chunks; higher recall density, less context per chunk.",
+    },
+    "balanced": {
+        "chunk_size": 2000,
+        "chunk_overlap": 200,
+        "description": "Default profile; balances context and retrieval precision.",
+    },
+    "large": {
+        "chunk_size": 3000,
+        "chunk_overlap": 300,
+        "description": "Long chunks; more context per chunk, lower density.",
+    },
+}
+
+CHUNK_PROFILE_DEFAULT = "balanced"
+
+# ---------------------------------------------------------------------------
 # Document → category mapping
 # Covers the 12 PDFs in data/rew_data/books/.
 # Keys are partial filename matches (case-insensitive substring).
@@ -96,6 +122,12 @@ class AppConfig:
     similarity_threshold: float = field(
         default_factory=lambda: float(os.environ.get("SIMILARITY_THRESHOLD", "0.30"))
     )
+    active_index_namespace: str = field(
+        default_factory=lambda: os.environ.get("ACTIVE_INDEX_NAMESPACE", "")
+    )
+    retrieval_profile: str = field(
+        default_factory=lambda: os.environ.get("RETRIEVAL_PROFILE", "default")
+    )
 
     # ── Chunking ───────────────────────────────────────────────────────────
     chunk_size: int = field(default_factory=lambda: int(os.environ.get("CHUNK_SIZE", "2000")))
@@ -112,7 +144,7 @@ class AppConfig:
     database_url: str = field(
         default_factory=lambda: os.environ.get(
             "DATABASE_URL",
-            "postgresql://creativa:creativa-local@localhost:5432/creativa_diabetes",
+            "postgresql://creativa:creativa-local@localhost:5433/creativa_diabetes",
         )
     )
 
@@ -143,6 +175,8 @@ class AppConfig:
                 f"CHUNK_OVERLAP ({self.chunk_overlap}) must be less than "
                 f"CHUNK_SIZE ({self.chunk_size})"
             )
+        if self.top_k <= 0:
+            raise ValueError("TOP_K must be a positive integer")
         if not self.data_dir.exists():
             logger.warning(f"DATA_DIR does not exist: {self.data_dir}")
         logger.debug("Configuration loaded: model=%s, top_k=%d, threshold=%.2f",

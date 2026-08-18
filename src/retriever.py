@@ -32,6 +32,13 @@ class RetrievedChunk:
     category: str
     content_type: str
     language: str
+    # Source-level provenance fields (populated when ingested with manifest metadata)
+    source_id: str = ""
+    source_url: str = ""
+    publisher: str = ""
+    publication_date: str = ""
+    source_checksum: str = ""
+    chunk_profile: str = ""
 
 
 def retrieve(
@@ -102,6 +109,12 @@ def retrieve(
             category=meta.get("category", ""),
             content_type=meta.get("content_type", "text"),
             language=meta.get("language", "en"),
+            source_id=meta.get("source_id", ""),
+            source_url=meta.get("source_url", ""),
+            publisher=meta.get("publisher", ""),
+            publication_date=meta.get("publication_date", ""),
+            source_checksum=meta.get("source_checksum", ""),
+            chunk_profile=meta.get("chunk_profile", ""),
         )
         chunks.append(chunk)
 
