@@ -8,6 +8,7 @@ from src.retrieval_benchmark import (
     calculate_metrics,
     estimate_embedding_cost_usd,
     load_retrieval_cases,
+    require_cross_review,
     select_candidate,
 )
 from src.retrieval_contracts import EvidenceChunk, RetrievalCase
@@ -110,3 +111,20 @@ def test_embedding_cost_is_explicit_and_provider_safe() -> None:
     assert estimate_embedding_cost_usd("gemini", 1_000_000) == 0.20
     with pytest.raises(ValueError, match="unsupported"):
         estimate_embedding_cost_usd("other", 10)
+
+
+def test_cross_review_requires_matching_named_reviewers() -> None:
+    label = {
+        "case_id": "positive",
+        "rank": 1,
+        "relevance": "relevant",
+        "reviewer_a": "Developer A",
+        "reviewer_b": "Developer B",
+        "reviewer_a_label": "relevant",
+        "reviewer_b_label": "relevant",
+    }
+    require_cross_review([label])
+
+    label["reviewer_b_label"] = "not_relevant"
+    with pytest.raises(ValueError, match="cross-review"):
+        require_cross_review([label])

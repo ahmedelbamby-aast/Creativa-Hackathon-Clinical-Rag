@@ -156,6 +156,27 @@ def require_complete_labels(rankings: dict[str, list[EvidenceChunk]], labels: It
         raise ValueError("unjudged top-five relevance labels: " + ", ".join(missing))
 
 
+def require_cross_review(labels: Iterable[dict]) -> None:
+    """Require two named reviewers to agree with each finalized relevance label."""
+    incomplete = []
+    for label in labels:
+        final = str(label.get("relevance", "unjudged"))
+        reviewer_a = str(label.get("reviewer_a", "")).strip()
+        reviewer_b = str(label.get("reviewer_b", "")).strip()
+        decision_a = str(label.get("reviewer_a_label", "unjudged"))
+        decision_b = str(label.get("reviewer_b_label", "unjudged"))
+        if (
+            not reviewer_a
+            or not reviewer_b
+            or decision_a != final
+            or decision_b != final
+            or final == "unjudged"
+        ):
+            incomplete.append(f"{label.get('case_id')}#{label.get('rank')}")
+    if incomplete:
+        raise ValueError("unresolved cross-review labels: " + ", ".join(incomplete))
+
+
 def calculate_metrics(
     rankings: dict[str, list[EvidenceChunk]],
     cases: Iterable[RetrievalCase],

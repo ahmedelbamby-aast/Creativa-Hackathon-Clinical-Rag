@@ -78,6 +78,8 @@ class RelevanceLabel:
     relevance: Relevance = "unjudged"
     reviewer_a: str = ""
     reviewer_b: str = ""
+    reviewer_a_label: Relevance = "unjudged"
+    reviewer_b_label: Relevance = "unjudged"
     rationale: str = ""
 
 
@@ -119,4 +121,3 @@ class RetrievalEnvelope:
     @property
     def is_ready(self) -> bool:
         return self.status == "ready" and bool(self.chunks)
-
