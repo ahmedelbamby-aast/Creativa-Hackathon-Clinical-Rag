@@ -138,10 +138,10 @@ def run_single(output: Path, profile: str, provider: str) -> None:
     output.write_text(json.dumps(result, ensure_ascii=False, indent=2, default=_json_default) + "\n", encoding="utf-8")
 
 
-def prepare_indexes(run_dir: Path) -> None:
+def prepare_indexes(run_dir: Path, providers: tuple[str, ...]) -> None:
     """Create six isolated indexes without touching the active application namespace."""
     for profile in CHUNK_PROFILES:
-        for provider in PROVIDERS:
+        for provider in providers:
             environment = _env_for_experiment(profile, provider)
             command = [
                 sys.executable,
@@ -155,14 +155,14 @@ def prepare_indexes(run_dir: Path) -> None:
     )
 
 
-def run_grid(run_dir: Path) -> None:
+def run_grid(run_dir: Path, providers: tuple[str, ...]) -> None:
     """Run all six retrieval experiments and produce editable review labels."""
     cases = load_retrieval_cases()
     raw_dir = run_dir / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
     label_rows: list[dict] = []
     for profile in CHUNK_PROFILES:
-        for provider in PROVIDERS:
+        for provider in providers:
             key = experiment_key(profile, provider)
             result_path = raw_dir / f"{key}.json"
             command = [
@@ -259,6 +259,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Phase 2 retrieval benchmark")
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--prepare-indexes", action="store_true")
+    parser.add_argument(
+        "--providers",
+        nargs="+",
+        choices=PROVIDERS,
+        default=PROVIDERS,
+        help="Embedding providers to benchmark (default: local gemini)",
+    )
     parser.add_argument("--finalize", type=Path)
     parser.add_argument("--single-output", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--profile", choices=tuple(CHUNK_PROFILES), help=argparse.SUPPRESS)
@@ -274,9 +281,10 @@ def main() -> int:
     if not args.run_dir:
         parser.error("--run-dir is required unless using --finalize")
     args.run_dir.mkdir(parents=True, exist_ok=True)
+    providers = tuple(args.providers)
     if args.prepare_indexes:
-        prepare_indexes(args.run_dir)
-    run_grid(args.run_dir)
+        prepare_indexes(args.run_dir, providers)
+    run_grid(args.run_dir, providers)
     return 0
 
 

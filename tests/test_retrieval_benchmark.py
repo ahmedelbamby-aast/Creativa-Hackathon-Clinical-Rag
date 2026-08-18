@@ -12,6 +12,7 @@ from src.retrieval_benchmark import (
     select_candidate,
 )
 from src.retrieval_contracts import EvidenceChunk, RetrievalCase
+from scripts.benchmark_retrieval import experiment_namespace
 
 
 def _chunk(chunk_id: str = "chunk-1") -> EvidenceChunk:
@@ -128,3 +129,8 @@ def test_cross_review_requires_matching_named_reviewers() -> None:
     label["reviewer_b_label"] = "not_relevant"
     with pytest.raises(ValueError, match="cross-review"):
         require_cross_review([label])
+
+
+def test_benchmark_namespaces_are_provider_and_profile_isolated() -> None:
+    assert experiment_namespace("small", "local") == "phase2_small_local_384"
+    assert experiment_namespace("small", "gemini") == "phase2_small_gemini_384"
