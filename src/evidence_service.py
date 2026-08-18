@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import html
 import re
-from dataclasses import replace
 
 from src.config import config
 from src.index_manifests import index_manifest_hash, load_index_manifest, manifest_matches_runtime
@@ -13,6 +12,7 @@ from src.retriever import RetrievedChunk, is_retrieval_sufficient, retrieve
 from src.rewriter import rewrite_query
 from src.router import route_query
 from src.safety import SafetyLevel, classify_safety, get_emergency_response
+from src.vector_store import vector_store
 
 
 def is_arabic(text: str) -> bool:
@@ -155,6 +155,76 @@ def envelope_chunks(envelope: RetrievalEnvelope) -> list[RetrievedChunk]:
         )
         for item in envelope.chunks
     ]
+
+
+def rehydrate_evidence(
+    query: str,
+    category: str,
+    namespace: str,
+    manifest_hash: str,
+    chunk_ids: list[str],
+) -> RetrievalEnvelope:
+    """Rebuild previously displayed evidence by exact IDs without a new retrieval call."""
+    arabic = is_arabic(query)
+    common = {
+        "original_query": query,
+        "rewritten_query": query,
+        "requested_category": category,
+        "routed_category": category,
+        "namespace": namespace,
+        "index_manifest_hash": manifest_hash,
+    }
+    try:
+        if namespace != config.resolved_embedding_namespace:
+            raise ValueError("namespace changed")
+        manifest = load_index_manifest(namespace)
+        if (
+            manifest is None
+            or not manifest_matches_runtime(manifest, namespace)
+            or index_manifest_hash(manifest) != manifest_hash
+        ):
+            return RetrievalEnvelope(
+                **common,
+                status="stale_index",
+                user_message=_message("stale_index", arabic),
+            )
+        raw_chunks = vector_store.get_chunks(chunk_ids)
+        if len(raw_chunks) != len(chunk_ids):
+            return RetrievalEnvelope(
+                **common,
+                status="stale_index",
+                user_message=_message("stale_index", arabic),
+            )
+        chunks = tuple(
+            EvidenceChunk(
+                chunk_id=item["id"],
+                text=item["document"],
+                score=item["score"],
+                distance=item["distance"],
+                document_name=item["metadata"].get("document_name", ""),
+                page_number=int(item["metadata"].get("page_number") or 0),
+                section_title=item["metadata"].get("section_title", ""),
+                subsection_title=item["metadata"].get("subsection_title", ""),
+                category=item["metadata"].get("category", ""),
+                language=item["metadata"].get("language", "en"),
+                source_id=item["metadata"].get("source_id", ""),
+                source_url=item["metadata"].get("source_url", ""),
+            )
+            for item in raw_chunks
+        )
+        if any(not item.source_id or not item.source_url.startswith("https://") for item in chunks):
+            return RetrievalEnvelope(
+                **common,
+                status="invalid_provenance",
+                user_message=_message("invalid_provenance", arabic),
+            )
+        return RetrievalEnvelope(**common, status="ready", chunks=chunks)
+    except Exception:
+        return RetrievalEnvelope(
+            **common,
+            status="infrastructure_failure",
+            user_message=_message("infrastructure_failure", arabic),
+        )
 
 
 def render_evidence(envelope: RetrievalEnvelope) -> str:

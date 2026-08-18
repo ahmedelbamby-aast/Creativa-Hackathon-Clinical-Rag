@@ -4,6 +4,20 @@ from fastapi import HTTPException
 
 from backend import server
 from src.memory import ConversationMemory
+from src.retrieval_contracts import EvidenceChunk, RetrievalEnvelope
+
+
+def _envelope() -> RetrievalEnvelope:
+    return RetrievalEnvelope(
+        original_query="Question", rewritten_query="Question", requested_category="all",
+        routed_category="treatment", namespace="phase2_local", index_manifest_hash="manifest",
+        status="ready", chunks=(EvidenceChunk(
+            chunk_id="chunk-1", text="Evidence", score=0.9, distance=0.1,
+            document_name="guide.pdf", page_number=4, section_title="Care", subsection_title="",
+            category="treatment", language="en", source_id="guide",
+            source_url="https://example.test/guide",
+        ),),
+    )
 
 
 def test_health_reports_deployment_configuration() -> None:
@@ -39,7 +53,8 @@ def test_index_serves_serverless_client() -> None:
 
     assert response.status_code == 200
     assert b"Diabetes RAG Assistant" in response.body
-    assert b"/api/chat" in response.body
+    assert b"/api/retrieve" in response.body
+    assert b"/api/generate" in response.body
     assert b"gradio_api" not in response.body
 
 
@@ -82,3 +97,25 @@ def test_chat_endpoint_rejects_missing_generation_configuration(monkeypatch) -> 
         assert exc.status_code == 503
     else:
         raise AssertionError("Expected an unavailable generation configuration")
+
+
+def test_retrieve_then_generate_uses_staged_chunk_ids(monkeypatch) -> None:
+    envelope = _envelope()
+    monkeypatch.setattr(server, "stage_evidence", lambda *args, **kwargs: envelope)
+    retrieved = server.retrieve_endpoint(server.ChatRequest(message="Question", category="all"))
+
+    assert retrieved.status == "ready"
+    assert retrieved.chunks[0].source_url == "https://example.test/guide"
+
+    received = []
+    monkeypatch.setattr(server.config, "generation_provider", "gemini")
+    monkeypatch.setattr(server.config, "gemini_api_key", "configured")
+    monkeypatch.setattr(server, "rehydrate_evidence", lambda *args: (received.append(args) or envelope))
+    monkeypatch.setattr(server, "generate_from_evidence", lambda value, memory: ("Answer", "Sources", ""))
+    result = server.generate_endpoint(server.GenerateRequest(
+        message="Question", category="all", namespace="phase2_local", index_manifest_hash="manifest",
+        chunk_ids=["chunk-1"],
+    ))
+
+    assert result.answer == "Answer"
+    assert received[0][-1] == ["chunk-1"]

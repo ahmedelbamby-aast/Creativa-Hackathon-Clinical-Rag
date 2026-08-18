@@ -45,5 +45,22 @@ def test_stage_and_render_preserve_exact_evidence(monkeypatch) -> None:
     assert "Evidence" in rendered and "https://example.test/guide" in rendered
 
 
+def test_rehydrate_does_not_embed_or_reretrieve(monkeypatch) -> None:
+    _ready_manifest(monkeypatch)
+    monkeypatch.setattr(evidence_service.vector_store, "get_chunks", lambda _: [{
+        "id": "chunk-1", "document": "Evidence", "score": 0.0, "distance": 0.0,
+        "metadata": {"document_name": "guide.pdf", "page_number": 4, "section_title": "Care",
+                     "subsection_title": "", "category": "treatment", "language": "en",
+                     "source_id": "guide", "source_url": "https://example.test/guide"},
+    }])
+
+    envelope = evidence_service.rehydrate_evidence(
+        "Question", "all", evidence_service.config.resolved_embedding_namespace, "manifest", ["chunk-1"]
+    )
+
+    assert envelope.is_ready
+    assert envelope.chunks[0].text == "Evidence"
+
+
 def envelope_chunks_ids(envelope) -> list[str]:
     return [chunk.chunk_id for chunk in evidence_service.envelope_chunks(envelope)]

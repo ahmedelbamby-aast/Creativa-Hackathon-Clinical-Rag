@@ -21,6 +21,8 @@ def test_deployment_template_fits_free_embedding_quota_profile() -> None:
     assert "CHUNK_SIZE=3000" in template
     assert "CHUNK_OVERLAP=300" in template
     assert "ONLINE_EMBEDDING_RPM=90" in template
+    assert "ACTIVE_INDEX_NAMESPACE=phase2_SELECTED_AFTER_SIGNOFF" in template
+    assert "RETRIEVAL_PROFILE=large" in template
     assert "OCR_LANGUAGE=eng" in template
 
 

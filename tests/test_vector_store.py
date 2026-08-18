@@ -79,6 +79,29 @@ def test_query_rejects_wrong_dimension() -> None:
         store.query([1.0], top_k=1)
 
 
+def test_get_chunks_preserves_requested_order(monkeypatch) -> None:
+    rows = [
+        {
+            "id": "second", "document": "Second", "document_name": "guide.pdf",
+            "page_number": 2, "section_title": "Care", "subsection_title": "",
+            "category": "treatment", "content_type": "text", "language": "en",
+            "source_id": "guide", "source_url": "https://example.test/guide", "quality_score": 1.0,
+        },
+        {
+            "id": "first", "document": "First", "document_name": "guide.pdf",
+            "page_number": 1, "section_title": "Care", "subsection_title": "",
+            "category": "treatment", "content_type": "text", "language": "en",
+            "source_id": "guide", "source_url": "https://example.test/guide", "quality_score": 1.0,
+        },
+    ]
+    store = VectorStore(database_url="postgresql://example", namespace="local_2", dimension=2)
+    monkeypatch.setattr(store, "_connect", lambda: FakeConnection(rows))
+
+    results = store.get_chunks(["first", "second"])
+
+    assert [result["id"] for result in results] == ["first", "second"]
+
+
 def test_schema_uses_partitioned_pgvector_table() -> None:
     schema = (
         Path(__file__).resolve().parents[1] / "database" / "schema.sql"
