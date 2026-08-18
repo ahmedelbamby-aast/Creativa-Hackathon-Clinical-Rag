@@ -44,9 +44,9 @@
       "expect_evidence": true,
       "expected_source_id": "idf_diabetes_atlas_2025",
       "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
-      "expected_page": 46,
-      "expected_section": "Key messages",
-      "text_anchors": ["Over USD 1 trillion was spent on diabetes"]
+      "expected_page": 66,
+      "expected_section": "In 2024, the total global diabetes-related health expenditure",
+      "text_anchors": ["total global diabetes-related health expenditure"]
     },
     {
       "case_id": "idf_en_regions",
@@ -69,7 +69,7 @@
       "expected_source_id": "who_diabetes_pregnancy_2025",
       "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
       "expected_page": 27,
-      "expected_section": "Recommendations",
+      "expected_section": "3",
       "text_anchors": ["GDG issued 27 recommendations"]
     },
     {
@@ -81,7 +81,7 @@
       "expected_source_id": "who_diabetes_pregnancy_2025",
       "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
       "expected_page": 27,
-      "expected_section": "Recommendations",
+      "expected_section": "3",
       "text_anchors": ["six on glucose monitoring"]
     },
     {
@@ -93,7 +93,7 @@
       "expected_source_id": "who_diabetes_pregnancy_2025",
       "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
       "expected_page": 38,
-      "expected_section": "Recommendations",
+      "expected_section": "3.1.2 Glucose monitoring",
       "text_anchors": ["individualized approach is encouraged"]
     },
     {
@@ -105,7 +105,7 @@
       "expected_source_id": "who_diabetes_pregnancy_2025",
       "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
       "expected_page": 44,
-      "expected_section": "Recommendations",
+      "expected_section": "3.1.3 Pharmacological treatment",
       "text_anchors": ["two-week trial of diet and physical activity"]
     },
     {
@@ -117,7 +117,7 @@
       "expected_source_id": "who_diabetes_pregnancy_2025",
       "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
       "expected_page": 34,
-      "expected_section": "Recommendations",
+      "expected_section": "3.1.2 Glucose monitoring",
       "text_anchors": ["support the woman in monitoring blood glucose"]
     },
     {
