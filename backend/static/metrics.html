@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Plain-English guide to the foundational quality and reliability metrics used by the Creativa Diabetes RAG assistant.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%232563eb' d='M32 4C22 18 12 28 12 40a20 20 0 0 0 40 0C52 28 42 18 32 4Z'/%3E%3Cpath fill='none' stroke='%23fff' stroke-width='5' stroke-linecap='round' d='M23 39h18M32 30v18'/%3E%3C/svg%3E">
+  <title>Foundational Metrics Guide · Creativa Diabetes</title>
+  <script>
+    try {
+      const saved = localStorage.getItem('creativa-theme');
+      document.documentElement.dataset.theme = saved || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    } catch (_) { document.documentElement.dataset.theme = 'dark'; }
+  </script>
+  <style>
+    :root {
+      color-scheme: dark; --page:#07111f; --surface:#101d30; --raised:#162740; --soft:#0c192a;
+      --text:#f8fbff; --muted:#b7cae2; --accent:#60a5fa; --strong:#2563eb; --border:#365170;
+      --good:#6ee7b7; --warn:#fbbf24; --focus:#bae6fd; --shadow:0 20px 60px rgba(0,0,0,.28);
+    }
+    :root[data-theme="light"] {
+      color-scheme:light; --page:#eef5fb; --surface:#fff; --raised:#edf5ff; --soft:#f5f9fd;
+      --text:#10233c; --muted:#526a84; --accent:#075985; --strong:#0369a1; --border:#b9cce0;
+      --good:#047857; --warn:#92400e; --focus:#075985; --shadow:0 18px 48px rgba(15,45,75,.12);
+    }
+    *{box-sizing:border-box} html{min-width:320px;background:var(--page);scroll-behavior:smooth}
+    body{margin:0;min-height:100dvh;color:var(--text);background:radial-gradient(circle at 10% 0%,rgba(37,99,235,.2),transparent 32rem),var(--page);font:16px/1.65 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+    a,button{font:inherit} a{color:var(--accent);text-underline-offset:3px} a:focus-visible,button:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+    .skip{position:fixed;top:8px;left:8px;z-index:4;padding:9px 13px;color:#06101d;background:var(--focus);border-radius:8px;transform:translateY(-150%)} .skip:focus{transform:none}
+    .shell{width:min(1120px,calc(100% - 32px));margin:auto;padding:28px 0 44px}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}
+    .brand{display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;font-weight:850}.mark{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;color:white;background:linear-gradient(145deg,#0284c7,#1d4ed8);font-size:1.2rem}
+    .actions{display:flex;align-items:center;gap:8px}.button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 13px;color:var(--text);background:var(--raised);border:1px solid var(--border);border-radius:11px;text-decoration:none;font-weight:750;cursor:pointer}
+    .hero{display:grid;gap:12px;padding:clamp(22px,5vw,42px);background:color-mix(in srgb,var(--surface) 95%,transparent);border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow)}
+    .eyebrow{color:var(--accent);font-size:.76rem;font-weight:850;letter-spacing:.12em;text-transform:uppercase}h1{max-width:17ch;margin:0;font-size:clamp(2rem,5.5vw,3.7rem);line-height:1.04;letter-spacing:-.045em}.lead{max-width:70ch;margin:0;color:var(--muted);font-size:1.05rem}
+    .notice{display:grid;grid-template-columns:auto 1fr;gap:10px 12px;margin-top:4px;padding:13px 15px;background:var(--soft);border:1px solid var(--border);border-radius:13px}.notice strong{color:var(--warn)}
+    .jump{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.jump a{padding:7px 11px;color:var(--muted);background:var(--soft);border:1px solid var(--border);border-radius:999px;text-decoration:none;font-size:.8rem;font-weight:750}.jump a:hover{color:var(--text);border-color:var(--accent)}
+    .group{margin-top:34px}.group-head{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:14px}.group h2{margin:0;font-size:clamp(1.35rem,3vw,1.8rem)}.group-copy{max-width:58ch;margin:0;color:var(--muted);font-size:.9rem}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.metric{display:grid;gap:12px;padding:20px;background:color-mix(in srgb,var(--surface) 95%,transparent);border:1px solid var(--border);border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.1)}
+    .metric-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.number{display:grid;place-items:center;flex:none;width:32px;height:32px;color:white;background:var(--strong);border-radius:10px;font-size:.78rem;font-weight:900}.metric h3{flex:1;margin:2px 0 0;font-size:1.08rem;line-height:1.3}.direction{padding:3px 8px;color:var(--good);border:1px solid color-mix(in srgb,var(--good) 45%,transparent);border-radius:999px;font-size:.68rem;font-weight:850;white-space:nowrap}
+    .definition{margin:0;color:var(--muted)}dl{display:grid;grid-template-columns:72px 1fr;gap:7px 10px;margin:0;font-size:.87rem}dt{color:var(--accent);font-weight:850}dd{margin:0;color:var(--muted)}
+    .example{padding:12px 13px;background:var(--soft);border-left:3px solid var(--accent);border-radius:8px;color:var(--muted);font-size:.86rem}.example strong{color:var(--text)}
+    code{padding:2px 6px;color:var(--text);background:var(--soft);border:1px solid var(--border);border-radius:6px;font-size:.88em}
+    .read-table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}.read-table th,.read-table td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--border)}.read-table th{color:var(--accent);background:var(--soft)}.read-table td{color:var(--muted)}
+    footer{margin-top:32px;padding-top:20px;color:var(--muted);border-top:1px solid var(--border);font-size:.84rem;text-align:center}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}.group-head{display:grid}.shell{width:min(100% - 20px,680px);padding-top:16px}.hero{border-radius:18px}.brand span:last-child{display:none}.read-wrap{overflow-x:auto}.read-table{min-width:620px}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition-duration:.01ms!important}}
+  </style>
+</head>
+<body>
+  <a class="skip" href="#guide">Skip to metrics guide</a>
+  <div class="shell">
+    <header>
+      <div class="topbar">
+        <a class="brand" href="/"><span class="mark" aria-hidden="true">✦</span><span>Creativa Diabetes</span></a>
+        <div class="actions"><a class="button" href="/">← Back to assistant</a><button id="theme" class="button" type="button" aria-pressed="false">◐ <span id="theme-name">Theme</span></button></div>
+      </div>
+      <div class="hero">
+        <div class="eyebrow">Foundational metrics · plain-English guide</div>
+        <h1>What do the quality numbers mean?</h1>
+        <p class="lead">These metrics help us see whether search found the right evidence, whether an answer matched a known reference, and whether the system stayed fast, reliable, and affordable.</p>
+        <div class="notice" role="note"><strong>Important</strong><span><b>Not measured</b> is different from zero. It means that chat has no reviewed gold answer or relevance label, so the system does not invent a score.</span></div>
+      </div>
+      <nav class="jump" aria-label="Metrics guide sections"><a href="#retrieval">Retrieval</a><a href="#answers">Answers</a><a href="#operations">Operations</a><a href="#dashboard">Read the dashboard</a></nav>
+    </header>
+
+    <main id="guide">
+      <section id="retrieval" class="group" aria-labelledby="retrieval-title">
+        <div class="group-head"><div><div class="eyebrow">Search quality</div><h2 id="retrieval-title">Did retrieval find the evidence?</h2></div><p class="group-copy">These scores need reviewed labels that say which document or passage is relevant.</p></div>
+        <div class="grid">
+          <article class="metric"><div class="metric-top"><span class="number">01</span><h3>Hit Rate@k</h3><span class="direction">Higher is better</span></div><p class="definition">How often at least one relevant result appears in the first <i>k</i> results.</p><dl><dt>Role</dt><dd>Basic search success check.</dd><dt>Use</dt><dd>Compare embeddings, chunk sizes, or search settings.</dd></dl><div class="example"><strong>Example:</strong> In 8 of 10 questions, a useful passage is in the top 5. Hit Rate@5 = <code>0.80</code>.</div></article>
+          <article class="metric"><div class="metric-top"><span class="number">02</span><h3>Precision@k</h3><span class="direction">Higher is better</span></div><p class="definition">The share of the first <i>k</i> results that are relevant.</p><dl><dt>Role</dt><dd>Shows how focused the retrieved context is.</dd><dt>Use</dt><dd>Reduce noisy or distracting passages.</dd></dl><div class="example"><strong>Example:</strong> 3 of the top 5 passages are useful. Precision@5 = <code>3 ÷ 5 = 0.60</code>.</div></article>
+          <article class="metric"><div class="metric-top"><span class="number">03</span><h3>Recall@k</h3><span class="direction">Higher is better</span></div><p class="definition">The share of all known relevant evidence found in the first <i>k</i> results.</p><dl><dt>Role</dt><dd>Shows whether important evidence was missed.</dd><dt>Use</dt><dd>Important for questions that need several facts or sources.</dd></dl><div class="example"><strong>Example:</strong> The gold set has 4 useful passages and search finds 3. Recall@5 = <code>3 ÷ 4 = 0.75</code>.</div></article>
+          <article class="metric"><div class="metric-top"><span class="number">04</span><h3>Mean Reciprocal Rank (MRR)</h3><span class="direction">Higher is better</span></div><p class="definition">How early the first relevant result appears, averaged across questions.</p><dl><dt>Role</dt><dd>Rewards putting the first useful passage near the top.</dd><dt>Use</dt><dd>Best when one passage can answer the question.</dd></dl><div class="example"><strong>Example:</strong> The first useful result is rank 2. Reciprocal rank = <code>1 ÷ 2 = 0.50</code>.</div></article>
+          <article class="metric"><div class="metric-top"><span class="number">05</span><h3>Mean Average Precision (MAP)</h3><span class="direction">Higher is better</span></div><p class="definition">Measures whether all relevant results are placed early, then averages the score across questions.</p><dl><dt>Role</dt><dd>Checks the quality of the full ranked list.</dd><dt>Use</dt><dd>Use when several passages may be relevant.</dd></dl><div class="example"><strong>Example:</strong> Relevant passages at ranks 1 and 3 score better than the same passages at ranks 4 and 5.</div></article>
+          <article class="metric"><div class="metric-top"><span class="number">06</span><h3>nDCG@k</h3><span class="direction">Higher is better</span></div><p class="definition">Rewards highly relevant evidence near the top and can give partial credit to partly useful evidence.</p><dl><dt>Role</dt><dd>Combines relevance strength and ranking position.</dd><dt>Use</dt><dd>Useful when evidence has grades such as full, partial, or irrelevant.</dd></dl><div class="example"><strong>Example:</strong> A fully supporting passage at rank 1 scores better than a partly related passage at rank 1.</div></article>
+        </div>
+      </section>
+
+      <section id="answers" class="group" aria-labelledby="answers-title">
+        <div class="group-head"><div><div class="eyebrow">Answer quality</div><h2 id="answers-title">Did the final answer match the target?</h2></div><p class="group-copy">These scores are only meaningful for chats with a reviewed reference answer or a clear pass rule.</p></div>
+        <div class="grid">
+          <article class="metric"><div class="metric-top"><span class="number">07</span><h3>Exact Match (EM)</h3><span class="direction">Higher is better</span></div><p class="definition">Whether the normalized answer exactly equals an accepted reference answer.</p><dl><dt>Role</dt><dd>Strict check for short facts, dates, names, or IDs.</dd><dt>Use</dt><dd>Use for answers with one clear form.</dd></dl><div class="example"><strong>Example:</strong> Reference: “589 million.” Answer: “589 million.” EM = <code>1</code>. A longer explanation may score 0 even if correct.</div></article>
+          <article class="metric"><div class="metric-top"><span class="number">08</span><h3>Token Precision, Recall, and F1</h3><span class="direction">Higher is better</span></div><p class="definition">Compares the words in the answer with the words in the reference. F1 balances precision and recall.</p><dl><dt>Role</dt><dd>Gives partial credit when wording is not identical.</dd><dt>Use</dt><dd>Pair with Exact Match for short-answer questions.</dd></dl><div class="example"><strong>Example:</strong> Reference: “589 million adults.” Answer: “589 million.” Precision is high, recall is lower, and F1 balances both.</div></article>
+          <article class="metric"><div class="metric-top"><span class="number">09</span><h3>End-to-End Task Success</h3><span class="direction">Higher is better</span></div><p class="definition">Whether the complete system passed a rule defined before testing.</p><dl><dt>Role</dt><dd>Answers the simple question: did the whole task work?</dd><dt>Use</dt><dd>Track business or safety outcomes across releases.</dd></dl><div class="example"><strong>Example:</strong> A labeled unsupported question is safely rejected without calling a model. The defined task passes, so success = <code>1</code>.</div></article>
+        </div>
+      </section>
+
+      <section id="operations" class="group" aria-labelledby="operations-title">
+        <div class="group-head"><div><div class="eyebrow">Operations</div><h2 id="operations-title">Was the system fast, reliable, and efficient?</h2></div><p class="group-copy">These metrics are available for every completed chat, even when no gold answer exists.</p></div>
+        <div class="grid">
+          <article class="metric"><div class="metric-top"><span class="number">10</span><h3>Latency Percentiles</h3><span class="direction">Lower is better</span></div><p class="definition">How long retrieval, generation, and the full request take. We show p50, p95, and p99.</p><dl><dt>Role</dt><dd>Shows normal speed and slow “tail” requests.</dd><dt>Use</dt><dd>Find slow stages and compare releases fairly.</dd></dl><div class="example"><strong>Example:</strong> p95 = 4 seconds means 95% of requests finish in 4 seconds or less.</div></article>
+          <article class="metric"><div class="metric-top"><span class="number">11</span><h3>Error Rate and Availability</h3><span class="direction">Errors ↓ Availability ↑</span></div><p class="definition">Error rate is failed requests divided by eligible requests. Availability is the successful share.</p><dl><dt>Role</dt><dd>Separates service failures from answer-quality problems.</dd><dt>Use</dt><dd>Track database, retrieval, provider, timeout, and HTTP failures.</dd></dl><div class="example"><strong>Example:</strong> 98 of 100 eligible requests succeed. Availability = <code>98%</code>; error rate = <code>2%</code>.</div></article>
+          <article class="metric"><div class="metric-top"><span class="number">12</span><h3>Token Usage and Cost per Request</h3><span class="direction">Lower at equal quality</span></div><p class="definition">Counts input, retrieved-context, and output tokens, then estimates provider cost when pricing is configured.</p><dl><dt>Role</dt><dd>Shows resource use and oversized context.</dd><dt>Use</dt><dd>Compare models or prompts only at similar quality.</dd></dl><div class="example"><strong>Example:</strong> A request uses 2,000 input tokens and 300 output tokens. Its cost uses the configured price for each token type.</div></article>
+        </div>
+      </section>
+
+      <section id="dashboard" class="group" aria-labelledby="dashboard-title">
+        <div class="group-head"><div><div class="eyebrow">Dashboard help</div><h2 id="dashboard-title">How to read changes over time</h2></div></div>
+        <div class="read-wrap" role="region" tabindex="0" aria-label="Scrollable dashboard interpretation table"><table class="read-table"><thead><tr><th>What you see</th><th>What it means</th><th>Good next question</th></tr></thead><tbody>
+          <tr><td>Quality score rises</td><td>Labeled chats performed better.</td><td>Did latency or cost rise too?</td></tr>
+          <tr><td>Latency falls</td><td>Users received answers faster.</td><td>Did quality stay the same?</td></tr>
+          <tr><td>“Not measured”</td><td>No trusted label exists for that chat.</td><td>Should this query be added to the gold set?</td></tr>
+          <tr><td>More fallbacks</td><td>The primary provider failed more often.</td><td>Did Groq or evidence excerpts still complete safely?</td></tr>
+          <tr><td>Error rate rises</td><td>More eligible requests failed operationally.</td><td>Which error type and pipeline stage changed?</td></tr>
+        </tbody></table></div>
+      </section>
+    </main>
+    <footer>This guide explains system evaluation, not medical advice. Return to the assistant to view the live metrics dashboard.</footer>
+  </div>
+  <script>
+    const button=document.getElementById('theme'),name=document.getElementById('theme-name');
+    function apply(theme,persist=false){const value=theme==='light'?'light':'dark';document.documentElement.dataset.theme=value;button.setAttribute('aria-pressed',String(value==='light'));button.setAttribute('aria-label',`Switch to ${value==='light'?'dark':'light'} theme`);name.textContent=value==='light'?'Light':'Dark';if(persist)try{localStorage.setItem('creativa-theme',value)}catch(_){}}
+    button.addEventListener('click',()=>apply(document.documentElement.dataset.theme==='light'?'dark':'light',true));apply(document.documentElement.dataset.theme);
+  </script>
+</body>
+</html>

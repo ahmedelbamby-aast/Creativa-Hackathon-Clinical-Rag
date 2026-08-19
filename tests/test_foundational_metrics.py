@@ -86,6 +86,17 @@ def test_static_ui_exposes_history_dashboard_and_trace_identity():
     assert "Gemini → Groq → Evidence excerpts (automatic)" in index
     assert 'id="theme-toggle"' in index
     assert 'role="region" tabindex="0" aria-label="Scrollable recent metrics table"' in index
+    assert 'href="/metrics-guide"' in index
+
+
+def test_metrics_guide_explains_all_twelve_foundational_metrics_with_examples():
+    guide = (observability.config.project_root / "backend" / "static" / "metrics.html").read_text(encoding="utf-8")
+    for number in range(1, 13):
+        assert f'<span class="number">{number:02d}</span>' in guide
+    assert guide.count('<div class="example"><strong>Example:</strong>') == 12
+    assert "Higher is better" in guide
+    assert "Lower is better" in guide
+    assert "Not measured" in guide
 
 
 def test_database_schema_has_durable_jsonb_metric_events():

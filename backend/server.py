@@ -37,6 +37,7 @@ api = FastAPI(
 
 STATIC_DIR = Path(__file__).with_name("static")
 STATIC_INDEX = STATIC_DIR / "index.html"
+METRICS_GUIDE = STATIC_DIR / "metrics.html"
 api.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
 VALID_CATEGORIES = {
     CATEGORY_ALL,
@@ -341,6 +342,12 @@ def generate_endpoint(request: GenerateRequest) -> ChatResponse:
 def index() -> HTMLResponse:
     """Serve the dependency-free client that works on stateless functions."""
     return HTMLResponse(STATIC_INDEX.read_text(encoding="utf-8"))
+
+
+@api.get("/metrics-guide", response_class=HTMLResponse, include_in_schema=False)
+def metrics_guide() -> HTMLResponse:
+    """Serve the plain-English guide to the implemented foundational metrics."""
+    return HTMLResponse(METRICS_GUIDE.read_text(encoding="utf-8"))
 
 
 app = api

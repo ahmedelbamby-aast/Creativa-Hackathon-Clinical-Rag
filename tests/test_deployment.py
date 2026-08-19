@@ -64,6 +64,16 @@ def test_index_serves_serverless_client() -> None:
     assert b"/assets/katex/katex.min.js" in response.body
 
 
+def test_metrics_guide_serves_plain_english_foundational_definitions() -> None:
+    response = server.metrics_guide()
+    content = response.body.decode("utf-8")
+    assert response.status_code == 200
+    assert "What do the quality numbers mean?" in content
+    assert "Hit Rate@k" in content
+    assert "Token Usage and Cost per Request" in content
+    assert "Not measured" in content
+
+
 def test_self_hosted_math_assets_are_served() -> None:
     client = TestClient(server.api)
 
