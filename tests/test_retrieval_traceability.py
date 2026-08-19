@@ -126,3 +126,43 @@ def test_retrieve_excludes_reference_list_chunks(monkeypatch) -> None:
     monkeypatch.setattr("src.retriever.vector_store", FakeVectorStore())
 
     assert retrieve("preventive cardiologist", similarity_threshold=0.0) == []
+
+
+def test_retrieve_uses_lexical_database_fallback_when_embedding_fails(monkeypatch) -> None:
+    raw_result = {
+        "id": "lexical-1",
+        "document": "An estimated 589 million adults were living with diabetes in 2024.",
+        "distance": 0.2,
+        "score": 0.8,
+        "metadata": {
+            "chunk_id": "lexical-1",
+            "document_name": "atlas.pdf",
+            "page_number": 46,
+            "section_title": "Key messages",
+            "subsection_title": "",
+            "category": "general",
+            "content_type": "text",
+            "language": "en",
+            "source_id": "atlas",
+            "source_url": "https://example.test/atlas",
+        },
+    }
+
+    class FailedEmbedder:
+        def embed_query(self, query):
+            raise RuntimeError("429 RESOURCE_EXHAUSTED")
+
+    class LexicalVectorStore:
+        def query(self, **kwargs):
+            raise AssertionError("vector query must not run")
+
+        def keyword_query(self, **kwargs):
+            assert "589" in kwargs["query"]
+            return [raw_result]
+
+    monkeypatch.setattr("src.retriever.embedder", FailedEmbedder())
+    monkeypatch.setattr("src.retriever.vector_store", LexicalVectorStore())
+
+    chunks = retrieve("589 million adults with diabetes in 2024", similarity_threshold=0.0)
+
+    assert [chunk.chunk_id for chunk in chunks] == ["lexical-1"]

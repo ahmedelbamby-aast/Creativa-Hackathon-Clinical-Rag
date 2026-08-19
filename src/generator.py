@@ -10,8 +10,8 @@ from src.gemini_errors import GeminiResponseError, classify_gemini_error, is_ret
 
 logger = logging.getLogger(__name__)
 
-_MAX_RETRIES = 3
-_RETRY_BACKOFF = [2, 5, 10]
+_MAX_RETRIES = 1
+_RETRY_BACKOFF = [0]
 
 
 def _is_rate_limited(error_text: str) -> bool:
@@ -183,13 +183,15 @@ class GeminiGenerator:
                 last_error = exc
                 error_info = classify_gemini_error(exc)
                 if _is_retryable(exc):
-                    wait = _RETRY_BACKOFF[min(attempt, len(_RETRY_BACKOFF) - 1)]
-                    logger.warning(
-                        "%s generation is temporarily unavailable; waiting %ds before retry %d/%d",
-                        provider.title(), wait, attempt + 1, _MAX_RETRIES,
-                    )
-                    time.sleep(wait)
-                    continue
+                    if attempt < _MAX_RETRIES - 1:
+                        wait = _RETRY_BACKOFF[min(attempt, len(_RETRY_BACKOFF) - 1)]
+                        logger.warning(
+                            "%s generation is temporarily unavailable; waiting %ds before retry %d/%d",
+                            provider.title(), wait, attempt + 1, _MAX_RETRIES,
+                        )
+                        time.sleep(wait)
+                        continue
+                    break
                 logger.error(
                     "%s generation failed: code=%s status=%s type=%s",
                     provider.title(), error_info.code, error_info.http_status, type(exc).__name__,

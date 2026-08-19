@@ -49,6 +49,29 @@ def test_exhausted_transient_retries_raise_a_sanitized_error(monkeypatch) -> Non
         generator.generate("Evidence")
 
 
+def test_interactive_generation_fails_over_without_retry_sleep(monkeypatch) -> None:
+    generator = GeminiGenerator()
+    calls = []
+
+    def fake_generate(_prompt, provider=None):
+        calls.append(provider)
+        if provider == "gemini":
+            raise RuntimeError("429 RESOURCE_EXHAUSTED")
+        return "Grounded Groq answer"
+
+    monkeypatch.setattr(generator, "_initialise", lambda provider: None)
+    monkeypatch.setattr(generator, "_generate_once", fake_generate)
+    monkeypatch.setattr("src.generator.config.generation_provider", "auto")
+    monkeypatch.setattr("src.generator.config.generation_primary_provider", "gemini")
+    monkeypatch.setattr("src.generator.config.generation_fallback_provider", "groq")
+    monkeypatch.setattr("src.generator.time.sleep", lambda _: (_ for _ in ()).throw(
+        AssertionError("interactive failover must not sleep")
+    ))
+
+    assert generator.generate("Evidence") == "Grounded Groq answer"
+    assert calls == ["gemini", "groq"]
+
+
 def test_vercel_gateway_generation(monkeypatch) -> None:
     calls = []
 

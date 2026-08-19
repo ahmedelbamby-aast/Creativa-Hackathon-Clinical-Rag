@@ -35,9 +35,11 @@ def _arabic_retrieval_hints(query: str) -> list[str]:
     """Map stable Arabic corpus concepts to English hints used by the indexed PDFs."""
     hints: list[str] = []
     normalized = query.casefold()
+    if "2024" in query and any(term in normalized for term in ("البالغ", "بالغ")):
+        hints.append("589 million adults aged 20 79 living with diabetes in 2024")
     if any(term in normalized for term in ("لا يعلمون", "غير المشخص", "غير المشخّص")) or "252" in query:
         hints.append("adults living with diabetes unaware undiagnosed 252 million")
-    if "2050" in query or any(term in normalized for term in ("المتوقع", "المتوقعة", "المتوقعة")):
+    if "2050" in query or any(term in normalized for term in ("المتوقع", "المتوقعة")):
         hints.append("adults living with diabetes projected 853 million by 2050")
     if any(term in normalized for term in ("الإنفاق", "أُنفق", "انفق")):
         hints.append("global diabetes-related health expenditure 2024")

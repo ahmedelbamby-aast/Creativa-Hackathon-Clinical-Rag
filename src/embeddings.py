@@ -127,7 +127,9 @@ class EmbeddingModel:
         ]
         response = None
         last_error: Exception | None = None
-        fallback_delays = (2.0, 5.0, 10.0, 30.0)
+        # Interactive retrieval must fail fast so the database lexical fallback
+        # can answer within a serverless request. Corpus ingestion can wait and retry.
+        fallback_delays = () if task == "query" else (2.0, 5.0, 10.0, 30.0)
         for attempt in range(len(fallback_delays) + 1):
             self._wait_for_online_quota(len(texts))
             try:

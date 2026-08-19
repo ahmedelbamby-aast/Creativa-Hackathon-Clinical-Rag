@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.vector_store import VectorStore, normalize_namespace
+from src.vector_store import VectorStore, _lexical_terms, normalize_namespace
 
 
 class FakeResult:
@@ -128,6 +128,34 @@ def test_get_chunks_preserves_requested_order(monkeypatch) -> None:
     results = store.get_chunks(["first", "second"])
 
     assert [result["id"] for result in results] == ["first", "second"]
+
+
+def test_keyword_query_ranks_without_embedding_and_enriches_provenance(monkeypatch) -> None:
+    row = {
+        "id": "chunk-1", "document": "589 million adults with diabetes in 2024",
+        "document_name": "guide.pdf", "page_number": 46,
+        "section_title": "Key messages", "subsection_title": "",
+        "category": "general", "content_type": "text", "language": "en",
+        "quality_score": 0.9, "lexical_score": 0.75,
+    }
+    connection = FakeConnection([row])
+    store = VectorStore(database_url="postgresql://example", namespace="gemini_384", dimension=384)
+    monkeypatch.setattr(store, "_connect", lambda: connection)
+    monkeypatch.setattr(
+        "src.vector_store.load_source_catalog",
+        lambda: {"guide.pdf": SimpleNamespace(
+            source_id="guide", source_url="https://example.test/guide",
+            publisher="Publisher", publication_date="2025", checksum="a" * 64,
+            enabled=True,
+        )},
+    )
+
+    result = store.keyword_query("589 million adults living with diabetes in 2024", top_k=1)[0]
+
+    assert result["score"] == 0.875
+    assert result["metadata"]["source_id"] == "guide"
+    assert "ILIKE" in connection.statement
+    assert _lexical_terms("589 million adults living with diabetes in 2024") == ["589", "2024"]
 
 
 def test_schema_uses_partitioned_pgvector_table() -> None:

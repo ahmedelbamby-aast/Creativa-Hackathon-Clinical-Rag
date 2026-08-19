@@ -88,7 +88,7 @@ def test_provider_retry_delay_is_honoured_with_safety_margin() -> None:
     assert _retry_delay_seconds("temporarily unavailable", fallback=5.0) == 5.0
 
 
-def test_gemini_retry_uses_provider_delay(monkeypatch) -> None:
+def test_gemini_ingestion_retry_uses_provider_delay(monkeypatch) -> None:
     class ThrottledModels(FakeOnlineModels):
         def embed_content(self, **kwargs):
             if not self.calls:
@@ -105,9 +105,31 @@ def test_gemini_retry_uses_provider_delay(monkeypatch) -> None:
     sleeps: list[float] = []
     monkeypatch.setattr("src.embeddings.time.sleep", sleeps.append)
 
-    assert embedder.embed_query("HbA1c") == [0.6, 0.8]
+    assert embedder.embed_batch(["HbA1c"]) == [[0.6, 0.8]]
     assert sleeps == [13.5]
     assert len(models.calls) == 2
+
+
+def test_gemini_interactive_query_fails_fast_for_database_fallback(monkeypatch) -> None:
+    class ThrottledModels(FakeOnlineModels):
+        def embed_content(self, **kwargs):
+            self.calls.append(kwargs)
+            raise RuntimeError("429 RESOURCE_EXHAUSTED; retry in 60s")
+
+    models = ThrottledModels()
+    embedder = EmbeddingModel(
+        provider="gemini",
+        dimension=2,
+        online_client=SimpleNamespace(models=models),
+    )
+    monkeypatch.setattr(
+        "src.embeddings.time.sleep",
+        lambda _: (_ for _ in ()).throw(AssertionError("query embedding must not sleep")),
+    )
+
+    with pytest.raises(RuntimeError, match="429"):
+        embedder.embed_query("HbA1c")
+    assert len(models.calls) == 1
 
 
 def test_gemini_pacing_waits_for_rolling_window(monkeypatch) -> None:

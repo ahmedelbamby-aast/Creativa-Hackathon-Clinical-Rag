@@ -80,19 +80,29 @@ def retrieve(
         logger.warning("Empty query passed to retriever")
         return []
 
-    # Embed the query
+    # Embed the query. If the online provider is unavailable or quota-limited,
+    # use the same PostgreSQL corpus through its deterministic lexical route.
     try:
         query_vector = embedder.embed_query(query.strip())
     except Exception as e:
-        logger.error("Failed to embed retrieval query: type=%s", type(e).__name__)
-        raise RetrievalProviderError("query_embedding_failed") from e
-
-    # Query vector store
-    raw_results = vector_store.query(
-        query_embedding=query_vector,
-        category=category,
-        top_k=top_k * 2,  # Over-fetch to allow for threshold filtering
-    )
+        logger.warning(
+            "Embedding retrieval unavailable; using PostgreSQL lexical fallback: type=%s",
+            type(e).__name__,
+        )
+        try:
+            raw_results = vector_store.keyword_query(
+                query=query.strip(),
+                category=category,
+                top_k=top_k * 2,
+            )
+        except Exception as fallback_error:
+            raise RetrievalProviderError("query_embedding_and_lexical_search_failed") from fallback_error
+    else:
+        raw_results = vector_store.query(
+            query_embedding=query_vector,
+            category=category,
+            top_k=top_k * 2,  # Over-fetch to allow for threshold filtering
+        )
 
     if not raw_results:
         logger.info("No results returned from pgvector for query: %r", query[:80])

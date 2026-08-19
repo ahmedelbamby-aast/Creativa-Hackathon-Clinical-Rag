@@ -17,6 +17,23 @@ from src.source_catalog import load_source_catalog
 
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "database" / "schema.sql"
 
+_LEXICAL_STOPWORDS = {
+    "about", "adults", "answer", "approximately", "based", "condition", "diabetes",
+    "does", "figures", "from", "have", "living", "many", "million", "number", "percentage",
+    "source", "that", "their", "them", "topic", "using", "what", "when", "with", "years",
+}
+
+
+def _lexical_terms(query: str) -> list[str]:
+    """Return bounded, discriminative English/numeric terms for SQL fallback."""
+    terms = []
+    for token in re.findall(r"[a-z0-9]+", query.casefold()):
+        if token in _LEXICAL_STOPWORDS or (not token.isdigit() and len(token) < 4):
+            continue
+        if token not in terms:
+            terms.append(token)
+    return terms[:12]
+
 
 def normalize_namespace(namespace: str) -> str:
     """Return a safe PostgreSQL identifier component."""
@@ -308,6 +325,81 @@ class VectorStore:
                 "score": 0.0,
             }
         return [by_id[chunk_id] for chunk_id in chunk_ids if chunk_id in by_id]
+
+    def keyword_query(
+        self,
+        query: str,
+        category: str = CATEGORY_ALL,
+        top_k: int = 5,
+    ) -> list[dict]:
+        """Search corpus text without an embedding provider, ranked by term coverage."""
+        terms = _lexical_terms(query)
+        if not terms:
+            return []
+        category_clause = ""
+        parameters: list[object] = []
+        if category != CATEGORY_ALL and category in ALL_CATEGORIES:
+            category_clause = "AND (category = %s OR category = %s)"
+            parameters.extend([category, CATEGORY_GENERAL])
+
+        match_parts = ["CASE WHEN content ILIKE %s THEN 1 ELSE 0 END" for _ in terms]
+        score_expression = " + ".join(match_parts)
+        match_parameters = [f"%{term}%" for term in terms]
+        limit = max(0, min(top_k, 1000))
+        statement = f"""
+            SELECT
+                chunk_id AS id,
+                content AS document,
+                document_name,
+                page_number,
+                section_title,
+                subsection_title,
+                category,
+                content_type,
+                language,
+                quality_score,
+                ({score_expression})::float / %s AS lexical_score
+            FROM rag_chunks
+            WHERE namespace = %s
+              {category_clause}
+              AND ({score_expression}) > 0
+            ORDER BY lexical_score DESC, quality_score DESC, chunk_id
+            LIMIT %s
+        """
+        query_parameters = [
+            *match_parameters,
+            len(terms),
+            self.namespace,
+            *parameters,
+            *match_parameters,
+            limit,
+        ]
+        with self._connect() as connection:
+            rows = connection.execute(statement, query_parameters).fetchall()
+
+        source_catalog = load_source_catalog()
+        results: list[dict] = []
+        for row in rows:
+            coverage = float(row.pop("lexical_score"))
+            chunk_id = row.pop("id")
+            document = row.pop("document")
+            source = source_catalog.get(row.get("document_name", ""))
+            row["source_id"] = source.source_id if source and source.enabled else ""
+            row["source_url"] = source.source_url if source and source.enabled else ""
+            row["publisher"] = getattr(source, "publisher", "") if source and source.enabled else ""
+            row["publication_date"] = getattr(source, "publication_date", "") if source and source.enabled else ""
+            row["source_checksum"] = getattr(source, "checksum", "") if source and source.enabled else ""
+            score = round(0.5 + (0.5 * max(0.0, min(1.0, coverage))), 4)
+            results.append(
+                {
+                    "id": chunk_id,
+                    "document": document,
+                    "metadata": {"chunk_id": chunk_id, **row},
+                    "distance": round(1.0 - score, 4),
+                    "score": score,
+                }
+            )
+        return results
 
     def collection_stats(self) -> dict[str, int]:
         """Return category counts, including general chunks in each category."""
