@@ -130,3 +130,45 @@ stage.
 - For every preview, test direct English and Arabic retrieval, vague and
   unsupported refusals, citation provenance, metrics persistence, and rate
   dashboard rendering.
+
+## Implemented operator workflow
+
+The application now routes dimensions through the five source-controlled table
+families, records model/dimension/namespace/table family on request traces, and
+uses `database/embedding_quota_schema.sql` for persistent run and event state.
+Rolling RPM/TPM reservations use the configured safety factor (0.70 by
+default); RPD reports warning at 70%, critical at 85%, and checkpoints the
+background run at the 95% hard stop.
+
+Before a stage, populate all three project-specific quota values plus
+`OPERATIONS_DASHBOARD_TOKEN`. If any quota limit is blank, persistent limiting
+is deliberately disabled and the protected operations endpoint reports that
+limits are not configured.
+
+On the isolated Neon branch, apply both the target dimension migration and
+`database/embedding_quota_schema.sql` through `DATABASE_URL_UNPOOLED`. Then run:
+
+```powershell
+$env:APP_ENV = 'deployment'
+uv run python scripts/ingest.py --write-index-manifest
+uv run python scripts/audit_local_corpus.py
+```
+
+The audit fails on a missing PDF, checksum mismatch, manifest chunk-count
+mismatch, or wrong vector width. Ingestion checkpoints after every document;
+when RPD is exhausted the run becomes `paused_quota`, and a later invocation
+skips already stored documents rather than re-embedding them.
+
+Record each preview's gate inputs as JSON and compare it with the immediately
+preceding active dimension:
+
+```powershell
+uv run python scripts/check_embedding_stage.py `
+  --previous reports/embedding/active.json `
+  --candidate reports/embedding/candidate.json `
+  --output reports/embedding/gate.json
+```
+
+An exit code of 1 means retain the previous dimension and stop. Deployment and
+promotion must additionally follow `AGENTS_DEPLPOY_VERCEL.md`; this script does
+not create a branch, deploy a preview, or promote an alias.

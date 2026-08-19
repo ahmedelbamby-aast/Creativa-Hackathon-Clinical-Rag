@@ -7,12 +7,12 @@ from src.config import AppConfig
 
 def test_gemini_model_default_and_template_are_consistent(monkeypatch):
     monkeypatch.delenv("GEMINI_MODEL", raising=False)
-    assert AppConfig().gemini_model == "gemini-2.5-flash"
+    assert AppConfig().gemini_model == "gemini-3.6-flash"
     for name in (".env.development.example", ".env.deployment.example"):
         template = Path(name).read_text(encoding="utf-8")
-        assert "GEMINI_MODEL=gemini-2.5-flash" in template
+        assert "GEMINI_MODEL=gemini-3.6-flash" in template
     workflow = Path(".github/workflows/ingest-production.yml").read_text(encoding="utf-8")
-    assert "GEMINI_MODEL: gemini-2.5-flash" in workflow
+    assert "GEMINI_MODEL: gemini-3.6-flash" in workflow
 
 
 def test_deployment_template_fits_free_embedding_quota_profile() -> None:

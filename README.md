@@ -371,7 +371,7 @@ uv run python scripts/evaluate.py --category nutrition
 | `GENERATION_PROVIDER` | `auto` | `gemini`, `groq`, `vercel_gateway`, `extractive`, or automatic routing |
 | `GENERATION_PRIMARY_PROVIDER` | `gemini` | First provider when automatic routing is enabled |
 | `GENERATION_FALLBACK_PROVIDER` | `groq` | Second provider after Gemini; deterministic evidence excerpts are the final fallback |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Optional direct generation model |
+| `GEMINI_MODEL` | `gemini-3.6-flash` | Optional direct generation model |
 | `GROQ_API_KEY` | empty | Groq generation credential |
 | `GROQ_MODEL` | `openai/gpt-oss-120b` | Groq OpenAI-compatible generation model |
 | `AI_GATEWAY_MODEL` | `google/gemini-2.5-flash` | Vercel AI Gateway production model |

@@ -18,8 +18,8 @@ from src.retriever import RetrievedChunk, is_retrieval_sufficient, retrieve
 from src.rewriter import rewrite_query
 from src.router import route_query
 from src.safety import SafetyLevel, classify_safety, get_emergency_response
-from src.vector_store import vector_store
 from src.gemini_errors import classify_gemini_error, gemini_user_message
+from src.embedding_profiles import EmbeddingRuntime, get_embedding_runtime
 from src.response_policy import is_out_of_domain, needs_clarification, response_text
 
 
@@ -60,13 +60,28 @@ def is_arabic(text: str) -> bool:
     return bool(re.search(r"[\u0600-\u06FF]", text))
 
 
-def _active_index_hash(namespace: str) -> str:
+def _active_index_hash(runtime: EmbeddingRuntime) -> str:
     """Return a compatible local manifest hash or a hosted runtime fingerprint."""
-    manifest = load_index_manifest(namespace)
+    manifest = load_index_manifest(runtime.namespace)
     if manifest is not None:
-        return index_manifest_hash(manifest) if manifest_matches_runtime(manifest, namespace) else ""
+        return (
+            index_manifest_hash(manifest)
+            if manifest_matches_runtime(
+                manifest,
+                runtime.namespace,
+                runtime.dimension,
+                runtime.provider,
+                runtime.model,
+            )
+            else ""
+        )
     if config.is_deployment:
-        return runtime_index_hash(namespace)
+        return runtime_index_hash(
+            runtime.namespace,
+            runtime.dimension,
+            runtime.provider,
+            runtime.model,
+        )
     return ""
 
 
@@ -74,16 +89,22 @@ def stage_evidence(
     query: str,
     category: str,
     conversation_history: list[dict] | None = None,
+    embedding_dimension: int | None = None,
 ) -> RetrievalEnvelope:
     """Retrieve once and return the exact evidence that may later reach generation."""
     query = query.strip()
     arabic = is_arabic(query)
+    runtime = get_embedding_runtime(embedding_dimension)
     common = {
         "original_query": query,
         "requested_category": category,
         "routed_category": category,
-        "namespace": config.resolved_embedding_namespace,
+        "namespace": runtime.namespace,
         "index_manifest_hash": "",
+        "embedding_dimension": runtime.dimension,
+        "embedding_provider": runtime.provider,
+        "embedding_model": runtime.model,
+        "embedding_table_family": runtime.table_family,
     }
     if not query:
         return RetrievalEnvelope(
@@ -115,7 +136,7 @@ def stage_evidence(
             user_message=response_text("out_of_scope", is_arabic=arabic),
         )
     try:
-        active_hash = _active_index_hash(config.resolved_embedding_namespace)
+        active_hash = _active_index_hash(runtime)
         if not active_hash:
             return RetrievalEnvelope(
                 **common,
@@ -125,7 +146,12 @@ def stage_evidence(
             )
         rewritten = rewrite_query(query, conversation_history=conversation_history)
         routed = route_query(rewritten, user_selected_category=category)
-        chunks = retrieve(rewritten, category=routed, top_k=config.top_k)
+        chunks = retrieve(
+            rewritten,
+            category=routed,
+            top_k=config.top_k,
+            embedding_runtime=runtime,
+        )
         chunks = _directly_matching_chunks(query, chunks)
         common.update(routed_category=routed, index_manifest_hash=active_hash)
         if not chunks:
@@ -226,9 +252,11 @@ def rehydrate_evidence(
     namespace: str,
     manifest_hash: str,
     chunk_ids: list[str],
+    embedding_dimension: int | None = None,
 ) -> RetrievalEnvelope:
     """Rebuild previously displayed evidence by exact IDs without a new retrieval call."""
     arabic = is_arabic(query)
+    runtime = get_embedding_runtime(embedding_dimension)
     common = {
         "original_query": query,
         "rewritten_query": query,
@@ -236,18 +264,22 @@ def rehydrate_evidence(
         "routed_category": category,
         "namespace": namespace,
         "index_manifest_hash": manifest_hash,
+        "embedding_dimension": runtime.dimension,
+        "embedding_provider": runtime.provider,
+        "embedding_model": runtime.model,
+        "embedding_table_family": runtime.table_family,
     }
     try:
-        if namespace != config.resolved_embedding_namespace:
+        if namespace != runtime.namespace:
             raise ValueError("namespace changed")
-        active_hash = _active_index_hash(namespace)
+        active_hash = _active_index_hash(runtime)
         if not active_hash or active_hash != manifest_hash:
             return RetrievalEnvelope(
                 **common,
                 status="stale_index",
                 user_message=response_text("stale_index", is_arabic=arabic),
             )
-        raw_chunks = vector_store.get_chunks(chunk_ids)
+        raw_chunks = runtime.vector_store.get_chunks(chunk_ids)
         if len(raw_chunks) != len(chunk_ids):
             return RetrievalEnvelope(
                 **common,

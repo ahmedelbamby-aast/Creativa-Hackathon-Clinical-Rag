@@ -33,7 +33,7 @@ replace the Gemini key without changing the deterministic local defaults:
 
 ```dotenv
 GEMINI_API_KEY=your-key-here
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.6-flash
 EMBEDDING_PROVIDER=local
 EMBEDDING_DIMENSION=384
 EMBEDDING_NAMESPACE=local_384
@@ -147,7 +147,7 @@ intend to delete the indexed documents and model-independent database state.
 - **Embedding model download stalls:** retry bootstrap; optionally set an
   `HF_TOKEN` in `.env.development` for higher Hugging Face rate limits.
 - **Gemini request fails:** confirm the key and
-  `GEMINI_MODEL=gemini-2.5-flash`, then restart Gradio.
+  `GEMINI_MODEL=gemini-3.6-flash`, then restart Gradio.
 - **`401 ACCESS_TOKEN_TYPE_UNSUPPORTED`:** replace `GEMINI_API_KEY` with an API
   key created in Google AI Studio; OAuth access tokens are not accepted by this
   client configuration.

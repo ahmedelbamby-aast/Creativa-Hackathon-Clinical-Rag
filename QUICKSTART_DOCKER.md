@@ -37,7 +37,7 @@ GEMINI_API_KEY=your-key-here
 Keep these deterministic defaults:
 
 ```dotenv
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.6-flash
 EMBEDDING_PROVIDER=local
 EMBEDDING_DIMENSION=384
 EMBEDDING_NAMESPACE=local_384
@@ -136,7 +136,7 @@ downloaded model cache.
 - **App remains unhealthy:** run `docker compose logs app`; first model download can take several minutes.
 - **Hugging Face rate limits:** optionally add `HF_TOKEN` to `.env.development`; the default configuration disables Xet and uses standard HTTP downloads.
 - **No citations:** ingest the PDF in step 4 and verify `docker compose exec app uv run python scripts/ingest.py --stats`.
-- **Gemini error:** confirm the key and `GEMINI_MODEL=gemini-2.5-flash`, then run `docker compose restart app`.
+- **Gemini error:** confirm the key and `GEMINI_MODEL=gemini-3.6-flash`, then run `docker compose restart app`.
 - **`401 ACCESS_TOKEN_TYPE_UNSUPPORTED`:** replace `GEMINI_API_KEY` with an API
   key created in Google AI Studio; OAuth access tokens are not accepted by this
   client configuration.

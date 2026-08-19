@@ -58,7 +58,10 @@ class RequestTrace:
     risk_tier: str = ""
     namespace: str = ""
     index_manifest_hash: str = ""
-    embedding_model: str = field(default_factory=lambda: config.embedding_model)
+    embedding_provider: str = field(default_factory=lambda: config.embedding_provider)
+    embedding_model: str = field(default_factory=lambda: config.active_embedding_model)
+    embedding_dimension: int = field(default_factory=lambda: config.embedding_dimension)
+    embedding_table_family: str = field(default_factory=lambda: config.embedding_table_family)
     retrieval_profile: str = field(default_factory=lambda: config.retrieval_profile)
     retrieval_count: int = 0
     best_score: float = 0.0
@@ -117,6 +120,14 @@ class RequestTrace:
         self.risk_tier = classify_safety(self.query).value
         self.namespace = envelope.namespace
         self.index_manifest_hash = envelope.index_manifest_hash
+        if getattr(envelope, "embedding_dimension", 0):
+            self.embedding_dimension = envelope.embedding_dimension
+        if getattr(envelope, "embedding_provider", ""):
+            self.embedding_provider = envelope.embedding_provider
+        if getattr(envelope, "embedding_model", ""):
+            self.embedding_model = envelope.embedding_model
+        if getattr(envelope, "embedding_table_family", ""):
+            self.embedding_table_family = envelope.embedding_table_family
         self.retrieval_count = len(envelope.chunks)
         self.best_score = round(envelope.chunks[0].score, 4) if envelope.chunks else 0.0
         self.top_k = config.top_k

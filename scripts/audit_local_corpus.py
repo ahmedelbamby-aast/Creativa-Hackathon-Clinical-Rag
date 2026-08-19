@@ -9,23 +9,41 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import psycopg
+import hashlib
 
 from src.config import config
+from src.index_manifests import load_index_manifest
 from src.vector_store import vector_store
 
 
 def main() -> None:
-    local = sorted(path.name for path in config.data_dir.glob("*.pdf"))
-    with psycopg.connect(config.database_url) as connection:
-        rows = connection.execute(
-            f"SELECT document_name, count(*) FROM {vector_store.parent_table} WHERE namespace = %s GROUP BY document_name",
-            (vector_store.namespace,),
-        ).fetchall()
-    indexed = {name: count for name, count in rows}
-    missing = [name for name in local if not indexed.get(name)]
-    print(json.dumps({"namespace": vector_store.namespace, "local_pdf_count": len(local), "indexed_pdf_count": len(indexed), "missing": missing, "documents": indexed}, ensure_ascii=False, indent=2))
-    if missing:
+    paths = sorted(config.data_dir.glob("*.pdf"), key=lambda path: path.name.lower())
+    local_checksums = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
+    audit = vector_store.namespace_audit()
+    indexed = audit["documents"]
+    missing = [name for name in local_checksums if name not in indexed]
+    manifest = load_index_manifest(vector_store.namespace)
+    checksum_mismatches = []
+    count_mismatches = []
+    if manifest:
+        checksum_mismatches = [
+            name for name, checksum in local_checksums.items()
+            if manifest.document_checksums.get(name) != checksum
+        ]
+        count_mismatches = [
+            name for name, expected in manifest.document_chunk_counts.items()
+            if indexed.get(name, {}).get("chunk_count") != expected
+        ]
+    result = {
+        **audit,
+        "local_pdf_count": len(paths),
+        "missing": missing,
+        "manifest_present": manifest is not None,
+        "checksum_mismatches": checksum_mismatches,
+        "chunk_count_mismatches": count_mismatches,
+    }
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    if missing or audit["invalid_vector_count"] or checksum_mismatches or count_mismatches:
         raise SystemExit(1)
 
 

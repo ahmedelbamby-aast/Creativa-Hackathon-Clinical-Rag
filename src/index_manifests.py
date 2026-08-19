@@ -34,6 +34,7 @@ def build_index_manifest(
     namespace: str,
     corpus_paths: list[Path],
     token_count: int,
+    document_chunk_counts: dict[str, int] | None = None,
 ) -> IndexManifest:
     """Create the exact manifest for the currently configured index process."""
     char_size, char_overlap = config.selected_chunk_profile
@@ -53,6 +54,11 @@ def build_index_manifest(
         char_chunk_size=char_size,
         char_chunk_overlap=char_overlap,
         token_count=token_count,
+        document_checksums={
+            path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in sorted(corpus_paths, key=lambda value: value.name.lower())
+        },
+        document_chunk_counts=dict(sorted((document_chunk_counts or {}).items())),
     )
 
 
@@ -78,7 +84,12 @@ def index_manifest_hash(manifest: IndexManifest) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def runtime_index_hash(namespace: str) -> str:
+def runtime_index_hash(
+    namespace: str,
+    dimension: int | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+) -> str:
     """Fingerprint hosted retrieval settings when no local corpus manifest ships.
 
     Hosted deployments query an already-certified pgvector namespace and do not
@@ -89,31 +100,28 @@ def runtime_index_hash(namespace: str) -> str:
     payload = {
         "namespace": normalize_namespace(namespace),
         "chunk_profile": config.retrieval_profile,
-        "embedding_provider": config.embedding_provider,
-        "embedding_model": (
-            config.online_embedding_model
-            if config.embedding_provider == "gemini"
-            else config.embedding_model
-        ),
-        "dimension": config.embedding_dimension,
+        "embedding_provider": provider or config.embedding_provider,
+        "embedding_model": model or config.active_embedding_model,
+        "dimension": dimension or config.embedding_dimension,
         "source_catalog_hash": source_catalog_hash(),
     }
     serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
-def manifest_matches_runtime(manifest: IndexManifest, namespace: str) -> bool:
+def manifest_matches_runtime(
+    manifest: IndexManifest,
+    namespace: str,
+    dimension: int | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+) -> bool:
     """Return whether an index manifest is compatible with the active runtime."""
     return (
         manifest.namespace == normalize_namespace(namespace)
-        and manifest.dimension == config.embedding_dimension
+        and manifest.dimension == (dimension or config.embedding_dimension)
         and manifest.chunk_profile == config.retrieval_profile
-        and manifest.embedding_provider == config.embedding_provider
-        and manifest.embedding_model
-        == (
-            config.online_embedding_model
-            if config.embedding_provider == "gemini"
-            else config.embedding_model
-        )
+        and manifest.embedding_provider == (provider or config.embedding_provider)
+        and manifest.embedding_model == (model or config.active_embedding_model)
         and manifest.source_catalog_hash == source_catalog_hash()
     )

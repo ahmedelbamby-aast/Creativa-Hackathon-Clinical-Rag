@@ -131,7 +131,7 @@ class AppConfig:
 
     # ── Gemini ─────────────────────────────────────────────────────────────
     gemini_api_key: str = field(default_factory=lambda: os.environ.get("GEMINI_API_KEY", ""))
-    gemini_model: str = field(default_factory=lambda: os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"))
+    gemini_model: str = field(default_factory=lambda: os.environ.get("GEMINI_MODEL", "gemini-3.6-flash"))
     generation_provider: str = field(
         default_factory=lambda: os.environ.get("GENERATION_PROVIDER", "auto").lower()
     )
@@ -192,6 +192,18 @@ class AppConfig:
     online_embedding_rpm: int = field(
         default_factory=lambda: int(os.environ.get("ONLINE_EMBEDDING_RPM", "90"))
     )
+    gemini_embedding_rpm_limit: int = field(
+        default_factory=lambda: int(os.environ.get("GEMINI_EMBEDDING_RPM_LIMIT", "0") or "0")
+    )
+    gemini_embedding_tpm_limit: int = field(
+        default_factory=lambda: int(os.environ.get("GEMINI_EMBEDDING_TPM_LIMIT", "0") or "0")
+    )
+    gemini_embedding_rpd_limit: int = field(
+        default_factory=lambda: int(os.environ.get("GEMINI_EMBEDDING_RPD_LIMIT", "0") or "0")
+    )
+    gemini_embedding_safety_factor: float = field(
+        default_factory=lambda: float(os.environ.get("GEMINI_EMBEDDING_SAFETY_FACTOR", "0.70"))
+    )
 
     # ── Retrieval ──────────────────────────────────────────────────────────
     top_k: int = field(default_factory=lambda: int(os.environ.get("TOP_K", "5")))
@@ -244,6 +256,9 @@ class AppConfig:
     max_memory_turns: int = field(
         default_factory=lambda: int(os.environ.get("MAX_MEMORY_TURNS", "6"))
     )
+    operations_dashboard_token: str = field(
+        default_factory=lambda: os.environ.get("OPERATIONS_DASHBOARD_TOKEN", "")
+    )
 
     # ── Derived ────────────────────────────────────────────────────────────
     project_root: Path = field(default_factory=lambda: _PROJECT_ROOT)
@@ -294,6 +309,15 @@ class AppConfig:
             raise ValueError("ONLINE_EMBEDDING_BATCH_SIZE must be at least 1")
         if self.online_embedding_rpm < 1:
             raise ValueError("ONLINE_EMBEDDING_RPM must be at least 1")
+        quota_limits = (
+            self.gemini_embedding_rpm_limit,
+            self.gemini_embedding_tpm_limit,
+            self.gemini_embedding_rpd_limit,
+        )
+        if any(limit < 0 for limit in quota_limits):
+            raise ValueError("Gemini embedding quota limits must be zero or positive")
+        if not 0 < self.gemini_embedding_safety_factor <= 1:
+            raise ValueError("GEMINI_EMBEDDING_SAFETY_FACTOR must be greater than 0 and at most 1")
         if self.retrieval_profile not in CHUNK_PROFILES:
             raise ValueError(
                 "RETRIEVAL_PROFILE must be one of "
@@ -334,6 +358,40 @@ class AppConfig:
         if self.embedding_namespace:  # Backward-compatible migration fallback.
             return self.embedding_namespace
         return f"{self.embedding_provider}_{self.embedding_dimension}"
+
+    def embedding_namespace_for_dimension(self, dimension: int) -> str:
+        """Resolve one session-scoped namespace from centralized environment config."""
+        explicit = os.environ.get(f"EMBEDDING_NAMESPACE_{dimension}", "").strip()
+        if explicit:
+            return explicit
+        if dimension == self.embedding_dimension:
+            active = (self.active_index_namespace or self.embedding_namespace).strip()
+            if active:
+                return active
+        return f"{self.embedding_provider}_{dimension}"
+
+    @property
+    def active_embedding_model(self) -> str:
+        return (
+            self.online_embedding_model
+            if self.embedding_provider == "gemini"
+            else self.embedding_model
+        )
+
+    @property
+    def embedding_table_family(self) -> str:
+        return "rag_chunks" if self.embedding_dimension == 384 else f"rag_chunks_d{self.embedding_dimension}"
+
+    @property
+    def gemini_embedding_quota_configured(self) -> bool:
+        return all(
+            limit > 0
+            for limit in (
+                self.gemini_embedding_rpm_limit,
+                self.gemini_embedding_tpm_limit,
+                self.gemini_embedding_rpd_limit,
+            )
+        )
 
     @property
     def selected_chunk_profile(self) -> tuple[int, int]:

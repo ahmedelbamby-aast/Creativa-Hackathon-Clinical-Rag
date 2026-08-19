@@ -1,6 +1,7 @@
 """Tests for ingestion control flow without external services."""
 
 from unittest.mock import Mock
+from contextlib import nullcontext
 
 from src.ingestion import pipeline
 
@@ -54,3 +55,29 @@ def test_force_replaces_existing_document_after_processing(monkeypatch) -> None:
     assert stats["skipped"] is False
     store.delete_document.assert_called_once_with("sample.pdf")
     store.add_chunks.assert_called_once_with([record], [[0.1, 0.2]])
+
+
+def test_directory_run_checkpoints_and_stops_on_daily_quota(tmp_path, monkeypatch) -> None:
+    for name in ("a.pdf", "b.pdf"):
+        (tmp_path / name).write_bytes(name.encode())
+    repository = Mock()
+    repository.start_run.return_value = "00000000-0000-0000-0000-000000000001"
+    fake_quota = Mock(enabled=True, repository=repository)
+    fake_quota.run_scope.side_effect = lambda _: nullcontext()
+    processed = []
+
+    def fake_ingest(path, force=False):
+        processed.append(path.name)
+        return {
+            "file_name": path.name, "chunks": 0, "error": "daily quota",
+            "paused": True, "skipped": False,
+        }
+
+    monkeypatch.setattr(pipeline.config, "embedding_provider", "gemini")
+    monkeypatch.setattr(pipeline, "embedding_quota", fake_quota)
+    monkeypatch.setattr(pipeline, "ingest_document", fake_ingest)
+    result = pipeline.ingest_directory(tmp_path)
+
+    assert processed == ["a.pdf"]
+    assert result[0]["paused"] is True
+    assert any(call.kwargs.get("status") == "paused_quota" for call in repository.checkpoint_run.call_args_list)

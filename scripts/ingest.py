@@ -175,6 +175,11 @@ def main() -> None:
             config.resolved_embedding_namespace,
             corpus_paths,
             sum(item.get("token_count", 0) for item in all_stats),
+            {
+                item["file_name"]: int(item.get("chunks", 0))
+                for item in all_stats
+                if not item.get("error")
+            },
         )
         print(f"  Index manifest      : {write_index_manifest(manifest)}")
 

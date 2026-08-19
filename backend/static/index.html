@@ -56,7 +56,7 @@
     :root[data-theme="light"] body {
       background: radial-gradient(circle at 12% 0%, rgba(14,165,233,.15), transparent 34rem), radial-gradient(circle at 88% 8%, rgba(37,99,235,.09), transparent 28rem), var(--page);
     }
-    button, select, textarea { font: inherit; }
+    button, input, select, textarea { font: inherit; }
     button, select { min-height: 48px; }
     button { touch-action: manipulation; }
     .skip-link {
@@ -96,14 +96,17 @@
     .card { background: color-mix(in srgb, var(--surface) 94%, transparent); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
     .chat-card { min-width: 0; overflow: hidden; }
     .toolbar { display: grid; gap: 8px; padding: 18px 18px 0; }
+    .selector-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .selector-field { display: grid; gap: 8px; }
+    .dimension-note { color: var(--muted); font-size: .78rem; margin: 0; }
     label, .label { color: var(--muted); font-size: .88rem; font-weight: 700; }
-    select, textarea {
+    input, select, textarea {
       width: 100%; color: var(--text); background: var(--surface-soft);
       border: 1px solid var(--border); border-radius: 12px; outline: none;
     }
     select { padding: 10px 38px 10px 12px; cursor: pointer; }
     textarea { min-height: 92px; resize: vertical; padding: 13px 14px; }
-    select:focus-visible, textarea:focus-visible, button:focus-visible, summary:focus-visible, a:focus-visible {
+    input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, summary:focus-visible, a:focus-visible {
       outline: 3px solid var(--focus); outline-offset: 2px;
     }
     .conversation { min-height: 360px; max-height: 58dvh; overflow-y: auto; padding: 20px 18px; scroll-behavior: smooth; }
@@ -190,6 +193,9 @@
     .metrics-table th, .metrics-table td { padding: 9px; text-align: start; border-bottom: 1px solid var(--border); }
     .metrics-table th { color: var(--muted); }
     .delta-good { color: var(--success); } .delta-bad { color: var(--danger); }
+    .ops-auth { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
+    .ops-auth input { flex: 1 1 240px; min-height: 48px; padding: 10px 12px; }
+    .ops-output { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     [dir="rtl"] .message.user { justify-items: start; }
     [dir="rtl"] .user .bubble { border-bottom-right-radius: 15px; border-bottom-left-radius: 5px; }
@@ -198,6 +204,7 @@
       .workspace { grid-template-columns: 1fr; }
       .sidebar { grid-template-columns: 1fr; }
       .conversation { max-height: none; }
+      .selector-grid { grid-template-columns: 1fr; }
       .bubble { max-width: 92%; }
       .header-top { align-items: flex-start; }
       .hero-copy { padding: 22px 20px; }
@@ -249,13 +256,24 @@
       <section class="card chat-card" aria-labelledby="assistant-heading">
         <h2 id="assistant-heading" style="position:absolute;left:-9999px">Assistant conversation</h2>
         <div class="toolbar">
-          <label for="category">Knowledge category</label>
-          <select id="category">
-            <option value="all">All categories</option>
-            <option value="treatment">Treatment</option>
-            <option value="prevention">Prevention</option>
-            <option value="nutrition">Nutrition</option>
-          </select>
+          <div class="selector-grid">
+            <div class="selector-field">
+              <label for="category">Knowledge category</label>
+              <select id="category">
+                <option value="all">All categories</option>
+                <option value="treatment">Treatment</option>
+                <option value="prevention">Prevention</option>
+                <option value="nutrition">Nutrition</option>
+              </select>
+            </div>
+            <div class="selector-field">
+              <label for="embedding-dimension">Embedding dimension</label>
+              <select id="embedding-dimension" disabled>
+                <option value="">Loading indexed dimensions…</option>
+              </select>
+              <p class="dimension-note">Choose once when starting a session. Clear the chat to switch.</p>
+            </div>
+          </div>
         </div>
         <div id="conversation" class="conversation" role="log" aria-live="polite" aria-relevant="additions">
           <div class="empty">Ask a question to receive a grounded answer with document and page citations.</div>
@@ -309,6 +327,11 @@
         <tbody id="metrics-rows"></tbody>
       </table></div>
     </section>
+    <section class="card metrics-panel" aria-labelledby="embedding-ops-heading">
+      <div class="metrics-header"><div><div class="metrics-title-row"><h2 id="embedding-ops-heading">Embedding operations</h2><span class="live-badge">Protected</span></div><p class="metrics-copy">Quota utilization, active vector table, ingestion progress, and retry history. No API key or database credential is returned.</p></div></div>
+      <div class="ops-auth"><label class="sr-only" for="ops-token">Operations token</label><input id="ops-token" type="password" autocomplete="off" placeholder="Operations dashboard token"><button id="load-ops" type="button">Load protected status</button></div>
+      <div id="ops-output" class="ops-output" aria-live="polite">Enter the protected operations token to load status.</div>
+    </section>
     <footer>For educational purposes only. This assistant is not a substitute for professional medical advice; always consult a qualified healthcare professional.</footer>
   </div>
 
@@ -316,7 +339,7 @@
     function newConversationId() {
       return (window.crypto && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`).replace(/[^A-Za-z0-9_-]/g, '');
     }
-    const state = { history: [], ready: false, configured: false, conversationId: newConversationId(), turnIndex: 0, selectedCaseId: '' };
+    const state = { history: [], ready: false, configured: false, profiles: [], health: null, dimensionLocked: false, conversationId: newConversationId(), turnIndex: 0, selectedCaseId: '' };
     const $ = (id) => document.getElementById(id);
     const form = $('chat-form');
     const input = $('question');
@@ -437,6 +460,7 @@
       send.disabled = busy || !state.ready || !state.configured;
       input.disabled = busy;
       $('category').disabled = busy;
+      $('embedding-dimension').disabled = busy || state.dimensionLocked || !state.profiles.some((profile) => profile.available);
       send.textContent = busy ? 'Finding grounded answer…' : 'Send question';
     }
     function setFeedback(message, error = false) {
@@ -664,20 +688,77 @@
         $('metric-cards').textContent = 'Historical metrics are temporarily unavailable.';
       }
     }
+    function renderEmbeddingOperations(report) {
+      const container = $('ops-output'); container.replaceChildren();
+      const quota = report.quota || {};
+      const utilization = quota.utilization || {};
+      const latestRun = (report.runs || [])[0] || {};
+      const latest429 = (report.events || []).find((event) => event.event_type === 'rate_limited');
+      const values = [
+        ['Active index', `${report.table_family || '—'} / ${report.namespace || '—'}`],
+        ['Model / dimension', `${report.model || '—'} / ${report.active_dimension || '—'}d`],
+        ['RPM', report.configured ? `${Math.round((utilization.rpm || 0) * 100)}% · ${quota.remaining?.rpm ?? '—'} left` : 'Limits not configured'],
+        ['TPM', report.configured ? `${Math.round((utilization.tpm || 0) * 100)}% · ${quota.remaining?.tpm ?? '—'} left` : 'Limits not configured'],
+        ['RPD', report.configured ? `${Math.round((utilization.rpd || 0) * 100)}% · ${quota.remaining?.rpd ?? '—'} left` : 'Limits not configured'],
+        ['Alert', quota.alert || 'not configured'],
+        ['Ingestion', latestRun.status ? `${latestRun.status} · ${latestRun.completed_documents}/${latestRun.total_documents}` : 'No recorded run'],
+        ['Last 429 / retry', latest429 ? `${new Date(latest429.recorded_at).toLocaleString()} · ${latest429.retry_delay_ms || 0} ms` : 'None recorded'],
+      ];
+      values.forEach(([label, value]) => { const card=document.createElement('div'); card.className='metric-card'; const name=document.createElement('span'); name.textContent=label; const result=document.createElement('strong'); result.textContent=value; card.append(name,result); container.append(card); });
+    }
+    async function loadEmbeddingOperations() {
+      const token = $('ops-token').value;
+      try {
+        const response = await fetch('/api/embedding-operations', {headers: {Authorization: `Bearer ${token}`}});
+        if (!response.ok) throw new Error('Unauthorized');
+        renderEmbeddingOperations(await response.json());
+        $('ops-token').value = '';
+      } catch (_) { $('ops-output').textContent = 'Protected embedding status is unavailable or the token is invalid.'; }
+    }
+    function selectedEmbeddingProfile() {
+      const dimension = Number($('embedding-dimension').value);
+      return state.profiles.find((profile) => profile.dimension === dimension) || null;
+    }
+    function refreshSelectedProfileStatus() {
+      const status = $('status');
+      const profile = selectedEmbeddingProfile();
+      state.ready = Boolean(profile?.available);
+      status.className = `status ${state.ready && state.configured ? 'ready' : 'error'}`;
+      status.lastElementChild.textContent = state.ready
+        ? `${profile.indexed_chunks} indexed passages · ${profile.dimension}d · ${state.configured ? providerText(state.health?.configured_generation_provider, state.health?.active_generation_model) : 'Generation key required'}`
+        : 'The selected embedding index is not available yet';
+      setBusy(false);
+    }
+    function populateEmbeddingProfiles(catalog) {
+      const select = $('embedding-dimension');
+      state.profiles = Array.isArray(catalog.profiles) ? catalog.profiles : [];
+      select.replaceChildren();
+      state.profiles.forEach((profile) => {
+        const option = document.createElement('option');
+        option.value = String(profile.dimension);
+        option.disabled = !profile.available;
+        option.textContent = profile.available
+          ? `${profile.dimension} dimensions · ${profile.indexed_chunks} passages`
+          : `${profile.dimension} dimensions · coming soon`;
+        select.append(option);
+      });
+      const preferred = state.profiles.find((profile) => profile.dimension === catalog.default_dimension && profile.available)
+        || state.profiles.find((profile) => profile.available);
+      if (preferred) select.value = String(preferred.dimension);
+    }
     async function checkStatus() {
       const status = $('status');
       try {
-        const [healthResponse, readyResponse, samplesResponse] = await Promise.all([fetch('/api/health'), fetch('/api/ready'), fetch('/api/sample-questions')]);
+        const [healthResponse, profilesResponse, samplesResponse] = await Promise.all([fetch('/api/health'), fetch('/api/embedding-profiles'), fetch('/api/sample-questions')]);
         const health = await healthResponse.json();
-        const ready = await readyResponse.json();
+        const profiles = await profilesResponse.json();
         const samples = await samplesResponse.json();
         if (samplesResponse.ok) renderSamples(samples);
-        state.ready = readyResponse.ok && ready.status === 'ready';
+        if (!profilesResponse.ok) throw new Error('Embedding profiles unavailable');
+        state.health = health;
+        populateEmbeddingProfiles(profiles);
         state.configured = Boolean(health.generation_configured);
-        status.className = `status ${state.ready && state.configured ? 'ready' : 'error'}`;
-        status.lastElementChild.textContent = state.ready
-          ? `${ready.indexed_chunks} indexed passages · ${state.configured ? providerText(health.configured_generation_provider, health.active_generation_model) : 'Generation key required'}`
-          : 'Knowledge base unavailable';
+        refreshSelectedProfileStatus();
         if (!state.configured) setFeedback('Answer generation needs its deployment credential before questions can be sent.', true);
       } catch (_) {
         status.className = 'status error';
@@ -691,17 +772,19 @@
       event.preventDefault();
       const message = input.value.trim();
       if (!message || !state.ready || !state.configured) return;
+      const embeddingDimension = Number($('embedding-dimension').value);
       const priorHistory = state.history.slice(-12);
       addMessage('user', message);
       state.history.push({ role: 'user', content: message });
       input.value = '';
+      state.dimensionLocked = true;
       setFeedback('Retrieving the most relevant guideline passages…');
       setBusy(true);
       try {
         const retrieveResponse = await fetch('/api/retrieve', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message, category: $('category').value, history: priorHistory, conversation_id: state.conversationId, turn_index: state.turnIndex, case_id: state.selectedCaseId }),
+          body: JSON.stringify({ message, category: $('category').value, embedding_dimension: embeddingDimension, history: priorHistory, conversation_id: state.conversationId, turn_index: state.turnIndex, case_id: state.selectedCaseId }),
         });
         const retrieved = await retrieveResponse.json();
         if (!retrieveResponse.ok) throw new Error(retrieved.detail || 'The assistant could not retrieve evidence.');
@@ -739,6 +822,7 @@
             conversation_id: state.conversationId,
             turn_index: state.turnIndex,
             case_id: state.selectedCaseId,
+            embedding_dimension: retrieved.embedding_dimension,
           }),
         });
         const data = await response.json();
@@ -765,15 +849,25 @@
       state.conversationId = newConversationId();
       state.turnIndex = 0;
       state.selectedCaseId = '';
+      state.dimensionLocked = false;
       conversation.innerHTML = '<div class="empty">Ask a question to receive a grounded answer with document and page citations.</div>';
       $('sources').textContent = 'Sources will appear after your first question.';
       $('evidence').textContent = 'Evidence will appear here before an answer is generated.';
       $('debug-wrap').hidden = true;
       setFeedback('Conversation cleared.');
+      setBusy(false);
       input.focus();
     });
     input.addEventListener('input', () => { input.dir = isArabic(input.value) ? 'rtl' : 'ltr'; state.selectedCaseId = ''; });
     $('refresh-metrics').addEventListener('click', loadMetrics);
+    $('load-ops').addEventListener('click', loadEmbeddingOperations);
+    $('embedding-dimension').addEventListener('change', () => {
+      if (!state.dimensionLocked) {
+        refreshSelectedProfileStatus();
+        const profile = selectedEmbeddingProfile();
+        setFeedback(profile?.available ? `New sessions will use the ${profile.dimension}-dimension index.` : 'That embedding index is not available yet.', !profile?.available);
+      }
+    });
     $('theme-toggle').addEventListener('click', () => {
       applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light', true);
     });

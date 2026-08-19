@@ -20,6 +20,8 @@ from src.ingestion.parser import parse_document, propagate_section_titles
 from src.ingestion.chunker_adapter import chunk_elements
 from src.ingestion.core.language_detector import detect_document_language
 from src.embeddings import embedder
+from src.embedding_quota import EmbeddingQuotaExceeded, embedding_quota
+from src.index_manifests import corpus_hash
 from src.source_catalog import enrich_chunk_records
 from src.vector_store import vector_store
 
@@ -55,6 +57,7 @@ def ingest_document(
         "categories": {},
         "elapsed_s": 0.0,
         "skipped": False,
+        "paused": False,
         "error": None,
     }
 
@@ -131,6 +134,7 @@ def ingest_document(
     except Exception as e:
         logger.error("  FAILED: %s → %s", file_name, e)
         stats["error"] = str(e)
+        stats["paused"] = isinstance(e, EmbeddingQuotaExceeded) and e.resumable
 
     stats["elapsed_s"] = round(time.perf_counter() - start, 2)
     return stats
@@ -171,11 +175,58 @@ def ingest_directory(
 
     logger.info("Found %d documents in %s", len(files), data_dir)
     all_stats: list[dict] = []
+    run_id = ""
+    checkpoint: dict[str, dict] = {}
+    if config.embedding_provider == "gemini" and embedding_quota.enabled:
+        run_id = embedding_quota.repository.start_run(
+            namespace=config.resolved_embedding_namespace,
+            table_family=config.embedding_table_family,
+            dimension=config.embedding_dimension,
+            model=config.online_embedding_model,
+            corpus_hash=corpus_hash(files),
+            total_documents=len(files),
+            checkpoint=checkpoint,
+        )
 
     for i, file_path in enumerate(files, 1):
         logger.info("\n[%d/%d] %s", i, len(files), file_path.name)
-        stats = ingest_document(file_path, force=force)
+        if run_id:
+            embedding_quota.repository.checkpoint_run(run_id, current_document=file_path.name)
+            with embedding_quota.run_scope(run_id):
+                stats = ingest_document(file_path, force=force)
+        else:
+            stats = ingest_document(file_path, force=force)
         all_stats.append(stats)
+        checkpoint[file_path.name] = {
+            "status": "paused" if stats.get("paused") else (
+                "failed" if stats.get("error") else ("skipped" if stats.get("skipped") else "completed")
+            ),
+            "chunks": stats.get("chunks", 0),
+        }
+        if run_id:
+            completed = sum(item["status"] in {"completed", "skipped"} for item in checkpoint.values())
+            status = "paused_quota" if stats.get("paused") else ("failed" if stats.get("error") else "running")
+            embedding_quota.repository.checkpoint_run(
+                run_id, status=status, completed_documents=completed,
+                current_document=file_path.name, checkpoint=checkpoint,
+                last_error=stats.get("error") or "",
+            )
+        if stats.get("paused"):
+            logger.warning("Daily Gemini embedding budget reached; run %s is resumable", run_id)
+            break
+
+    if run_id and all_stats and not any(item.get("paused") for item in all_stats):
+        failures = [item for item in all_stats if item.get("error")]
+        embedding_quota.repository.checkpoint_run(
+            run_id,
+            status="failed" if failures else "completed",
+            completed_documents=sum(
+                item["status"] in {"completed", "skipped"} for item in checkpoint.values()
+            ),
+            current_document="",
+            checkpoint=checkpoint,
+            last_error=failures[-1]["error"] if failures else "",
+        )
 
     return all_stats
 

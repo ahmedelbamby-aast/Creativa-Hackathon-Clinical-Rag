@@ -8,6 +8,7 @@ from collections import deque
 from typing import Optional
 
 from src.config import config
+from src.embedding_quota import EmbeddingQuotaController, embedding_quota, estimate_input_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,7 @@ class EmbeddingModel:
         local_model_name: Optional[str] = None,
         online_model_name: Optional[str] = None,
         online_client=None,
+        quota_controller: EmbeddingQuotaController | None = None,
     ) -> None:
         self._provider = (provider or config.embedding_provider).lower()
         if self._provider not in {"local", "gemini"}:
@@ -60,9 +62,12 @@ class EmbeddingModel:
         self._local_model = None
         self._online_client = online_client
         self._online_usage: deque[tuple[float, int]] = deque()
+        self._quota = quota_controller or embedding_quota
 
     def _wait_for_online_quota(self, item_count: int) -> None:
         """Keep successful embedded items below the configured rolling RPM cap."""
+        if self._quota.enabled:
+            return
         window_seconds = 60.0
         while True:
             now = time.monotonic()
@@ -127,11 +132,13 @@ class EmbeddingModel:
         ]
         response = None
         last_error: Exception | None = None
+        prepared_texts = [self._online_text(text, task) for text in texts]
         # Interactive retrieval must fail fast so the database lexical fallback
         # can answer within a serverless request. Corpus ingestion can wait and retry.
         fallback_delays = () if task == "query" else (2.0, 5.0, 10.0, 30.0)
         for attempt in range(len(fallback_delays) + 1):
             self._wait_for_online_quota(len(texts))
+            self._quota.acquire(prepared_texts, task, interactive=task == "query")
             try:
                 response = client.models.embed_content(
                     model=self._online_model_name,
@@ -149,8 +156,26 @@ class EmbeddingModel:
                     for marker in ("429", "quota", "rate", "resource_exhausted", "503", "unavailable")
                 )
                 if not retryable or attempt == len(fallback_delays):
+                    self._quota.event(
+                        "failed", task, embedded_items=len(texts),
+                        input_tokens=estimate_input_tokens(prepared_texts),
+                        error_code="provider_error",
+                    )
                     raise
-                delay = _retry_delay_seconds(message, fallback_delays[attempt])
+                fallback_delay = (
+                    self._quota.retry_delay(attempt)
+                    if self._quota.enabled
+                    else fallback_delays[attempt]
+                )
+                delay = _retry_delay_seconds(message, fallback_delay)
+                self._quota.event(
+                    "rate_limited" if "429" in message or "resource_exhausted" in message else "retry",
+                    task,
+                    embedded_items=len(texts),
+                    input_tokens=estimate_input_tokens(prepared_texts),
+                    retry_delay_seconds=delay,
+                    error_code="resource_exhausted" if "429" in message or "resource_exhausted" in message else "unavailable",
+                )
                 logger.warning(
                     "Gemini embedding request throttled/unavailable; retrying in %.1fs",
                     delay,
@@ -158,11 +183,13 @@ class EmbeddingModel:
                 time.sleep(delay)
                 continue
 
-            self._online_usage.append((time.monotonic(), len(texts)))
-            break
-
         if response is None:
             raise RuntimeError(f"Gemini embedding request failed: {last_error}")
+        self._online_usage.append((time.monotonic(), len(texts)))
+        self._quota.event(
+            "succeeded", task, embedded_items=len(texts),
+            input_tokens=estimate_input_tokens(prepared_texts),
+        )
         vectors = [_normalize(list(item.values)) for item in response.embeddings]
         if len(vectors) != len(texts):
             raise RuntimeError(

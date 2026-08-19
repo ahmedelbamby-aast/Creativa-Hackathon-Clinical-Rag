@@ -53,6 +53,8 @@ class IndexManifest:
     char_chunk_size: int = 0
     char_chunk_overlap: int = 0
     token_count: int = 0
+    document_checksums: dict[str, str] = field(default_factory=dict)
+    document_chunk_counts: dict[str, int] = field(default_factory=dict)
 
     def serializable(self) -> dict:
         return asdict(self)
@@ -121,6 +123,10 @@ class RetrievalEnvelope:
     namespace: str
     index_manifest_hash: str
     status: RetrievalStatus
+    embedding_dimension: int = 0
+    embedding_provider: str = ""
+    embedding_model: str = ""
+    embedding_table_family: str = ""
     chunks: tuple[EvidenceChunk, ...] = ()
     user_message: str = ""
     error_code: str = ""

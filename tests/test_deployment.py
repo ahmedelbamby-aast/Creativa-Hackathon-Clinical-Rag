@@ -33,15 +33,27 @@ def test_health_reports_deployment_configuration() -> None:
 
 
 def test_ready_reports_database_metadata(monkeypatch) -> None:
+    runtime = server.get_embedding_runtime()
     monkeypatch.setattr(
-        server.vector_store,
+        runtime.vector_store,
         "healthcheck",
         lambda: {"postgres": "16", "pgvector": "0.8.6"},
     )
     monkeypatch.setattr(
-        server.vector_store,
+        runtime.vector_store,
         "collection_stats",
         lambda: {"treatment": 4, "prevention": 3, "nutrition": 2},
+    )
+    monkeypatch.setattr(
+        runtime.vector_store,
+        "namespace_audit",
+        lambda: {
+            "document_count": 2,
+            "documents": {
+                "a.pdf": {"chunk_count": 4},
+                "b.pdf": {"chunk_count": 5},
+            },
+        },
     )
 
     result = server.ready()
@@ -115,8 +127,8 @@ def test_sample_catalog_is_balanced_across_all_four_scenarios() -> None:
 def test_chat_endpoint_rebuilds_bounded_memory(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
-    def fake_pipeline(message: str, category: str, memory: ConversationMemory, case_id: str = ""):
-        captured.update(message=message, category=category, history=memory.get_history(), case_id=case_id)
+    def fake_pipeline(message: str, category: str, memory: ConversationMemory, case_id: str = "", embedding_dimension=None):
+        captured.update(message=message, category=category, history=memory.get_history(), case_id=case_id, embedding_dimension=embedding_dimension)
         return "Grounded answer", "Guideline, Page 4", "trace"
 
     monkeypatch.setattr(server.config, "generation_provider", "gemini")
@@ -148,7 +160,7 @@ def test_chat_endpoint_keeps_deterministic_fallback_without_llm_credentials(monk
     monkeypatch.setattr(server.config, "generation_provider", "vercel_gateway")
     monkeypatch.setattr(server.config, "ai_gateway_api_key", "")
     monkeypatch.setattr(server.config, "vercel_oidc_token", "")
-    monkeypatch.setattr(server, "rag_pipeline", lambda *args: ("Evidence fallback", "Sources", ""))
+    monkeypatch.setattr(server, "rag_pipeline", lambda *args, **kwargs: ("Evidence fallback", "Sources", ""))
 
     result = server.chat_endpoint(
         server.ChatRequest(message="What are diabetes risk factors?", category="all")
@@ -179,7 +191,7 @@ def test_retrieve_then_generate_uses_staged_chunk_ids(monkeypatch) -> None:
     received = []
     monkeypatch.setattr(server.config, "generation_provider", "gemini")
     monkeypatch.setattr(server.config, "gemini_api_key", "configured")
-    monkeypatch.setattr(server, "rehydrate_evidence", lambda *args: (received.append(args) or envelope))
+    monkeypatch.setattr(server, "rehydrate_evidence", lambda *args, **kwargs: (received.append(args) or envelope))
     monkeypatch.setattr(server, "generate_from_evidence", lambda value, memory: ("Answer", "Sources", ""))
     result = server.generate_endpoint(server.GenerateRequest(
         message="Question", category="all", namespace="phase2_local", index_manifest_hash="manifest",
@@ -192,6 +204,35 @@ def test_retrieve_then_generate_uses_staged_chunk_ids(monkeypatch) -> None:
     assert result.sources[0].evidence_id == "E1"
     assert result.sources[0].source_url == "https://example.test/guide"
     assert persisted[-1]["status"] == "ok"
+
+
+def test_retrieve_routes_the_requested_embedding_dimension(monkeypatch) -> None:
+    envelope = _envelope()
+    object.__setattr__(envelope, "embedding_dimension", 768)
+    object.__setattr__(envelope, "embedding_provider", "gemini")
+    object.__setattr__(envelope, "embedding_model", "gemini-embedding-2")
+    object.__setattr__(envelope, "embedding_table_family", "rag_chunks_d768")
+    captured = {}
+
+    def fake_stage(*args, **kwargs):
+        captured.update(kwargs)
+        return envelope
+
+    monkeypatch.setattr(server, "stage_evidence", fake_stage)
+    monkeypatch.setattr(server, "record_trace", lambda *_: None)
+
+    response = server.retrieve_endpoint(
+        server.ChatRequest(
+            message="Question",
+            category="all",
+            embedding_dimension=768,
+        )
+    )
+
+    assert captured["embedding_dimension"] == 768
+    assert response.embedding_dimension == 768
+    assert response.metrics["embedding_dimension"] == 768
+    assert response.metrics["embedding_table_family"] == "rag_chunks_d768"
 
 
 def test_case_id_survives_retrieve_to_generate_trace(monkeypatch) -> None:
@@ -207,7 +248,7 @@ def test_case_id_survives_retrieve_to_generate_trace(monkeypatch) -> None:
     monkeypatch.setattr("src.observability.match_case", lambda *_: (case, "explicit_case_id"))
     monkeypatch.setattr("src.observability.gold_dataset", lambda: {"version": "v2", "cases": [case]})
     retrieved = server.retrieve_endpoint(server.ChatRequest(message="Question", category="all", case_id="case-1"))
-    monkeypatch.setattr(server, "rehydrate_evidence", lambda *args: envelope)
+    monkeypatch.setattr(server, "rehydrate_evidence", lambda *args, **kwargs: envelope)
     monkeypatch.setattr(server, "generate_from_evidence", lambda *args: ("Answer", "Sources", ""))
     server.generate_endpoint(server.GenerateRequest(message="Question", category="all", namespace="n", index_manifest_hash="h", chunk_ids=["chunk-1"], trace_id=retrieved.trace_id, case_id="case-1"))
     assert persisted[-1]["requested_case_id"] == "case-1"

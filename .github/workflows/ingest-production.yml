@@ -28,7 +28,7 @@ jobs:
     env:
       APP_ENV: deployment
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      GEMINI_MODEL: gemini-2.5-flash
+      GEMINI_MODEL: gemini-3.6-flash
       GENERATION_PROVIDER: gemini
       EMBEDDING_PROVIDER: gemini
       ONLINE_EMBEDDING_MODEL: gemini-embedding-2

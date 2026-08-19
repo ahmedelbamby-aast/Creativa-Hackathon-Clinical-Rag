@@ -1,10 +1,11 @@
 """Serverless-safe FastAPI entrypoint used by Vercel's Python runtime."""
 
+import hmac
 import logging
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -23,8 +24,13 @@ from src.evidence_service import rehydrate_evidence, stage_evidence
 from src.evidence_service import envelope_chunks
 from src.citations import build_citation_records
 from src.sample_questions import load_sample_questions
-from src.vector_store import vector_store
 from src.observability import RequestTrace, load_trace, metrics_report, record_trace
+from src.embedding_quota import embedding_quota
+from src.embedding_profiles import (
+    SUPPORTED_EMBEDDING_DIMENSIONS,
+    embedding_profile_catalog,
+    get_embedding_runtime,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -45,6 +51,7 @@ VALID_CATEGORIES = {
     CATEGORY_PREVENTION,
     CATEGORY_NUTRITION,
 }
+EmbeddingDimension = Literal[384, 768, 1024, 2048, 3072]
 
 
 class ChatMessage(BaseModel):
@@ -63,6 +70,7 @@ class ChatRequest(BaseModel):
     conversation_id: str = Field(default="", max_length=64, pattern=r"^[A-Za-z0-9_-]*$")
     turn_index: int = Field(default=0, ge=0)
     case_id: str = Field(default="", max_length=120, pattern=r"^[A-Za-z0-9_-]*$")
+    embedding_dimension: EmbeddingDimension | None = None
 
 
 class CitationItem(BaseModel):
@@ -87,6 +95,7 @@ class ChatResponse(BaseModel):
     sources: list[CitationItem] = Field(default_factory=list)
     trace_id: str = ""
     metrics: dict = Field(default_factory=dict)
+    embedding_dimension: int = 0
 
 
 class EvidenceItem(BaseModel):
@@ -113,6 +122,7 @@ class RetrieveResponse(BaseModel):
     chunks: list[EvidenceItem] = Field(default_factory=list)
     trace_id: str = ""
     metrics: dict = Field(default_factory=dict)
+    embedding_dimension: int
 
 
 class GenerateRequest(ChatRequest):
@@ -166,6 +176,11 @@ def health() -> dict[str, object]:
         "environment": config.app_env,
         "embedding_provider": config.embedding_provider,
         "embedding_namespace": config.resolved_embedding_namespace,
+        "embedding_model": config.active_embedding_model,
+        "embedding_dimension": config.embedding_dimension,
+        "embedding_table_family": config.embedding_table_family,
+        "default_embedding_dimension": config.embedding_dimension,
+        "supported_embedding_dimensions": list(SUPPORTED_EMBEDDING_DIMENSIONS),
         "generation_provider": config.generation_provider,
         "configured_generation_provider": config.configured_generation_provider_label,
         "active_generation_provider": generator.active_provider,
@@ -177,16 +192,21 @@ def health() -> dict[str, object]:
 
 
 @api.get("/api/ready", tags=["operations"])
-def ready() -> dict[str, object]:
-    """Verify pgvector and the active knowledge-base namespace."""
+def ready(embedding_dimension: EmbeddingDimension | None = None) -> dict[str, object]:
+    """Verify pgvector and the selected knowledge-base namespace."""
+    runtime = get_embedding_runtime(embedding_dimension)
     try:
-        versions = vector_store.healthcheck()
-        category_counts = vector_store.collection_stats()
+        versions = runtime.vector_store.healthcheck()
+        category_counts = runtime.vector_store.collection_stats()
+        audit = runtime.vector_store.namespace_audit()
     except Exception as exc:
         logger.exception("Deployment readiness check failed")
         raise HTTPException(status_code=503, detail="Knowledge base is unavailable") from exc
 
-    indexed_chunks = sum(category_counts.values())
+    indexed_chunks = sum(
+        int(document["chunk_count"])
+        for document in audit["documents"].values()
+    )
     if indexed_chunks == 0:
         raise HTTPException(status_code=503, detail="Knowledge base is empty")
 
@@ -194,10 +214,20 @@ def ready() -> dict[str, object]:
         "status": "ready",
         "postgres": versions["postgres"],
         "pgvector": versions["pgvector"],
-        "namespace": vector_store.namespace,
+        "namespace": runtime.namespace,
+        "embedding_dimension": runtime.dimension,
+        "embedding_model": runtime.model,
+        "embedding_table_family": runtime.table_family,
         "indexed_chunks": indexed_chunks,
+        "document_count": audit["document_count"],
         "categories": category_counts,
     }
+
+
+@api.get("/api/embedding-profiles", tags=["operations"])
+def embedding_profiles() -> dict[str, object]:
+    """List selectable dimensions and whether each index is ready."""
+    return embedding_profile_catalog()
 
 
 @api.get("/api/sample-questions", response_model=SampleCatalog, tags=["rag"])
@@ -213,7 +243,8 @@ def foundational_metrics(limit: int = 200, conversation_id: str = "") -> dict:
     public_fields = {
         "trace_id", "conversation_id", "turn_index", "timestamp", "status", "error",
         "requested_category", "routed_category", "language", "risk_tier", "namespace",
-        "embedding_model", "retrieval_profile", "retrieval_count", "best_score", "top_k",
+        "embedding_provider", "embedding_model", "embedding_dimension", "embedding_table_family",
+        "retrieval_profile", "retrieval_count", "best_score", "top_k",
         "generation_provider", "generation_model", "provider_failure_count", "fallback_count",
         "input_tokens", "context_tokens", "output_tokens", "total_tokens", "token_count_method",
         "estimated_cost_usd", "cost_status", "quality_metrics", "quality_basis", "label_case_id",
@@ -226,6 +257,20 @@ def foundational_metrics(limit: int = 200, conversation_id: str = "") -> dict:
         for trace in report.get("traces", [])
     ]
     return report
+
+
+@api.get("/api/embedding-operations", tags=["operations"])
+def embedding_operations(authorization: str = Header(default="")) -> dict:
+    """Return quota and ingestion state without credentials or connection data."""
+    expected = config.operations_dashboard_token
+    supplied = authorization.removeprefix("Bearer ").strip()
+    if not expected or not hmac.compare_digest(supplied, expected):
+        raise HTTPException(status_code=401, detail="Operations authorization required")
+    try:
+        return embedding_quota.dashboard()
+    except Exception as exc:
+        logger.exception("Embedding operations dashboard is unavailable")
+        raise HTTPException(status_code=503, detail="Embedding operations are unavailable") from exc
 
 
 @api.post("/api/chat", response_model=ChatResponse, tags=["rag"])
@@ -243,7 +288,13 @@ def chat_endpoint(request: ChatRequest) -> ChatResponse:
     memory = _build_memory(request.history, category)
 
     try:
-        answer, citations, debug = rag_pipeline(request.message, category, memory, request.case_id)
+        answer, citations, debug = rag_pipeline(
+            request.message,
+            category,
+            memory,
+            request.case_id,
+            embedding_dimension=request.embedding_dimension,
+        )
     except Exception as exc:
         logger.exception("RAG request failed")
         raise HTTPException(
@@ -257,6 +308,7 @@ def chat_endpoint(request: ChatRequest) -> ChatResponse:
         debug=debug,
         generation_provider=generator.active_provider,
         generation_model=generator.active_model,
+        embedding_dimension=get_embedding_runtime(request.embedding_dimension).dimension,
     )
 
 
@@ -272,7 +324,12 @@ def retrieve_endpoint(request: ChatRequest) -> RetrieveResponse:
         requested_case_id=request.case_id,
     )
     with trace.stage("retrieval"):
-        envelope = stage_evidence(request.message, category, _build_memory(request.history, category).get_history())
+        envelope = stage_evidence(
+            request.message,
+            category,
+            _build_memory(request.history, category).get_history(),
+            embedding_dimension=request.embedding_dimension,
+        )
     trace.capture_retrieval(envelope)
     if envelope.is_ready:
         record_trace(trace)
@@ -305,6 +362,7 @@ def retrieve_endpoint(request: ChatRequest) -> RetrieveResponse:
         ],
         trace_id=trace.trace_id,
         metrics=trace.serializable(),
+        embedding_dimension=envelope.embedding_dimension,
     )
 
 
@@ -330,12 +388,20 @@ def generate_endpoint(request: GenerateRequest) -> ChatResponse:
         request.namespace,
         request.index_manifest_hash,
         request.chunk_ids,
+        embedding_dimension=request.embedding_dimension,
     )
     if not envelope.is_ready:
         trace.capture_generation(envelope.user_message, "not_called", "")
         trace.finish(envelope.status, envelope.error_code)
         record_trace(trace)
-        return ChatResponse(answer=envelope.user_message, citations="", debug="", trace_id=trace.trace_id, metrics=trace.serializable())
+        return ChatResponse(
+            answer=envelope.user_message,
+            citations="",
+            debug="",
+            trace_id=trace.trace_id,
+            metrics=trace.serializable(),
+            embedding_dimension=envelope.embedding_dimension,
+        )
     memory = _build_memory(request.history, category)
     with trace.stage("generation"):
         answer, citations, debug = generate_from_evidence(envelope, memory)
@@ -355,6 +421,7 @@ def generate_endpoint(request: GenerateRequest) -> ChatResponse:
         sources=sources,
         trace_id=trace.trace_id,
         metrics=trace.serializable(),
+        embedding_dimension=envelope.embedding_dimension,
     )
 
 

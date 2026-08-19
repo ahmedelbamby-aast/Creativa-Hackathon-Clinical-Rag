@@ -10,10 +10,14 @@ for citation generation.
 
 import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from src.config import config, CATEGORY_ALL
 from src.embeddings import embedder
 from src.vector_store import vector_store
+
+if TYPE_CHECKING:
+    from src.embedding_profiles import EmbeddingRuntime
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +63,7 @@ def retrieve(
     category: str = CATEGORY_ALL,
     top_k: int | None = None,
     similarity_threshold: float | None = None,
+    embedding_runtime: "EmbeddingRuntime | None" = None,
 ) -> list[RetrievedChunk]:
     """Retrieve the most relevant chunks for a query.
 
@@ -75,6 +80,8 @@ def retrieve(
     """
     top_k = top_k or config.top_k
     threshold = similarity_threshold if similarity_threshold is not None else config.similarity_threshold
+    selected_embedder = embedding_runtime.embedder if embedding_runtime else embedder
+    selected_store = embedding_runtime.vector_store if embedding_runtime else vector_store
 
     if not query or not query.strip():
         logger.warning("Empty query passed to retriever")
@@ -83,14 +90,14 @@ def retrieve(
     # Embed the query. If the online provider is unavailable or quota-limited,
     # use the same PostgreSQL corpus through its deterministic lexical route.
     try:
-        query_vector = embedder.embed_query(query.strip())
+        query_vector = selected_embedder.embed_query(query.strip())
     except Exception as e:
         logger.warning(
             "Embedding retrieval unavailable; using PostgreSQL lexical fallback: type=%s",
             type(e).__name__,
         )
         try:
-            raw_results = vector_store.keyword_query(
+            raw_results = selected_store.keyword_query(
                 query=query.strip(),
                 category=category,
                 top_k=top_k * 2,
@@ -98,7 +105,7 @@ def retrieve(
         except Exception as fallback_error:
             raise RetrievalProviderError("query_embedding_and_lexical_search_failed") from fallback_error
     else:
-        raw_results = vector_store.query(
+        raw_results = selected_store.query(
             query_embedding=query_vector,
             category=category,
             top_k=top_k * 2,  # Over-fetch to allow for threshold filtering

@@ -560,5 +560,37 @@ class VectorStore:
             ).fetchone()
         return {"postgres": row["postgres"], "pgvector": row["pgvector"]}
 
+    def namespace_audit(self) -> dict:
+        """Return document counts and vector-width violations for the active index."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                sql.SQL(
+                    """
+                    SELECT document_name, count(*) AS chunk_count,
+                           count(*) FILTER (WHERE vector_dims(embedding) <> %s) AS invalid_vectors
+                    FROM {}
+                    WHERE namespace = %s
+                    GROUP BY document_name
+                    ORDER BY document_name
+                    """
+                ).format(sql.Identifier(self.parent_table)),
+                (self.dimension, self.namespace),
+            ).fetchall()
+        documents = {
+            row["document_name"]: {
+                "chunk_count": int(row["chunk_count"]),
+                "invalid_vectors": int(row["invalid_vectors"]),
+            }
+            for row in rows
+        }
+        return {
+            "namespace": self.namespace,
+            "table_family": self.parent_table,
+            "dimension": self.dimension,
+            "document_count": len(documents),
+            "invalid_vector_count": sum(item["invalid_vectors"] for item in documents.values()),
+            "documents": documents,
+        }
+
 
 vector_store = VectorStore()

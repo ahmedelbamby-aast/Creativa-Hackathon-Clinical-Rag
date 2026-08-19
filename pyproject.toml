@@ -7,7 +7,11 @@ requires-python = ">=3.11,<3.13"
 dependencies = [
     "fastapi>=0.115.0",
     "google-genai>=1.0.0",
-    "gradio>=4.40.0",
+    # Keep the UI client and its URL parser on a tested pair.  Broad Gradio 4+
+    # resolution previously left local environments with an incompatible
+    # httpx build and caused collection-time InvalidURL failures.
+    "gradio>=6.24.0,<7",
+    "httpx>=0.28.1,<1",
     "langdetect>=1.0.9",
     "numpy>=1.26.0",
     "openai>=2.0.0",

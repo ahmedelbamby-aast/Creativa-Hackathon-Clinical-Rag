@@ -68,7 +68,8 @@ def test_stage_discards_uncertified_chunks_but_keeps_certified_evidence(monkeypa
 
 def test_rehydrate_does_not_embed_or_reretrieve(monkeypatch) -> None:
     _ready_manifest(monkeypatch)
-    monkeypatch.setattr(evidence_service.vector_store, "get_chunks", lambda _: [{
+    runtime = evidence_service.get_embedding_runtime()
+    monkeypatch.setattr(runtime.vector_store, "get_chunks", lambda _: [{
         "id": "chunk-1", "document": "Evidence", "score": 0.0, "distance": 0.0,
         "metadata": {"document_name": "guide.pdf", "page_number": 4, "section_title": "Care",
                      "subsection_title": "", "category": "treatment", "language": "en",
@@ -76,7 +77,7 @@ def test_rehydrate_does_not_embed_or_reretrieve(monkeypatch) -> None:
     }])
 
     envelope = evidence_service.rehydrate_evidence(
-        "Question", "all", evidence_service.config.resolved_embedding_namespace, "manifest", ["chunk-1"]
+        "Question", "all", runtime.namespace, "manifest", ["chunk-1"]
     )
 
     assert envelope.is_ready
@@ -159,7 +160,7 @@ def test_condition_and_intent_guard_rejects_bibliographic_near_match(monkeypatch
 def test_hosted_index_uses_runtime_fingerprint_without_local_manifest(monkeypatch) -> None:
     monkeypatch.setattr(evidence_service.config, "app_env", "deployment")
     monkeypatch.setattr(evidence_service, "load_index_manifest", lambda _: None)
-    monkeypatch.setattr(evidence_service, "runtime_index_hash", lambda _: "runtime-index")
+    monkeypatch.setattr(evidence_service, "runtime_index_hash", lambda *args: "runtime-index")
     monkeypatch.setattr(evidence_service, "rewrite_query", lambda query, **_: query)
     monkeypatch.setattr(evidence_service, "route_query", lambda query, **_: "treatment")
     monkeypatch.setattr(evidence_service, "retrieve", lambda *args, **kwargs: [_chunk()])
