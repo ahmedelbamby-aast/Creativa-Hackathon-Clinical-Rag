@@ -128,13 +128,32 @@ def test_vague_follow_up_is_allowed_when_history_has_context(monkeypatch) -> Non
 
 
 def test_no_relevant_chunks_returns_actionable_out_of_scope_message(monkeypatch) -> None:
-    _ready_manifest(monkeypatch)
-    monkeypatch.setattr(evidence_service, "retrieve", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        evidence_service,
+        "retrieve",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("retrieval must not run")),
+    )
 
     envelope = evidence_service.stage_evidence("Who won the football World Cup?", "all")
 
     assert envelope.status == "out_of_scope"
     assert "indexed diabetes references" in envelope.user_message
+    assert "don't know" in envelope.user_message
+
+
+def test_condition_and_intent_guard_rejects_bibliographic_near_match(monkeypatch) -> None:
+    _ready_manifest(monkeypatch)
+    chunk = _chunk()
+    chunk.text = "A cohort study reported cardiovascular outcomes among people with diabetes."
+    monkeypatch.setattr(evidence_service, "retrieve", lambda *args, **kwargs: [chunk])
+
+    envelope = evidence_service.stage_evidence(
+        "What role do preventive cardiologists have in diabetes care?",
+        "all",
+    )
+
+    assert envelope.status == "out_of_scope"
+    assert not envelope.chunks
 
 
 def test_hosted_index_uses_runtime_fingerprint_without_local_manifest(monkeypatch) -> None:

@@ -19,6 +19,9 @@ from src.config import (
 from src.memory import ConversationMemory
 from src.generator import generator
 from src.evidence_service import rehydrate_evidence, stage_evidence
+from src.evidence_service import envelope_chunks
+from src.citations import build_citation_records
+from src.sample_questions import load_sample_questions
 from src.vector_store import vector_store
 
 
@@ -54,6 +57,17 @@ class ChatRequest(BaseModel):
     history: list[ChatMessage] = Field(default_factory=list, max_length=12)
 
 
+class CitationItem(BaseModel):
+    evidence_id: str
+    source_id: str
+    document_name: str
+    source_url: str
+    publisher: str = ""
+    publication_date: str = ""
+    page_number: int
+    section_title: str = ""
+
+
 class ChatResponse(BaseModel):
     """A grounded answer and its display metadata."""
 
@@ -62,6 +76,7 @@ class ChatResponse(BaseModel):
     debug: str = ""
     generation_provider: str = ""
     generation_model: str = ""
+    sources: list[CitationItem] = Field(default_factory=list)
 
 
 class EvidenceItem(BaseModel):
@@ -71,8 +86,12 @@ class EvidenceItem(BaseModel):
     document_name: str
     page_number: int
     section_title: str
+    subsection_title: str = ""
+    category: str = ""
     source_id: str
     source_url: str
+    publisher: str = ""
+    publication_date: str = ""
 
 
 class RetrieveResponse(BaseModel):
@@ -88,6 +107,31 @@ class GenerateRequest(ChatRequest):
     namespace: str
     index_manifest_hash: str
     chunk_ids: list[str] = Field(min_length=1, max_length=5)
+
+
+class LocalizedText(BaseModel):
+    en: str
+    ar: str
+
+
+class SampleQuestion(BaseModel):
+    id: str
+    language: Literal["en", "ar"]
+    category: str
+    text: str
+
+
+class SampleScenario(BaseModel):
+    id: str
+    title: LocalizedText
+    description: LocalizedText
+    expected_status: str
+    questions: list[SampleQuestion]
+
+
+class SampleCatalog(BaseModel):
+    version: int
+    scenarios: list[SampleScenario]
 
 
 def _build_memory(history: list[ChatMessage], category: str) -> ConversationMemory:
@@ -140,6 +184,12 @@ def ready() -> dict[str, object]:
         "indexed_chunks": indexed_chunks,
         "categories": category_counts,
     }
+
+
+@api.get("/api/sample-questions", response_model=SampleCatalog, tags=["rag"])
+def sample_questions() -> dict:
+    """Expose the single validated bilingual sample matrix used by the UI and tests."""
+    return load_sample_questions()
 
 
 @api.post("/api/chat", response_model=ChatResponse, tags=["rag"])
@@ -195,8 +245,12 @@ def retrieve_endpoint(request: ChatRequest) -> RetrieveResponse:
                 document_name=item.document_name,
                 page_number=item.page_number,
                 section_title=item.section_title,
+                subsection_title=item.subsection_title,
+                category=item.category,
                 source_id=item.source_id,
                 source_url=item.source_url,
+                publisher=item.publisher,
+                publication_date=item.publication_date,
             )
             for item in envelope.chunks
         ],
@@ -222,12 +276,14 @@ def generate_endpoint(request: GenerateRequest) -> ChatResponse:
         return ChatResponse(answer=envelope.user_message, citations="", debug="")
     memory = _build_memory(request.history, category)
     answer, citations, debug = generate_from_evidence(envelope, memory)
+    sources = [CitationItem(**item) for item in build_citation_records(envelope_chunks(envelope))]
     return ChatResponse(
         answer=answer,
         citations=citations,
         debug=debug,
         generation_provider=generator.active_provider,
         generation_model=generator.active_model,
+        sources=sources,
     )
 
 

@@ -81,6 +81,7 @@
     .bubble { max-width: min(82%, 70ch); padding: 13px 15px; border-radius: 15px; white-space: pre-wrap; overflow-wrap: anywhere; }
     .user .bubble { background: var(--accent-strong); color: white; border-bottom-right-radius: 5px; }
     .assistant .bubble { background: var(--surface-raised); border: 1px solid var(--border); border-bottom-left-radius: 5px; }
+    .bubble a { color: var(--focus); font-weight: 800; text-underline-offset: 3px; }
     .composer { display: grid; gap: 10px; padding: 18px; background: rgba(7, 17, 31, .42); border-top: 1px solid var(--border); }
     .actions { display: flex; gap: 10px; flex-wrap: wrap; }
     button {
@@ -98,10 +99,23 @@
     .sidebar { display: grid; gap: 18px; }
     .panel { padding: 18px; }
     .panel h2 { margin: 0 0 12px; font-size: 1rem; }
-    .sources, .evidence { color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
-    .evidence { max-height: 360px; overflow: auto; font-size: .86rem; }
-    .examples { display: grid; gap: 10px; }
-    .examples button { min-height: 52px; text-align: start; }
+    .sources, .evidence { color: var(--muted); overflow-wrap: anywhere; }
+    .evidence { max-height: 440px; overflow: auto; font-size: .86rem; }
+    .evidence-card, .source-card {
+      display: grid; gap: 7px; padding: 12px; margin-bottom: 10px;
+      background: var(--surface-soft); border: 1px solid var(--border); border-radius: 12px;
+    }
+    .evidence-head { display: flex; justify-content: space-between; gap: 8px; color: var(--text); font-weight: 750; }
+    .evidence-meta, .source-meta { font-size: .8rem; white-space: pre-wrap; }
+    .evidence-text { margin: 2px 0 0; white-space: pre-wrap; }
+    .source-card a { color: var(--focus); font-weight: 750; text-underline-offset: 3px; }
+    .scenario { margin: 0 0 10px; padding: 0 12px 10px; background: var(--surface-soft); border: 1px solid var(--border); border-radius: 12px; }
+    .scenario summary { color: var(--text); font-weight: 750; }
+    .scenario-copy { margin: 0 0 10px; color: var(--muted); font-size: .82rem; }
+    .scenario-status { display: inline-block; margin-inline-start: 6px; padding: 2px 7px; color: var(--success); background: rgba(110,231,183,.1); border-radius: 999px; font-size: .7rem; }
+    .examples { display: grid; gap: 8px; }
+    .examples button { min-height: 52px; padding: 9px 11px; text-align: start; font-size: .84rem; }
+    .language-label { margin-top: 5px; color: var(--accent); font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     details { margin-top: 14px; }
     summary { min-height: 44px; padding: 8px 0; color: var(--muted); cursor: pointer; }
     pre { max-height: 240px; overflow: auto; padding: 12px; color: var(--muted); background: var(--surface-soft); border-radius: 10px; white-space: pre-wrap; }
@@ -170,13 +184,9 @@
           </details>
         </section>
         <section class="card panel">
-          <h2>Example questions</h2>
-          <div class="examples">
-            <button type="button" data-example="What role do preventive cardiologists have in diabetes care?">Preventive cardiology and diabetes care</button>
-            <button type="button" data-example="What are the main risk factors for type 2 diabetes?">Risk factors for type 2 diabetes</button>
-            <button type="button" lang="ar" dir="rtl" data-example="ما هي الأطعمة الموصى بها لمريض السكري؟">الأطعمة الموصى بها لمريض السكري</button>
-            <button type="button" lang="ar" dir="rtl" data-example="كيف يمكن الوقاية من مرض السكري النوع الثاني؟">الوقاية من السكري النوع الثاني</button>
-          </div>
+          <h2>Verified sample questions</h2>
+          <p class="scenario-copy">Three English and three Arabic questions for every expected system behavior.</p>
+          <div id="examples" class="examples" aria-live="polite">Loading verified samples…</div>
         </section>
       </aside>
     </main>
@@ -192,8 +202,25 @@
     const conversation = $('conversation');
 
     function isArabic(text) { return /[\u0600-\u06ff]/.test(text); }
-    function safeText(text) {
-      return String(text).replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+    function appendRichText(container, content) {
+      const tokens = String(content).split(/(\*\*[^*]+\*\*|【E\d+】|\[E\d+\])/g);
+      tokens.forEach((token) => {
+        const bold = token.match(/^\*\*([^*]+)\*\*$/);
+        const citation = token.match(/^(?:【|\[)(E\d+)(?:】|\])$/);
+        if (bold) {
+          const strong = document.createElement('strong');
+          strong.textContent = bold[1];
+          container.append(strong);
+        } else if (citation) {
+          const link = document.createElement('a');
+          link.href = `#evidence-${citation[1]}`;
+          link.textContent = `[${citation[1]}]`;
+          link.setAttribute('aria-label', `Jump to evidence ${citation[1]}`);
+          container.append(link);
+        } else {
+          container.append(document.createTextNode(token));
+        }
+      });
     }
     function addMessage(role, content) {
       const empty = conversation.querySelector('.empty');
@@ -201,7 +228,13 @@
       const item = document.createElement('article');
       item.className = `message ${role}`;
       item.dir = isArabic(content) ? 'rtl' : 'ltr';
-      item.innerHTML = `<span class="role">${role === 'user' ? 'You' : 'Assistant'}</span><div class="bubble">${safeText(content)}</div>`;
+      const roleLabel = document.createElement('span');
+      roleLabel.className = 'role';
+      roleLabel.textContent = role === 'user' ? 'You' : 'Assistant';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      appendRichText(bubble, content);
+      item.append(roleLabel, bubble);
       conversation.appendChild(item);
       conversation.scrollTop = conversation.scrollHeight;
     }
@@ -220,17 +253,114 @@
       const names = { gemini: 'Gemini', groq: 'Groq', vercel_gateway: 'Vercel AI Gateway' };
       return provider && model ? `Answer provider: ${names[provider] || provider} · ${model}` : 'Answer provider: checking…';
     }
+    function trustedSourceUrl(value) {
+      try {
+        const url = new URL(String(value));
+        return url.protocol === 'https:' ? url.href : '';
+      } catch (_) { return ''; }
+    }
     function renderEvidence(chunks) {
-      $('evidence').textContent = chunks.length
-        ? chunks.map((chunk, index) => `${index + 1}. ${chunk.document_name} · score ${Number(chunk.score).toFixed(3)}\nSection: ${chunk.section_title || 'Not specified'} · Page ${chunk.page_number}\nSource: ${chunk.source_url}\n\n${chunk.text}`).join('\n\n────────\n\n')
-        : 'No usable evidence was retrieved for this question.';
+      const container = $('evidence');
+      container.replaceChildren();
+      if (!chunks.length) {
+        container.textContent = 'No usable evidence was retrieved for this question.';
+        return;
+      }
+      chunks.forEach((chunk, index) => {
+        const card = document.createElement('article');
+        card.className = 'evidence-card';
+        card.id = `evidence-E${index + 1}`;
+        const head = document.createElement('div');
+        head.className = 'evidence-head';
+        const title = document.createElement('span');
+        title.textContent = `E${index + 1} · ${chunk.document_name}`;
+        const score = document.createElement('span');
+        score.textContent = `score ${Number(chunk.score).toFixed(3)}`;
+        head.append(title, score);
+        const meta = document.createElement('div');
+        meta.className = 'evidence-meta';
+        meta.textContent = `${chunk.publisher || 'Certified source'}${chunk.publication_date ? ` · ${chunk.publication_date}` : ''}\n${chunk.section_title || 'Section not specified'}${chunk.subsection_title ? ` › ${chunk.subsection_title}` : ''} · Page ${chunk.page_number}`;
+        const excerpt = document.createElement('p');
+        excerpt.className = 'evidence-text';
+        excerpt.textContent = chunk.text;
+        card.append(head, meta, excerpt);
+        container.append(card);
+      });
+    }
+    function renderSources(sources, fallback = '') {
+      const container = $('sources');
+      container.replaceChildren();
+      if (!sources.length) {
+        container.textContent = fallback || 'No sources were used for this response.';
+        return;
+      }
+      sources.forEach((source) => {
+        const card = document.createElement('article');
+        card.className = 'source-card';
+        const link = document.createElement('a');
+        const href = trustedSourceUrl(source.source_url);
+        link.textContent = `${source.evidence_id} · ${source.document_name}`;
+        if (href) {
+          link.href = href;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+        }
+        const meta = document.createElement('div');
+        meta.className = 'source-meta';
+        meta.textContent = `${source.publisher || 'Publisher not specified'}${source.publication_date ? ` · ${source.publication_date}` : ''}\n${source.section_title || 'Section not specified'} · Page ${source.page_number}\nSource ID: ${source.source_id}`;
+        card.append(link, meta);
+        container.append(card);
+      });
+    }
+    function renderSamples(catalog) {
+      const container = $('examples');
+      container.replaceChildren();
+      const statusLabels = { ready: 'Evidence + answer', needs_clarification: 'No retrieval', out_of_scope: 'Safe refusal' };
+      catalog.scenarios.forEach((scenario, scenarioIndex) => {
+        const group = document.createElement('details');
+        group.className = 'scenario';
+        group.open = scenarioIndex === 0;
+        const summary = document.createElement('summary');
+        summary.textContent = `${scenario.title.en} · ${scenario.title.ar}`;
+        const badge = document.createElement('span');
+        badge.className = 'scenario-status';
+        badge.textContent = statusLabels[scenario.expected_status] || scenario.expected_status;
+        summary.append(badge);
+        const description = document.createElement('p');
+        description.className = 'scenario-copy';
+        description.textContent = `${scenario.description.en} ${scenario.description.ar}`;
+        group.append(summary, description);
+        ['en', 'ar'].forEach((language) => {
+          const label = document.createElement('div');
+          label.className = 'language-label';
+          label.textContent = language === 'en' ? 'English · 3' : 'العربية · 3';
+          group.append(label);
+          scenario.questions.filter((question) => question.language === language).forEach((question) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.lang = language;
+            button.dir = language === 'ar' ? 'rtl' : 'ltr';
+            button.textContent = question.text;
+            button.addEventListener('click', () => {
+              input.value = question.text;
+              input.dir = language === 'ar' ? 'rtl' : 'ltr';
+              $('category').value = question.category;
+              input.focus();
+            });
+            group.append(button);
+          });
+        });
+        container.append(group);
+      });
     }
     async function checkStatus() {
       const status = $('status');
       try {
-        const [healthResponse, readyResponse] = await Promise.all([fetch('/api/health'), fetch('/api/ready')]);
+        const [healthResponse, readyResponse, samplesResponse] = await Promise.all([fetch('/api/health'), fetch('/api/ready'), fetch('/api/sample-questions')]);
         const health = await healthResponse.json();
         const ready = await readyResponse.json();
+        const samples = await samplesResponse.json();
+        if (samplesResponse.ok) renderSamples(samples);
         state.ready = readyResponse.ok && ready.status === 'ready';
         state.configured = Boolean(health.generation_configured);
         status.className = `status ${state.ready && state.configured ? 'ready' : 'error'}`;
@@ -268,6 +398,7 @@
           const answer = retrieved.message || 'The available evidence is insufficient to answer this question safely.';
           addMessage('assistant', answer);
           state.history.push({ role: 'assistant', content: answer });
+          renderSources([], 'No sources were used because generation did not run.');
           const guidance = {
             needs_clarification: 'No provider was called. Add more detail and try again.',
             out_of_scope: 'No provider was called because the indexed sources did not support this question.',
@@ -296,7 +427,7 @@
         if (!response.ok) throw new Error(data.detail || 'The assistant could not answer this question.');
         addMessage('assistant', data.answer);
         state.history.push({ role: 'assistant', content: data.answer });
-        $('sources').textContent = data.citations || 'No sources were returned for this response.';
+        renderSources(data.sources || [], data.citations || 'No sources were returned for this response.');
         $('debug').textContent = data.debug || '';
         $('debug-wrap').hidden = !data.debug;
         setFeedback(`${data.generation_provider ? providerText(data.generation_provider, data.generation_model) : 'Answer complete.'}`);
@@ -317,11 +448,6 @@
       setFeedback('Conversation cleared.');
       input.focus();
     });
-    document.querySelectorAll('[data-example]').forEach((button) => button.addEventListener('click', () => {
-      input.value = button.dataset.example;
-      input.dir = isArabic(input.value) ? 'rtl' : 'ltr';
-      input.focus();
-    }));
     input.addEventListener('input', () => { input.dir = isArabic(input.value) ? 'rtl' : 'ltr'; });
     checkStatus();
   </script>

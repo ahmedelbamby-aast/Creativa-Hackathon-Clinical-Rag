@@ -3,6 +3,7 @@
 from src.response_policy import (
     SYSTEM_PROMPT,
     build_grounded_prompt,
+    is_out_of_domain,
     needs_clarification,
     response_text,
 )
@@ -36,6 +37,17 @@ def test_vague_input_requires_context_but_valid_follow_up_uses_history() -> None
     assert needs_clarification("What are diabetes risk factors?") is False
 
 
+def test_obviously_non_diabetes_question_is_rejected_but_contextual_follow_up_is_allowed() -> None:
+    assert is_out_of_domain("Who won the football World Cup in 2022?") is True
+    assert is_out_of_domain("What is the treatment for malaria?") is True
+    assert is_out_of_domain("How many adults are living with diabetes?") is False
+    assert is_out_of_domain("كم عدد البالغين المصابين بالسكري؟") is False
+    assert is_out_of_domain(
+        "What about the 2050 figure?",
+        [{"role": "user", "content": "How many adults are living with diabetes?"}],
+    ) is False
+
+
 def test_grounded_prompt_contains_only_supplied_evidence_and_history_is_not_evidence() -> None:
     prompt = build_grounded_prompt(
         "How can diabetes be prevented?",
@@ -50,6 +62,8 @@ def test_grounded_prompt_contains_only_supplied_evidence_and_history_is_not_evid
     assert "Do not transfer facts or lists from a related condition" in prompt
     assert "Do not use your own training knowledge" in SYSTEM_PROMPT
     assert "Never reuse a list from a related condition" in SYSTEM_PROMPT
+    assert "transparent arithmetic" in SYSTEM_PROMPT
+    assert "cite evidence inline as [E1]" in prompt
 
 
 def test_controlled_copy_is_bilingual_and_actionable() -> None:

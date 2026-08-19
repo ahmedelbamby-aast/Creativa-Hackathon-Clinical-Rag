@@ -43,6 +43,7 @@ from src.evidence_service import envelope_chunks, render_evidence, stage_evidenc
 from src.gemini_errors import classify_gemini_error, gemini_user_message
 from src.retrieval_contracts import RetrievalEnvelope
 from src.response_policy import response_text
+from src.sample_questions import flat_sample_questions
 
 logging.basicConfig(
     level=logging.DEBUG if config.debug else logging.INFO,
@@ -681,12 +682,7 @@ def build_ui() -> gr.Blocks:
 
         # ── Example Questions ───────────────────────────────────────────
         gr.HTML('<div class="section-label" style="margin-top:16px">Example questions</div>')
-        example_questions = [
-            "What role do preventive cardiologists have in diabetes care?",
-            "What are the main risk factors for type 2 diabetes?",
-            "ما هي الأطعمة الموصى بها لمريض السكري؟",
-            "كيف يمكن الوقاية من مرض السكري النوع الثاني؟",
-        ]
+        example_questions = [item["text"] for item in flat_sample_questions()]
         with gr.Row():
             for example_question in example_questions:
                 example_button = gr.Button(

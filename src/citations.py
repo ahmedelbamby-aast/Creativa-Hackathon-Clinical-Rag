@@ -11,6 +11,7 @@ Two citation modes:
 
 import logging
 from src.retriever import RetrievedChunk
+from src.source_catalog import load_source_catalog
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ def label_chunk_for_context(chunk: RetrievedChunk, index: int) -> str:
         [SOURCE 1: IDF Diabetes Atlas 2025 | Section: Prevention | Page 42]
         Physical activity interventions have shown...
     """
-    parts = [f"SOURCE {index + 1}"]
+    parts = [f"E{index + 1}"]
 
     # Document name (strip common long prefixes)
     doc = chunk.document_name
@@ -82,21 +83,31 @@ def build_citation_list(
 
     seen: set[tuple] = set()
     citations: list[str] = []
+    catalog = load_source_catalog()
 
-    for chunk in chunks:
+    for index, chunk in enumerate(chunks, start=1):
         key = (chunk.document_name, chunk.page_number, chunk.section_title)
         if key in seen:
             continue
         seen.add(key)
 
         doc_display = _format_document_name(chunk.document_name)
-        parts = [f"**{doc_display}**"]
+        linked_title = f"[{doc_display}]({chunk.source_url})" if chunk.source_url else doc_display
+        parts = [f"**E{index} · {linked_title}**"]
 
         if chunk.section_title:
             parts.append(f"Section: *{chunk.section_title[:80]}*")
         if chunk.page_number:
             page_label = "صفحة" if is_arabic else "Page"
             parts.append(f"{page_label} {chunk.page_number}")
+
+        source = catalog.get(chunk.document_name)
+        publisher = chunk.publisher or (source.publisher if source else "")
+        publication_date = chunk.publication_date or (source.publication_date if source else "")
+        if publisher:
+            parts.append(publisher)
+        if publication_date:
+            parts.append(publication_date)
 
         citations.append("• " + " — ".join(parts))
 
@@ -105,6 +116,29 @@ def build_citation_list(
 
     header = "📚 **المصادر:**" if is_arabic else "📚 **Sources:**"
     return header + "\n" + "\n".join(citations)
+
+
+def build_citation_records(chunks: list[RetrievedChunk]) -> list[dict[str, object]]:
+    """Return structured citations whose IDs match the evidence sent to generation."""
+    catalog = load_source_catalog()
+    records: list[dict[str, object]] = []
+    for index, chunk in enumerate(chunks, start=1):
+        source = catalog.get(chunk.document_name)
+        records.append(
+            {
+                "evidence_id": f"E{index}",
+                "source_id": chunk.source_id,
+                "document_name": chunk.document_name,
+                "source_url": chunk.source_url,
+                "publisher": chunk.publisher or (source.publisher if source else ""),
+                "publication_date": chunk.publication_date or (
+                    source.publication_date if source else ""
+                ),
+                "page_number": chunk.page_number,
+                "section_title": chunk.section_title,
+            }
+        )
+    return records
 
 
 def build_debug_info(

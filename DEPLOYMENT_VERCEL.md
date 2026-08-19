@@ -1,5 +1,9 @@
 # Deploy to Vercel Hobby + Neon Free
 
+> **Agents:** Before performing any deployment action, read
+> [`AGENTS_DEPLPOY_VERCEL.md`](AGENTS_DEPLPOY_VERCEL.md) completely. Its
+> preview-first, verification, database-safety, and cleanup rules are mandatory.
+
 This deployment runs a serverless-safe FastAPI API and dependency-free bilingual
 web client on Vercel's Python runtime. The local development command still uses
 the existing Gradio interface. Neon provides PostgreSQL and pgvector. Gemini

@@ -24,6 +24,7 @@ CORE RULES:
 5. Every factual medical claim must be traceable to at least one provided source.
 6. The evidence must directly address the same condition, population, and intent as the question. Evidence about gestational diabetes, type 1 diabetes, prediabetes, or another related condition must not be transferred to type 2 diabetes unless the source explicitly makes that exact link.
 7. When the user requests a list (for example, risk factors), include only items the source explicitly identifies as belonging to that requested list. Never reuse a list from a related condition or population.
+8. You MAY perform transparent arithmetic or a direct comparison when every input value is explicitly present in the supplied sources. Show the calculation, label the result as derived from the cited figures, and do not turn it into a medical recommendation.
 
 CITATION RULES:
 - Cite the provided document name and page for each factual medical claim.
@@ -54,8 +55,8 @@ _COPY: dict[str, tuple[str, str]] = {
         "Please ask a more specific diabetes question—for example, mention the symptom, treatment, prevention goal, or food you want information about.",
     ),
     "out_of_scope": (
-        "لا تحتوي مراجع السكري المفهرسة على معلومات كافية ومرتبطة بهذا السؤال. أعد صياغته كسؤال محدد عن السكري أو اختر فئة العلاج أو الوقاية أو التغذية.",
-        "The indexed diabetes references do not contain enough relevant information for that question. Please rephrase it as a specific diabetes question or choose Treatment, Prevention, or Nutrition.",
+        "لا أعرف الإجابة استنادًا إلى مراجع السكري المفهرسة لأنها لا تحتوي على معلومات كافية ومرتبطة بهذا السؤال. يرجى طرح سؤال أوضح ومحدد عن السكري.",
+        "I don't know the answer from the indexed diabetes references because they do not contain enough directly relevant information. Please ask a clearer, more specific diabetes question.",
     ),
     "invalid_provenance": (
         "لا يمكن استخدام الأدلة المسترجعة لأن معلومات مصدرها غير مكتملة. يرجى المحاولة لاحقًا.",
@@ -99,6 +100,7 @@ _DOMAIN_ANCHORS = {
     "diabetes", "diabetic", "insulin", "glucose", "hba1c", "a1c",
     "سكري", "السكري", "أنسولين", "الأنسولين", "جلوكوز", "السكر",
 }
+_ARABIC_DOMAIN_FRAGMENTS = ("سكري", "السكر", "جلوكوز", "غلوكوز", "أنسولين", "انسولين")
 _VAGUE_QUESTIONS = {
     "tell me more", "explain more", "more details", "what about it",
     "what is this", "can you explain", "help me", "and then",
@@ -132,6 +134,33 @@ def needs_clarification(
     if tokens & _DOMAIN_ANCHORS:
         return False
     return len(content_tokens) < 2 and not has_prior_user_context
+
+
+def is_out_of_domain(
+    query: str,
+    conversation_history: list[dict] | None = None,
+) -> bool:
+    """Reject clearly non-diabetes questions before embedding or generation."""
+    query_tokens = {token.casefold() for token in _TOKEN.findall(query)}
+    normalized_query = query.casefold()
+    if query_tokens & _DOMAIN_ANCHORS or any(
+        fragment in normalized_query for fragment in _ARABIC_DOMAIN_FRAGMENTS
+    ):
+        return False
+    history_tokens = {
+        token.casefold()
+        for item in (conversation_history or [])
+        if item.get("role") == "user"
+        for token in _TOKEN.findall(str(item.get("content", "")))
+    }
+    history_text = " ".join(
+        str(item.get("content", "")).casefold()
+        for item in (conversation_history or [])
+        if item.get("role") == "user"
+    )
+    return not bool(history_tokens & _DOMAIN_ANCHORS) and not any(
+        fragment in history_text for fragment in _ARABIC_DOMAIN_FRAGMENTS
+    )
 
 
 def build_grounded_prompt(
@@ -175,7 +204,11 @@ def build_grounded_prompt(
         f"USER QUESTION: {query}\n\n"
         "First verify that the context directly addresses the same condition, population, "
         "and intent as the question. Answer using only that directly matching context and "
-        "cite the SOURCE headers. Do not transfer facts or lists from a related condition. "
+        "cite evidence inline as [E1], [E2], and so on, matching the SOURCE numbers. "
+        "Do not transfer facts or lists from a related condition. You may calculate a result "
+        "only when every numeric input is explicitly present in the context; show the formula, "
+        "label the result as a derived calculation, cite every input, and use plain-text "
+        "arithmetic rather than LaTeX. "
         "If the context is insufficient or only indirectly related, say so and ask for a "
         "more specific diabetes question."
     )

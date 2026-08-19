@@ -247,6 +247,9 @@ class VectorStore:
             row["source_url"] = row.get("source_url") or (
                 source.source_url if source and source.enabled else ""
             )
+            row["publisher"] = getattr(source, "publisher", "") if source and source.enabled else ""
+            row["publication_date"] = getattr(source, "publication_date", "") if source and source.enabled else ""
+            row["source_checksum"] = getattr(source, "checksum", "") if source and source.enabled else ""
             results.append(
                 {
                     "id": chunk_id,
@@ -290,6 +293,9 @@ class VectorStore:
             row["source_url"] = row.get("source_url") or (
                 source.source_url if source and source.enabled else ""
             )
+            row["publisher"] = getattr(source, "publisher", "") if source and source.enabled else ""
+            row["publication_date"] = getattr(source, "publication_date", "") if source and source.enabled else ""
+            row["source_checksum"] = getattr(source, "checksum", "") if source and source.enabled else ""
             by_id[row["id"]] = {
                 "id": row["id"],
                 "document": row["document"],

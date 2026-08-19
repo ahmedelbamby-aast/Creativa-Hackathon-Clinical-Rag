@@ -18,6 +18,15 @@ from src.vector_store import vector_store
 logger = logging.getLogger(__name__)
 
 
+def _is_reference_only(section_title: str, text: str) -> bool:
+    """Return True for bibliography chunks, which are provenance—not answer evidence."""
+    section = " ".join(section_title.casefold().split()).strip(" :.-")
+    opening = " ".join(text.casefold().split())[:80]
+    return section in {"references", "reference", "bibliography", "المراجع"} or opening.startswith(
+        ("references ", "bibliography ", "المراجع ")
+    )
+
+
 class RetrievalProviderError(RuntimeError):
     """Embedding or vector-provider error that must not be mistaken for no evidence."""
 
@@ -101,6 +110,9 @@ def retrieve(
             continue
 
         meta = r.get("metadata", {})
+        if _is_reference_only(meta.get("section_title", ""), r.get("document", "")):
+            logger.debug("Filtered bibliography chunk: %s", meta.get("chunk_id", r.get("id", "")))
+            continue
         chunk = RetrievedChunk(
             chunk_id=meta.get("chunk_id", r.get("id", "")),
             text=r.get("document", ""),

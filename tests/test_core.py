@@ -53,6 +53,15 @@ def test_follow_up_uses_previous_question() -> None:
     assert "What about bread?" in rewritten
 
 
+def test_rewriter_adds_bilingual_hints_for_arabic_source_figures() -> None:
+    rewritten = rewrite_query(
+        "ما نسبة الزيادة من 589 مليون مصاب بالسكري عام 2024 إلى 853 مليوناً عام 2050؟"
+    )
+
+    assert "853 million" in rewritten
+    assert "percentage increase" in rewritten
+
+
 @pytest.mark.parametrize(
     ("query", "expected"),
     [

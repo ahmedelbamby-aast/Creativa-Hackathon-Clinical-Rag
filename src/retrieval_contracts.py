@@ -106,6 +106,8 @@ class EvidenceChunk:
     language: str
     source_id: str
     source_url: str
+    publisher: str = ""
+    publication_date: str = ""
 
 
 @dataclass(frozen=True)

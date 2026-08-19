@@ -95,3 +95,34 @@ def test_retrieve_maps_all_provenance_fields(monkeypatch):
     assert chunk.page_number == 12
     assert chunk.section_title == "Prevention"
     assert chunk.score == 0.9
+
+
+def test_retrieve_excludes_reference_list_chunks(monkeypatch) -> None:
+    raw_reference = {
+        "id": "references-1",
+        "document": "References 1. A cardiovascular outcomes cohort study.",
+        "distance": 0.05,
+        "score": 0.95,
+        "metadata": {
+            "chunk_id": "references-1",
+            "document_name": "atlas.pdf",
+            "page_number": 103,
+            "section_title": "References",
+            "subsection_title": "",
+            "category": "general",
+            "content_type": "text",
+            "language": "en",
+        },
+    }
+
+    class FakeVectorStore:
+        def query(self, query_embedding, category, top_k):
+            return [raw_reference]
+
+    monkeypatch.setattr(
+        "src.retriever.embedder",
+        type("FakeEmbedder", (), {"embed_query": lambda self, query: [0.1] * 384})(),
+    )
+    monkeypatch.setattr("src.retriever.vector_store", FakeVectorStore())
+
+    assert retrieve("preventive cardiologist", similarity_threshold=0.0) == []

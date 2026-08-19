@@ -20,10 +20,40 @@ from src.router import route_query
 from src.safety import SafetyLevel, classify_safety, get_emergency_response
 from src.vector_store import vector_store
 from src.gemini_errors import classify_gemini_error, gemini_user_message
-from src.response_policy import needs_clarification, response_text
+from src.response_policy import is_out_of_domain, needs_clarification, response_text
 
 
 logger = logging.getLogger(__name__)
+
+
+def _directly_matching_chunks(query: str, chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:
+    """Apply condition/intent guardrails that vector similarity alone cannot enforce."""
+    normalized_query = " ".join(query.casefold().replace("–", "-").split())
+    required_groups: list[tuple[str, ...]] = []
+    condition_groups = (
+        (("type 1", "type i", "النوع الأول", "النوع الاول"), ("type 1", "type i")),
+        (("type 2", "type ii", "النوع الثاني"), ("type 2", "type ii")),
+        (("gestational", "pregnan", "الحمل", "الحوامل", "سكر الحمل"), ("gestational", "pregnan")),
+    )
+    for query_terms, evidence_terms in condition_groups:
+        if any(term in normalized_query for term in query_terms):
+            required_groups.append(evidence_terms)
+            break
+    if "risk factor" in normalized_query or "عوامل الخطر" in normalized_query:
+        required_groups.append(("risk factor",))
+    if "preventive cardiolog" in normalized_query or "طبيب القلب الوقائي" in normalized_query:
+        required_groups.append(("preventive cardiolog",))
+    if not required_groups:
+        return chunks
+
+    matching: list[RetrievedChunk] = []
+    for chunk in chunks:
+        evidence = " ".join(
+            f"{chunk.section_title} {chunk.subsection_title} {chunk.text}".casefold().split()
+        )
+        if all(any(term in evidence for term in group) for group in required_groups):
+            matching.append(chunk)
+    return matching
 
 
 def is_arabic(text: str) -> bool:
@@ -77,6 +107,13 @@ def stage_evidence(
             status="needs_clarification",
             user_message=response_text("needs_clarification", is_arabic=arabic),
         )
+    if is_out_of_domain(query, conversation_history):
+        return RetrievalEnvelope(
+            **common,
+            rewritten_query=query,
+            status="out_of_scope",
+            user_message=response_text("out_of_scope", is_arabic=arabic),
+        )
     try:
         active_hash = _active_index_hash(config.resolved_embedding_namespace)
         if not active_hash:
@@ -89,6 +126,7 @@ def stage_evidence(
         rewritten = rewrite_query(query, conversation_history=conversation_history)
         routed = route_query(rewritten, user_selected_category=category)
         chunks = retrieve(rewritten, category=routed, top_k=config.top_k)
+        chunks = _directly_matching_chunks(query, chunks)
         common.update(routed_category=routed, index_manifest_hash=active_hash)
         if not chunks:
             return RetrievalEnvelope(
@@ -136,6 +174,8 @@ def stage_evidence(
                 language=chunk.language,
                 source_id=chunk.source_id,
                 source_url=chunk.source_url,
+                publisher=chunk.publisher,
+                publication_date=chunk.publication_date,
             )
             for chunk in certified_chunks
         )
@@ -173,6 +213,8 @@ def envelope_chunks(envelope: RetrievalEnvelope) -> list[RetrievedChunk]:
             language=item.language,
             source_id=item.source_id,
             source_url=item.source_url,
+            publisher=item.publisher,
+            publication_date=item.publication_date,
         )
         for item in envelope.chunks
     ]
@@ -226,6 +268,8 @@ def rehydrate_evidence(
                 language=item["metadata"].get("language", "en"),
                 source_id=item["metadata"].get("source_id", ""),
                 source_url=item["metadata"].get("source_url", ""),
+                publisher=item["metadata"].get("publisher", ""),
+                publication_date=item["metadata"].get("publication_date", ""),
             )
             for item in raw_chunks
         )

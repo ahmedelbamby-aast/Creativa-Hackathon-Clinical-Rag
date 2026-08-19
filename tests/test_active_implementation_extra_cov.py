@@ -49,7 +49,7 @@ def test_citations_module(sample_chunks):
     """Test all functions in src/citations.py to achieve full coverage."""
     # 1. label_chunk_for_context with full metadata
     label1 = label_chunk_for_context(sample_chunks[0], 0)
-    assert "[SOURCE 1 | IDF_Diabetes_Atlas.pdf | Section: Prevention | Subsection: Diet | Page 10]" in label1
+    assert "[E1 | IDF_Diabetes_Atlas.pdf | Section: Prevention | Subsection: Diet | Page 10]" in label1
     
     # 2. label_chunk_for_context with minimal metadata (tests missing branch coverage)
     minimal_chunk = RetrievedChunk(
@@ -66,7 +66,7 @@ def test_citations_module(sample_chunks):
         language="en",
     )
     label2 = label_chunk_for_context(minimal_chunk, 1)
-    assert "[SOURCE 2 | Minimal.pdf]" in label2
+    assert "[E2 | Minimal.pdf]" in label2
     
     # 3. build_citation_list with duplicates (tests key in seen branch)
     citations_dup = build_citation_list([sample_chunks[0], sample_chunks[0]], is_arabic=False)

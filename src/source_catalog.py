@@ -74,6 +74,9 @@ def enrich_chunk_records(
         source = catalog.get(record.get("document_name", ""))
         record["source_id"] = source.source_id if source and source.enabled else ""
         record["source_url"] = source.source_url if source and source.enabled else ""
+        record["publisher"] = source.publisher if source and source.enabled else ""
+        record["publication_date"] = source.publication_date if source and source.enabled else ""
+        record["source_checksum"] = source.checksum if source and source.enabled else ""
     return records
 
 

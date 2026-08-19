@@ -58,6 +58,18 @@ def test_index_serves_serverless_client() -> None:
     assert b"/api/retrieve" in response.body
     assert b"/api/generate" in response.body
     assert b"gradio_api" not in response.body
+    assert b"Verified sample questions" in response.body
+    assert b"Preventive cardiology and diabetes care" not in response.body
+
+
+def test_sample_catalog_is_balanced_across_all_four_scenarios() -> None:
+    result = server.sample_questions()
+
+    assert len(result["scenarios"]) == 4
+    for scenario in result["scenarios"]:
+        assert len(scenario["questions"]) == 6
+        assert [item["language"] for item in scenario["questions"]].count("en") == 3
+        assert [item["language"] for item in scenario["questions"]].count("ar") == 3
 
 
 def test_chat_endpoint_rebuilds_bounded_memory(monkeypatch) -> None:
@@ -125,3 +137,5 @@ def test_retrieve_then_generate_uses_staged_chunk_ids(monkeypatch) -> None:
     assert result.answer == "Answer"
     assert received[0][-1] == ["chunk-1"]
     assert result.generation_provider
+    assert result.sources[0].evidence_id == "E1"
+    assert result.sources[0].source_url == "https://example.test/guide"
