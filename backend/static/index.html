@@ -744,7 +744,9 @@
         option.disabled = !profile.available;
         option.textContent = profile.available
           ? `${profile.dimension} dimensions · ${profile.indexed_chunks} passages`
-          : `${profile.dimension} dimensions · coming soon`;
+          : profile.index_status === 'ingesting'
+            ? `${profile.dimension} dimensions · ingesting ${profile.document_count}/${profile.expected_document_count}`
+            : `${profile.dimension} dimensions · coming soon`;
         select.append(option);
       });
       const preferred = state.profiles.find((profile) => profile.dimension === catalog.default_dimension && profile.available)

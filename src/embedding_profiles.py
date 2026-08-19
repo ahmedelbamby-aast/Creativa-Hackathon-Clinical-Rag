@@ -84,6 +84,7 @@ def get_embedding_runtime(dimension: int | None = None) -> EmbeddingRuntime:
 def embedding_profile_catalog() -> dict[str, object]:
     """Return public readiness metadata for every supported dimension."""
     runtimes = [get_embedding_runtime(dimension) for dimension in SUPPORTED_EMBEDDING_DIMENSIONS]
+    expected_document_count = config.embedding_expected_document_count
     counts: dict[int, tuple[int, int]] = {}
     try:
         with psycopg.connect(config.database_url) as connection:
@@ -109,6 +110,7 @@ def embedding_profile_catalog() -> dict[str, object]:
     profiles: list[dict[str, object]] = []
     for runtime in runtimes:
         indexed_chunks, document_count = counts.get(runtime.dimension, (0, 0))
+        available = indexed_chunks > 0 and document_count == expected_document_count
         profiles.append(
             {
                 "dimension": runtime.dimension,
@@ -116,12 +118,21 @@ def embedding_profile_catalog() -> dict[str, object]:
                 "provider": runtime.provider,
                 "model": runtime.model,
                 "table_family": runtime.table_family,
-                "available": indexed_chunks > 0,
+                "available": available,
                 "indexed_chunks": indexed_chunks,
                 "document_count": document_count,
+                "expected_document_count": expected_document_count,
+                "index_status": (
+                    "ready"
+                    if available
+                    else "ingesting"
+                    if indexed_chunks > 0
+                    else "pending"
+                ),
             }
         )
     return {
         "default_dimension": validate_embedding_dimension(None),
+        "expected_document_count": expected_document_count,
         "profiles": profiles,
     }

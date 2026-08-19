@@ -259,6 +259,9 @@ class AppConfig:
     operations_dashboard_token: str = field(
         default_factory=lambda: os.environ.get("OPERATIONS_DASHBOARD_TOKEN", "")
     )
+    embedding_expected_document_count: int = field(
+        default_factory=lambda: int(os.environ.get("EMBEDDING_EXPECTED_DOCUMENT_COUNT", "12"))
+    )
 
     # ── Derived ────────────────────────────────────────────────────────────
     project_root: Path = field(default_factory=lambda: _PROJECT_ROOT)
@@ -318,6 +321,8 @@ class AppConfig:
             raise ValueError("Gemini embedding quota limits must be zero or positive")
         if not 0 < self.gemini_embedding_safety_factor <= 1:
             raise ValueError("GEMINI_EMBEDDING_SAFETY_FACTOR must be greater than 0 and at most 1")
+        if self.embedding_expected_document_count < 1:
+            raise ValueError("EMBEDDING_EXPECTED_DOCUMENT_COUNT must be at least 1")
         if self.retrieval_profile not in CHUNK_PROFILES:
             raise ValueError(
                 "RETRIEVAL_PROFILE must be one of "

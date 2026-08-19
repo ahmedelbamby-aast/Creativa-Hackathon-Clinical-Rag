@@ -55,3 +55,25 @@ def test_browser_ui_sends_and_locks_the_session_dimension() -> None:
 def test_health_advertises_all_supported_dimensions() -> None:
     result = server.health()
     assert result["supported_embedding_dimensions"] == [384, 768, 1024, 2048, 3072]
+
+
+def test_partial_dimension_is_not_selectable(monkeypatch) -> None:
+    class Connection:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def execute(self, query, params=None):
+            class Result:
+                def fetchone(self):
+                    if "to_regclass" in str(query):
+                        return ("rag_chunks_d1024",)
+                    return (24, 1)
+            return Result()
+
+    monkeypatch.setattr(embedding_profiles.psycopg, "connect", lambda *_: Connection())
+    catalog = embedding_profiles.embedding_profile_catalog()
+    partial = next(profile for profile in catalog["profiles"] if profile["dimension"] == 1024)
+
+    assert partial["document_count"] == 1
+    assert partial["expected_document_count"] == 12
+    assert partial["index_status"] == "ingesting"
+    assert partial["available"] is False
