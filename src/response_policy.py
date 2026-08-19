@@ -41,6 +41,7 @@ LANGUAGE AND QUALITY RULES:
 - Answer in the same language as the user's question, including clear Arabic when appropriate.
 - Be precise, focused, and transparent about limitations.
 - Use bullets or numbered steps when they improve clarity.
+- When mathematical notation improves clarity, put display equations between \\[ and \\], and inline equations between \\( and \\). Use valid LaTeX inside those delimiters and never put equations in a code fence.
 
 The documents are the knowledge base. You explain only their evidence and never substitute outside knowledge."""
 
@@ -207,8 +208,9 @@ def build_grounded_prompt(
         "cite evidence inline as [E1], [E2], and so on, matching the SOURCE numbers. "
         "Do not transfer facts or lists from a related condition. You may calculate a result "
         "only when every numeric input is explicitly present in the context; show the formula, "
-        "label the result as a derived calculation, cite every input, and use plain-text "
-        "arithmetic rather than LaTeX. "
+        "label the result as a derived calculation, and cite every input. When an equation "
+        "improves clarity, format it as valid LaTeX between \\[ and \\] for display math, or "
+        "between \\( and \\) for inline math; never use a code fence for equations. "
         "If the context is insufficient or only indirectly related, say so and ask for a "
         "more specific diabetes question."
     )

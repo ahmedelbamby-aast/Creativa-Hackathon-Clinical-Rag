@@ -6,6 +6,7 @@ from typing import Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import generate_from_evidence, rag_pipeline
@@ -33,7 +34,9 @@ api = FastAPI(
     version="0.1.0",
 )
 
-STATIC_INDEX = Path(__file__).with_name("static") / "index.html"
+STATIC_DIR = Path(__file__).with_name("static")
+STATIC_INDEX = STATIC_DIR / "index.html"
+api.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
 VALID_CATEGORIES = {
     CATEGORY_ALL,
     CATEGORY_TREATMENT,

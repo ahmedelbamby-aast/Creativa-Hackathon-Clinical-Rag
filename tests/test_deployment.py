@@ -1,6 +1,7 @@
 """Vercel ASGI entrypoint behavior without live external services."""
 
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 
 from backend import server
 from src.memory import ConversationMemory
@@ -60,6 +61,22 @@ def test_index_serves_serverless_client() -> None:
     assert b"gradio_api" not in response.body
     assert b"Verified sample questions" in response.body
     assert b"Preventive cardiology and diabetes care" not in response.body
+    assert b"/assets/katex/katex.min.js" in response.body
+
+
+def test_self_hosted_math_assets_are_served() -> None:
+    client = TestClient(server.api)
+
+    script = client.get("/assets/katex/katex.min.js")
+    stylesheet = client.get("/assets/katex/katex.min.css")
+
+    assert script.status_code == 200
+    assert script.headers["content-type"].startswith("text/javascript")
+    assert script.content.startswith(b"!function")
+    assert len(script.content) > 250_000
+    assert stylesheet.status_code == 200
+    assert stylesheet.headers["content-type"].startswith("text/css")
+    assert b"@font-face" in stylesheet.content
 
 
 def test_sample_catalog_is_balanced_across_all_four_scenarios() -> None:

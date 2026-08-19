@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="A bilingual, citation-grounded diabetes information assistant.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%232563eb' d='M32 4C22 18 12 28 12 40a20 20 0 0 0 40 0C52 28 42 18 32 4Z'/%3E%3Cpath fill='none' stroke='%23fff' stroke-width='5' stroke-linecap='round' d='M23 39h18M32 30v18'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/assets/katex/katex.min.css">
+  <script id="katex-script" defer src="/assets/katex/katex.min.js"></script>
   <title>Creativa Diabetes RAG Assistant</title>
   <style>
     :root {
@@ -82,6 +84,18 @@
     .user .bubble { background: var(--accent-strong); color: white; border-bottom-right-radius: 5px; }
     .assistant .bubble { background: var(--surface-raised); border: 1px solid var(--border); border-bottom-left-radius: 5px; }
     .bubble a { color: var(--focus); font-weight: 800; text-underline-offset: 3px; }
+    .math-display, .math-inline { direction: ltr; unicode-bidi: isolate; color: var(--text); white-space: normal; }
+    .math-display {
+      width: 100%; margin: 12px 0; padding: 14px 12px; overflow-x: auto;
+      background: rgba(7, 17, 31, .58); border: 1px solid var(--border); border-radius: 11px;
+      text-align: center;
+    }
+    .math-display .katex-display { margin: 0; }
+    .math-inline { display: inline-block; max-width: 100%; overflow-x: auto; vertical-align: -.15em; }
+    .math-pending, .math-error {
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: .9em; color: var(--muted); white-space: pre-wrap;
+    }
     .composer { display: grid; gap: 10px; padding: 18px; background: rgba(7, 17, 31, .42); border-top: 1px solid var(--border); }
     .actions { display: flex; gap: 10px; flex-wrap: wrap; }
     button {
@@ -200,10 +214,49 @@
     const input = $('question');
     const send = $('send');
     const conversation = $('conversation');
+    const pendingMath = new Set();
 
     function isArabic(text) { return /[\u0600-\u06ff]/.test(text); }
-    function appendRichText(container, content) {
-      const tokens = String(content).split(/(\*\*[^*]+\*\*|【E\d+】|\[E\d+\])/g);
+    function renderMathNode(node) {
+      if (!window.katex) {
+        pendingMath.add(node);
+        return;
+      }
+      try {
+        window.katex.render(node.dataset.latex || '', node, {
+          displayMode: node.classList.contains('math-display'),
+          output: 'htmlAndMathml',
+          throwOnError: false,
+          strict: 'error',
+          trust: false,
+          maxSize: 10,
+          maxExpand: 1000,
+        });
+        node.classList.remove('math-pending', 'math-error');
+        pendingMath.delete(node);
+      } catch (_) {
+        node.textContent = node.dataset.latex || '';
+        node.classList.remove('math-pending');
+        node.classList.add('math-error');
+        pendingMath.delete(node);
+      }
+    }
+    function renderPendingMath() {
+      Array.from(pendingMath).forEach(renderMathNode);
+    }
+    function appendMath(container, token) {
+      const display = token.startsWith('\\[') || token.startsWith('$$');
+      const latex = token.startsWith('$$') ? token.slice(2, -2) : token.slice(2, -2);
+      const node = document.createElement(display ? 'div' : 'span');
+      node.className = `${display ? 'math-display' : 'math-inline'} math-pending`;
+      node.dataset.latex = latex.trim();
+      node.textContent = latex.trim();
+      node.setAttribute('aria-label', `${display ? 'Equation' : 'Inline equation'}: ${latex.trim()}`);
+      container.append(node);
+      renderMathNode(node);
+    }
+    function appendFormattedText(container, text) {
+      const tokens = String(text).split(/(\*\*[^*]+\*\*|【E\d+】|\[E\d+\])/g);
       tokens.forEach((token) => {
         const bold = token.match(/^\*\*([^*]+)\*\*$/);
         const citation = token.match(/^(?:【|\[)(E\d+)(?:】|\])$/);
@@ -222,6 +275,18 @@
         }
       });
     }
+    function appendRichText(container, content) {
+      const segments = String(content).split(/(\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$\$[\s\S]*?\$\$)/g);
+      segments.forEach((segment) => {
+        if (/^(?:\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$\$[\s\S]*?\$\$)$/.test(segment)) {
+          appendMath(container, segment);
+        } else {
+          appendFormattedText(container, segment);
+        }
+      });
+    }
+    const katexScript = $('katex-script');
+    if (katexScript) katexScript.addEventListener('load', renderPendingMath);
     function addMessage(role, content) {
       const empty = conversation.querySelector('.empty');
       if (empty) empty.remove();
