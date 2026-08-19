@@ -19,7 +19,10 @@ logger = logging.getLogger(__name__)
 
 def normalize_inline_citations(answer: str, evidence_count: int) -> str:
     """Canonicalize provider citation variants to clickable ``[E#]`` markers."""
-    pattern = re.compile(r"(?:\[|【)\s*E\s*(\d+)[^\]】]*(?:\]|】)", re.IGNORECASE)
+    pattern = re.compile(
+        r"(?:\[|【)[^\]】]{0,40}?\bE\s*(\d+)[^\]】]*(?:\]|】)",
+        re.IGNORECASE,
+    )
 
     def replace(match: re.Match[str]) -> str:
         index = int(match.group(1))

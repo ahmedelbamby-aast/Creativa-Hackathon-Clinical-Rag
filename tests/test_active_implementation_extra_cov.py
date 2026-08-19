@@ -87,6 +87,7 @@ def test_citations_module(sample_chunks):
     assert "Sources:" in build_citation_list(sample_chunks, is_arabic=False)
     assert "المصادر:" in build_citation_list(sample_chunks, is_arabic=True)
     assert normalize_inline_citations("Fact [ E1 | صفحة 12 ] and 【E2】.", 2) == "Fact [E1] and [E2]."
+    assert normalize_inline_citations("حقيقة [إشارة إلى E1]", 2) == "حقيقة [E1]"
     assert normalize_inline_citations("Unknown [E9]", 2) == "Unknown [E9]"
     assert build_citation_list([]) == ""
     
