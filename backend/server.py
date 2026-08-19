@@ -207,7 +207,21 @@ def sample_questions() -> dict:
 @api.get("/api/metrics", tags=["operations"])
 def foundational_metrics(limit: int = 200, conversation_id: str = "") -> dict:
     """Return Level-1 quality and operational history across chats and time."""
-    return metrics_report(limit=max(1, min(limit, 1000)), conversation_id=conversation_id[:64])
+    report = metrics_report(limit=max(1, min(limit, 1000)), conversation_id=conversation_id[:64])
+    public_fields = {
+        "trace_id", "conversation_id", "turn_index", "timestamp", "status", "error",
+        "requested_category", "routed_category", "language", "risk_tier", "namespace",
+        "embedding_model", "retrieval_profile", "retrieval_count", "best_score", "top_k",
+        "generation_provider", "generation_model", "provider_failure_count", "fallback_count",
+        "input_tokens", "context_tokens", "output_tokens", "total_tokens", "token_count_method",
+        "estimated_cost_usd", "cost_status", "quality_metrics", "quality_basis", "label_case_id",
+        "stages_ms", "total_ms",
+    }
+    report["traces"] = [
+        {key: value for key, value in trace.items() if key in public_fields}
+        for trace in report.get("traces", [])
+    ]
+    return report
 
 
 @api.post("/api/chat", response_model=ChatResponse, tags=["rag"])

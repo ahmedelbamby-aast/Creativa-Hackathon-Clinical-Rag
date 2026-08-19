@@ -118,6 +118,27 @@ def test_metrics_api_bounds_history_and_forwards_conversation_filter(monkeypatch
     assert captured == {"limit": 1000, "conversation_id": "chat-1"}
 
 
+def test_public_metrics_api_redacts_chat_and_evidence_content(monkeypatch):
+    monkeypatch.setattr(
+        server,
+        "metrics_report",
+        lambda **_: {
+            "summary": {"requests": 1},
+            "traces": [{
+                "trace_id": "trace-1", "timestamp": "2026-01-01T00:00:00Z",
+                "query": "private patient question", "answer": "private answer",
+                "citations": "private citations", "retrieved_chunks": [{"text": "private evidence"}],
+                "status": "ok", "total_ms": 10, "quality_metrics": {"task_success": 1.0},
+            }],
+        },
+    )
+    response = server.foundational_metrics()
+    assert response["traces"] == [{
+        "trace_id": "trace-1", "timestamp": "2026-01-01T00:00:00Z",
+        "status": "ok", "total_ms": 10, "quality_metrics": {"task_success": 1.0},
+    }]
+
+
 def test_trace_prefers_provider_reported_usage_and_records_fallbacks():
     trace = observability.RequestTrace("question", "all")
     trace.capture_generation(
