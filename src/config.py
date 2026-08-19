@@ -115,6 +115,12 @@ class AppConfig:
     vercel_oidc_token: str = field(
         default_factory=lambda: os.environ.get("VERCEL_OIDC_TOKEN", "")
     )
+    generation_input_cost_per_million_usd: float = field(
+        default_factory=lambda: float(os.environ.get("GENERATION_INPUT_COST_PER_MILLION_USD", "0"))
+    )
+    generation_output_cost_per_million_usd: float = field(
+        default_factory=lambda: float(os.environ.get("GENERATION_OUTPUT_COST_PER_MILLION_USD", "0"))
+    )
 
     # ── Embedding ──────────────────────────────────────────────────────────
     embedding_provider: str = field(
@@ -232,6 +238,8 @@ class AppConfig:
             raise ValueError("GENERATION_FALLBACK_PROVIDER must differ from GENERATION_PRIMARY_PROVIDER")
         if self.generation_provider == "vercel_gateway" and "/" not in self.ai_gateway_model:
             raise ValueError("AI_GATEWAY_MODEL must use provider/model format")
+        if self.generation_input_cost_per_million_usd < 0 or self.generation_output_cost_per_million_usd < 0:
+            raise ValueError("Generation token prices must be zero or positive")
         if self.is_deployment and self.embedding_provider != "gemini":
             raise ValueError(
                 "Deployment requires EMBEDDING_PROVIDER=gemini; the local provider "

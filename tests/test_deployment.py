@@ -135,10 +135,20 @@ def test_chat_endpoint_keeps_deterministic_fallback_without_llm_credentials(monk
 
 def test_retrieve_then_generate_uses_staged_chunk_ids(monkeypatch) -> None:
     envelope = _envelope()
+    persisted = []
+    monkeypatch.setattr(server, "record_trace", lambda trace: persisted.append(trace.serializable()))
+    monkeypatch.setattr(
+        server, "load_trace",
+        lambda trace_id: server.RequestTrace.from_record(
+            next(item for item in reversed(persisted) if item["trace_id"] == trace_id)
+        ),
+    )
     monkeypatch.setattr(server, "stage_evidence", lambda *args, **kwargs: envelope)
     retrieved = server.retrieve_endpoint(server.ChatRequest(message="Question", category="all"))
 
     assert retrieved.status == "ready"
+    assert retrieved.trace_id
+    assert retrieved.metrics["status"] == "running"
     assert retrieved.chunks[0].source_url == "https://example.test/guide"
 
     received = []
@@ -148,7 +158,7 @@ def test_retrieve_then_generate_uses_staged_chunk_ids(monkeypatch) -> None:
     monkeypatch.setattr(server, "generate_from_evidence", lambda value, memory: ("Answer", "Sources", ""))
     result = server.generate_endpoint(server.GenerateRequest(
         message="Question", category="all", namespace="phase2_local", index_manifest_hash="manifest",
-        chunk_ids=["chunk-1"],
+        chunk_ids=["chunk-1"], trace_id=retrieved.trace_id,
     ))
 
     assert result.answer == "Answer"
@@ -156,3 +166,4 @@ def test_retrieve_then_generate_uses_staged_chunk_ids(monkeypatch) -> None:
     assert result.generation_provider
     assert result.sources[0].evidence_id == "E1"
     assert result.sources[0].source_url == "https://example.test/guide"
+    assert persisted[-1]["status"] == "ok"

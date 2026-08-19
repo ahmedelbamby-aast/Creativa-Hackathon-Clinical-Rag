@@ -85,9 +85,7 @@ def rag_pipeline(
     history = memory.get_history()
     with trace.stage("retrieval"):
         envelope = stage_evidence(query, category, history)
-    trace.routed_category = envelope.routed_category
-    trace.retrieval_count = len(envelope.chunks)
-    trace.best_score = round(envelope.chunks[0].score, 4) if envelope.chunks else 0.0
+    trace.capture_retrieval(envelope)
     if not envelope.is_ready:
         response = envelope.user_message
         memory.add_user(query, category=category)
@@ -164,6 +162,10 @@ def generate_from_evidence(
     if config.debug:
         debug += "\n\n" + build_debug_info(query, envelope.rewritten_query, envelope.routed_category, chunks)
     if trace:
+        trace.capture_generation(
+            answer, generator.active_provider, generator.active_model,
+            generator.last_usage, generator.last_attempts, citations,
+        )
         trace.finish("generation_error" if trace.error else "ok", trace.error)
         record_trace(trace)
     return answer, citations, debug

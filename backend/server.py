@@ -24,6 +24,7 @@ from src.evidence_service import envelope_chunks
 from src.citations import build_citation_records
 from src.sample_questions import load_sample_questions
 from src.vector_store import vector_store
+from src.observability import RequestTrace, load_trace, metrics_report, record_trace
 
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,8 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2_000)
     category: str = CATEGORY_ALL
     history: list[ChatMessage] = Field(default_factory=list, max_length=12)
+    conversation_id: str = Field(default="", max_length=64, pattern=r"^[A-Za-z0-9_-]*$")
+    turn_index: int = Field(default=0, ge=0)
 
 
 class CitationItem(BaseModel):
@@ -80,6 +83,8 @@ class ChatResponse(BaseModel):
     generation_provider: str = ""
     generation_model: str = ""
     sources: list[CitationItem] = Field(default_factory=list)
+    trace_id: str = ""
+    metrics: dict = Field(default_factory=dict)
 
 
 class EvidenceItem(BaseModel):
@@ -104,12 +109,15 @@ class RetrieveResponse(BaseModel):
     namespace: str
     index_manifest_hash: str = ""
     chunks: list[EvidenceItem] = Field(default_factory=list)
+    trace_id: str = ""
+    metrics: dict = Field(default_factory=dict)
 
 
 class GenerateRequest(ChatRequest):
     namespace: str
     index_manifest_hash: str
     chunk_ids: list[str] = Field(min_length=1, max_length=5)
+    trace_id: str = Field(default="", max_length=36)
 
 
 class LocalizedText(BaseModel):
@@ -195,6 +203,12 @@ def sample_questions() -> dict:
     return load_sample_questions()
 
 
+@api.get("/api/metrics", tags=["operations"])
+def foundational_metrics(limit: int = 200, conversation_id: str = "") -> dict:
+    """Return Level-1 quality and operational history across chats and time."""
+    return metrics_report(limit=max(1, min(limit, 1000)), conversation_id=conversation_id[:64])
+
+
 @api.post("/api/chat", response_model=ChatResponse, tags=["rag"])
 def chat_endpoint(request: ChatRequest) -> ChatResponse:
     """Run one stateless RAG turn using browser-supplied bounded history."""
@@ -233,7 +247,19 @@ def retrieve_endpoint(request: ChatRequest) -> RetrieveResponse:
     category = request.category.strip().lower()
     if category not in VALID_CATEGORIES:
         raise HTTPException(status_code=422, detail="Unsupported knowledge category")
-    envelope = stage_evidence(request.message, category, _build_memory(request.history, category).get_history())
+    trace = RequestTrace(
+        query=request.message[:2000], requested_category=category,
+        conversation_id=request.conversation_id, turn_index=request.turn_index,
+    )
+    with trace.stage("retrieval"):
+        envelope = stage_evidence(request.message, category, _build_memory(request.history, category).get_history())
+    trace.capture_retrieval(envelope)
+    if envelope.is_ready:
+        record_trace(trace)
+    else:
+        trace.capture_generation(envelope.user_message, "not_called", "")
+        trace.finish(envelope.status, envelope.error_code)
+        record_trace(trace)
     return RetrieveResponse(
         status=envelope.status,
         message=envelope.user_message,
@@ -257,6 +283,8 @@ def retrieve_endpoint(request: ChatRequest) -> RetrieveResponse:
             )
             for item in envelope.chunks
         ],
+        trace_id=trace.trace_id,
+        metrics=trace.serializable(),
     )
 
 
@@ -268,6 +296,13 @@ def generate_endpoint(request: GenerateRequest) -> ChatResponse:
         raise HTTPException(status_code=422, detail="Unsupported knowledge category")
     if not config.generation_configured:
         raise HTTPException(status_code=503, detail="Answer generation is not configured for this deployment")
+    trace = load_trace(request.trace_id) if request.trace_id else None
+    if trace is None:
+        trace = RequestTrace(
+            query=request.message[:2000], requested_category=category,
+            trace_id=request.trace_id or RequestTrace(request.message, category).trace_id,
+            conversation_id=request.conversation_id, turn_index=request.turn_index,
+        )
     envelope = rehydrate_evidence(
         request.message,
         category,
@@ -276,9 +311,19 @@ def generate_endpoint(request: GenerateRequest) -> ChatResponse:
         request.chunk_ids,
     )
     if not envelope.is_ready:
-        return ChatResponse(answer=envelope.user_message, citations="", debug="")
+        trace.capture_generation(envelope.user_message, "not_called", "")
+        trace.finish(envelope.status, envelope.error_code)
+        record_trace(trace)
+        return ChatResponse(answer=envelope.user_message, citations="", debug="", trace_id=trace.trace_id, metrics=trace.serializable())
     memory = _build_memory(request.history, category)
-    answer, citations, debug = generate_from_evidence(envelope, memory)
+    with trace.stage("generation"):
+        answer, citations, debug = generate_from_evidence(envelope, memory)
+    trace.capture_generation(
+        answer, generator.active_provider, generator.active_model,
+        generator.last_usage, generator.last_attempts, citations,
+    )
+    trace.finish("ok_with_fallback" if trace.fallback_count else "ok")
+    record_trace(trace)
     sources = [CitationItem(**item) for item in build_citation_records(envelope_chunks(envelope))]
     return ChatResponse(
         answer=answer,
@@ -287,6 +332,8 @@ def generate_endpoint(request: GenerateRequest) -> ChatResponse:
         generation_provider=generator.active_provider,
         generation_model=generator.active_model,
         sources=sources,
+        trace_id=trace.trace_id,
+        metrics=trace.serializable(),
     )
 
 

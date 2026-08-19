@@ -35,6 +35,8 @@ class GeminiGenerator:
         self._initialised = False
         self._clients: dict[str, object] = {}
         self._active_provider = ""
+        self.last_usage: dict[str, int] = {}
+        self.last_attempts: list[dict[str, str]] = []
 
     @property
     def active_provider(self) -> str:
@@ -49,6 +51,7 @@ class GeminiGenerator:
     def mark_extractive_fallback(self) -> None:
         """Expose deterministic evidence mode after every LLM route fails."""
         self._active_provider = "extractive"
+        self.last_usage = {}
 
     def _provider_order(self) -> list[str]:
         if config.generation_provider != "auto":
@@ -145,6 +148,12 @@ class GeminiGenerator:
                 temperature=0.0,
                 max_tokens=2048,
             )
+            usage = getattr(response, "usage", None)
+            self.last_usage = {
+                "input_tokens": int(getattr(usage, "prompt_tokens", 0) or 0),
+                "output_tokens": int(getattr(usage, "completion_tokens", 0) or 0),
+                "total_tokens": int(getattr(usage, "total_tokens", 0) or 0),
+            }
             text = response.choices[0].message.content or ""
             if text.strip():
                 return text
@@ -168,6 +177,12 @@ class GeminiGenerator:
                 ],
             ),
         )
+        usage = getattr(response, "usage_metadata", None)
+        self.last_usage = {
+            "input_tokens": int(getattr(usage, "prompt_token_count", 0) or 0),
+            "output_tokens": int(getattr(usage, "candidates_token_count", 0) or 0),
+            "total_tokens": int(getattr(usage, "total_token_count", 0) or 0),
+        }
         text = response.text or ""
         if text:
             return text
@@ -216,6 +231,8 @@ class GeminiGenerator:
     ) -> str:
         """Generate one grounded answer from a pre-built evidence prompt."""
         del history  # History is already incorporated by build_user_prompt().
+        self.last_usage = {}
+        self.last_attempts = []
         providers = self._provider_order()
         if not providers:
             raise RuntimeError("No generation provider is configured")
@@ -224,10 +241,14 @@ class GeminiGenerator:
             try:
                 answer = self._generate_with_provider(user_prompt, provider)
                 self._active_provider = provider
+                self.last_attempts.append({"provider": provider, "status": "ok", "error_code": ""})
                 return answer
             except Exception as exc:
                 last_error = exc
                 error_info = classify_gemini_error(exc)
+                self.last_attempts.append(
+                    {"provider": provider, "status": "error", "error_code": error_info.code}
+                )
                 can_failover = (
                     index < len(providers) - 1
                     and error_info.code not in {"safety_blocked", "invalid_request"}
