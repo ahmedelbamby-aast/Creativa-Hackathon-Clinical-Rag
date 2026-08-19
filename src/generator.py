@@ -91,6 +91,8 @@ class GeminiGenerator:
                 self._client = OpenAI(
                     api_key=gateway_token,
                     base_url="https://ai-gateway.vercel.sh/v1",
+                    max_retries=0,
+                    timeout=20.0,
                 )
                 model = config.ai_gateway_model
             elif provider == "groq":
@@ -101,6 +103,8 @@ class GeminiGenerator:
                 self._client = OpenAI(
                     api_key=config.groq_api_key,
                     base_url="https://api.groq.com/openai/v1",
+                    max_retries=0,
+                    timeout=20.0,
                 )
                 model = config.groq_model
             elif provider == "gemini":
@@ -198,8 +202,9 @@ class GeminiGenerator:
                 )
                 raise
         error_info = classify_gemini_error(last_error or RuntimeError("unknown provider error"))
-        logger.error(
-            "%s generation retries exhausted: code=%s status=%s",
+        log = logger.warning if _is_retryable(last_error or RuntimeError()) else logger.error
+        log(
+            "%s generation attempt unavailable: code=%s status=%s",
             provider.title(), error_info.code, error_info.http_status,
         )
         raise GeminiResponseError(error_info.code) from last_error

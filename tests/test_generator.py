@@ -115,6 +115,23 @@ def test_groq_generation_uses_openai_compatible_chat_api(monkeypatch) -> None:
     assert calls[0]["model"] == "openai/gpt-oss-120b"
 
 
+def test_groq_client_disables_hidden_sdk_retries(monkeypatch) -> None:
+    captured = {}
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr("openai.OpenAI", FakeOpenAI)
+    monkeypatch.setattr("src.generator.config.groq_api_key", "configured")
+    generator = GeminiGenerator()
+
+    generator._initialise("groq")
+
+    assert captured["max_retries"] == 0
+    assert captured["timeout"] == 20.0
+
+
 def test_auto_routes_to_groq_when_gemini_fails(monkeypatch) -> None:
     generator = GeminiGenerator()
     calls = []
