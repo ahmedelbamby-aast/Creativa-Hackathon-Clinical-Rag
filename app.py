@@ -71,6 +71,7 @@ def rag_pipeline(
     query: str,
     category: str,
     memory: ConversationMemory,
+    case_id: str = "",
 ) -> tuple[str, str, str]:
     """Run the full RAG pipeline for a single user query.
 
@@ -81,7 +82,7 @@ def rag_pipeline(
     if not query:
         return "Please enter a question.", "", ""
 
-    trace = RequestTrace(query=query[:200], requested_category=category)
+    trace = RequestTrace(query=query[:200], requested_category=category, requested_case_id=case_id)
     history = memory.get_history()
     with trace.stage("retrieval"):
         envelope = stage_evidence(query, category, history)

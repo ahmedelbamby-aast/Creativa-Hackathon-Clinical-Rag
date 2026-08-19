@@ -69,9 +69,22 @@ def test_metrics_guide_serves_plain_english_foundational_definitions() -> None:
     content = response.body.decode("utf-8")
     assert response.status_code == 200
     assert "What do the quality numbers mean?" in content
-    assert "Hit Rate@k" in content
-    assert "Token Usage and Cost per Request" in content
+    for metric_name in (
+        "Hit Rate@k", "Precision@k", "Recall@k", "Mean Reciprocal Rank (MRR)",
+        "Mean Average Precision (MAP)", "nDCG@k", "Exact Match",
+        "Token Precision, Recall, and F1", "End-to-End Task Success",
+        "Latency Percentiles", "Error Rate and Availability", "Token Usage and Cost per Request",
+    ):
+        assert metric_name in content
     assert "Not measured" in content
+
+
+def test_dashboard_has_plain_english_unavailable_reason_rendering() -> None:
+    content = server.index().body.decode("utf-8")
+    assert "metricReasonText" in content
+    assert "missing_reference_answer" in content
+    assert "Not measured:" in content
+    assert "measured_count" in content
 
 
 def test_self_hosted_math_assets_are_served() -> None:
@@ -102,8 +115,8 @@ def test_sample_catalog_is_balanced_across_all_four_scenarios() -> None:
 def test_chat_endpoint_rebuilds_bounded_memory(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
-    def fake_pipeline(message: str, category: str, memory: ConversationMemory):
-        captured.update(message=message, category=category, history=memory.get_history())
+    def fake_pipeline(message: str, category: str, memory: ConversationMemory, case_id: str = ""):
+        captured.update(message=message, category=category, history=memory.get_history(), case_id=case_id)
         return "Grounded answer", "Guideline, Page 4", "trace"
 
     monkeypatch.setattr(server.config, "generation_provider", "gemini")
@@ -118,6 +131,7 @@ def test_chat_endpoint_rebuilds_bounded_memory(monkeypatch) -> None:
                 server.ChatMessage(role="user", content="Previous question"),
                 server.ChatMessage(role="assistant", content="Previous answer"),
             ],
+            case_id="case-1",
         )
     )
 
@@ -126,6 +140,7 @@ def test_chat_endpoint_rebuilds_bounded_memory(monkeypatch) -> None:
     assert result.generation_provider
     assert result.generation_model
     assert captured["category"] == "prevention"
+    assert captured["case_id"] == "case-1"
     assert len(captured["history"]) == 2
 
 
@@ -177,3 +192,24 @@ def test_retrieve_then_generate_uses_staged_chunk_ids(monkeypatch) -> None:
     assert result.sources[0].evidence_id == "E1"
     assert result.sources[0].source_url == "https://example.test/guide"
     assert persisted[-1]["status"] == "ok"
+
+
+def test_case_id_survives_retrieve_to_generate_trace(monkeypatch) -> None:
+    envelope = _envelope()
+    case = {
+        "case_id": "case-1", "language": "en", "expect_evidence": True,
+        "relevant_items": [], "review": {"status": "pending_human_review"},
+    }
+    persisted = []
+    monkeypatch.setattr(server, "record_trace", lambda trace: persisted.append(trace.serializable()))
+    monkeypatch.setattr(server, "load_trace", lambda trace_id: server.RequestTrace.from_record(persisted[-1]))
+    monkeypatch.setattr(server, "stage_evidence", lambda *args, **kwargs: envelope)
+    monkeypatch.setattr("src.observability.match_case", lambda *_: (case, "explicit_case_id"))
+    monkeypatch.setattr("src.observability.gold_dataset", lambda: {"version": "v2", "cases": [case]})
+    retrieved = server.retrieve_endpoint(server.ChatRequest(message="Question", category="all", case_id="case-1"))
+    monkeypatch.setattr(server, "rehydrate_evidence", lambda *args: envelope)
+    monkeypatch.setattr(server, "generate_from_evidence", lambda *args: ("Answer", "Sources", ""))
+    server.generate_endpoint(server.GenerateRequest(message="Question", category="all", namespace="n", index_manifest_hash="h", chunk_ids=["chunk-1"], trace_id=retrieved.trace_id, case_id="case-1"))
+    assert persisted[-1]["requested_case_id"] == "case-1"
+    assert persisted[-1]["label_case_id"] == "case-1"
+    assert persisted[-1]["case_match_method"] == "explicit_case_id"

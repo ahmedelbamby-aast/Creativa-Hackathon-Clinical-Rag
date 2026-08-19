@@ -1,4 +1,6 @@
 {
+  "schema_version": "2.0.0",
+  "dataset_version": "2026.08-source-reviewed",
   "cases": [
     {
       "case_id": "idf_en_global_prevalence",
@@ -10,7 +12,41 @@
       "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
       "expected_page": 46,
       "expected_section": "Key messages",
-      "text_anchors": ["589 million adults aged 20"]
+      "text_anchors": [
+        "589 million adults aged 20"
+      ],
+      "query_variants": [],
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 46,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p46_c77",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "589 million adults aged 20 to 79 were living with diabetes in 2024."
+      ],
+      "required_claims": [
+        "589 million",
+        "adults aged 20 to 79",
+        "2024"
+      ],
+      "accepted_aliases": [
+        "589 million adults"
+      ],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      }
     },
     {
       "case_id": "idf_ar_projection_2050",
@@ -22,7 +58,42 @@
       "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
       "expected_page": 46,
       "expected_section": "Key messages",
-      "text_anchors": ["predicted to rise to 853 million"]
+      "text_anchors": [
+        "predicted to rise to 853 million"
+      ],
+      "query_variants": [
+        "كم سيبلغ عدد البالغين المصابين بالسكري في عام 2050؟"
+      ],
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 46,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p46_c77",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "من المتوقع أن يرتفع العدد إلى 853 مليون بالغ بحلول عام 2050."
+      ],
+      "required_claims": [
+        "853 مليون",
+        "2050"
+      ],
+      "accepted_aliases": [
+        "853 مليون بالغ"
+      ],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      }
     },
     {
       "case_id": "idf_en_undiagnosed",
@@ -34,7 +105,40 @@
       "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
       "expected_page": 46,
       "expected_section": "Key messages",
-      "text_anchors": ["252 million adults living with diabetes are unaware"]
+      "text_anchors": [
+        "252 million adults living with diabetes are unaware"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 46,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p46_c77",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "An estimated 252 million adults living with diabetes are unaware they have the condition."
+      ],
+      "required_claims": [
+        "252 million",
+        "unaware"
+      ],
+      "accepted_aliases": [
+        "252 million adults"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "idf_ar_expenditure",
@@ -46,7 +150,40 @@
       "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
       "expected_page": 66,
       "expected_section": "In 2024, the total global diabetes-related health expenditure",
-      "text_anchors": ["total global diabetes-related health expenditure"]
+      "text_anchors": [
+        "total global diabetes-related health expenditure"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 46,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p46_c77",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "أُنفق أكثر من تريليون دولار أمريكي على السكري في عام 2024."
+      ],
+      "required_claims": [
+        "أكثر من تريليون",
+        "2024"
+      ],
+      "accepted_aliases": [
+        "أكثر من 1 تريليون دولار"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "idf_en_regions",
@@ -58,7 +195,40 @@
       "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
       "expected_page": 47,
       "expected_section": "3.1 Diabetes prevalence in 2024",
-      "text_anchors": ["grouped into the seven IDF Regions"]
+      "text_anchors": [
+        "grouped into the seven IDF Regions"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 47,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p47_c78",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "The estimates use seven IDF Regions."
+      ],
+      "required_claims": [
+        "seven",
+        "IDF Regions"
+      ],
+      "accepted_aliases": [
+        "7 IDF Regions"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "who_ar_recommendation_count",
@@ -70,7 +240,40 @@
       "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
       "expected_page": 27,
       "expected_section": "3",
-      "text_anchors": ["GDG issued 27 recommendations"]
+      "text_anchors": [
+        "GDG issued 27 recommendations"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 27,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p27_c44",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "أصدرت مجموعة تطوير الإرشادات 27 توصية."
+      ],
+      "required_claims": [
+        "27",
+        "توصية"
+      ],
+      "accepted_aliases": [
+        "سبع وعشرون توصية"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "who_en_monitoring_scope",
@@ -82,7 +285,40 @@
       "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
       "expected_page": 27,
       "expected_section": "3",
-      "text_anchors": ["six on glucose monitoring"]
+      "text_anchors": [
+        "six on glucose monitoring"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 27,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p27_c44",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "Six WHO recommendations concern glucose monitoring during pregnancy."
+      ],
+      "required_claims": [
+        "six",
+        "glucose monitoring"
+      ],
+      "accepted_aliases": [
+        "6 recommendations"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "who_ar_individualized_care",
@@ -94,7 +330,40 @@
       "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
       "expected_page": 38,
       "expected_section": "3.1.2 Glucose monitoring",
-      "text_anchors": ["individualized approach is encouraged"]
+      "text_anchors": [
+        "individualized approach is encouraged"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 38,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p38_c65",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "ينبغي مراعاة نهج فردي يشمل أهداف التحكم في سكر الدم وخصائص المرأة وظروفها."
+      ],
+      "required_claims": [
+        "نهج فردي",
+        "سكر الدم"
+      ],
+      "accepted_aliases": [
+        "النهج الفردي"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "who_en_gdm_lifestyle_trial",
@@ -106,7 +375,41 @@
       "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
       "expected_page": 44,
       "expected_section": "3.1.3 Pharmacological treatment",
-      "text_anchors": ["two-week trial of diet and physical activity"]
+      "text_anchors": [
+        "two-week trial of diet and physical activity"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 44,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p44_c77",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "A two-week trial of diet and physical activity is typically conducted first."
+      ],
+      "required_claims": [
+        "two-week",
+        "diet",
+        "physical activity"
+      ],
+      "accepted_aliases": [
+        "two week lifestyle trial"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "who_ar_care_actions",
@@ -118,7 +421,40 @@
       "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
       "expected_page": 34,
       "expected_section": "3.1.2 Glucose monitoring",
-      "text_anchors": ["support the woman in monitoring blood glucose"]
+      "text_anchors": [
+        "support the woman in monitoring blood glucose"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 34,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p34_c57",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "ينبغي دعم المرأة في مراقبة سكر الدم وتقديم رعاية مناسبة لها أثناء الحمل."
+      ],
+      "required_claims": [
+        "دعم",
+        "مراقبة سكر الدم"
+      ],
+      "accepted_aliases": [
+        "دعم مراقبة الغلوكوز"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "no_evidence_en_malaria",
@@ -126,7 +462,22 @@
       "language": "en",
       "category": "all",
       "expect_evidence": false,
-      "text_anchors": []
+      "text_anchors": [],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "out_of_scope",
+      "relevant_items": [],
+      "reference_answers": [],
+      "required_claims": [],
+      "accepted_aliases": [],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "generation_not_called"
+      ]
     },
     {
       "case_id": "no_evidence_ar_quantum",
@@ -134,95 +485,919 @@
       "language": "ar",
       "category": "all",
       "expect_evidence": false,
-      "text_anchors": []
+      "text_anchors": [],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "out_of_scope",
+      "relevant_items": [],
+      "reference_answers": [],
+      "required_claims": [],
+      "accepted_aliases": [],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "generation_not_called"
+      ]
     },
     {
       "case_id": "idf_en_prevalence_rephrased",
       "query": "What was the worldwide number of adults aged 20–79 living with diabetes in 2024?",
-      "language": "en", "category": "all", "expect_evidence": true,
-      "expected_source_id": "idf_diabetes_atlas_2025", "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
-      "expected_page": 46, "expected_section": "Key messages", "text_anchors": ["589 million adults aged 20"]
+      "language": "en",
+      "category": "all",
+      "expect_evidence": true,
+      "expected_source_id": "idf_diabetes_atlas_2025",
+      "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+      "expected_page": 46,
+      "expected_section": "Key messages",
+      "text_anchors": [
+        "589 million adults aged 20"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 46,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p46_c77",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "589 million adults aged 20 to 79 were living with diabetes in 2024."
+      ],
+      "required_claims": [
+        "589 million",
+        "adults aged 20 to 79",
+        "2024"
+      ],
+      "accepted_aliases": [
+        "589 million adults"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "idf_ar_prevalence_rephrased",
       "query": "كم بلغ عدد البالغين بين 20 و79 عاماً الذين يعيشون مع السكري في 2024؟",
-      "language": "ar", "category": "all", "expect_evidence": true,
-      "expected_source_id": "idf_diabetes_atlas_2025", "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
-      "expected_page": 46, "expected_section": "Key messages", "text_anchors": ["589 million adults aged 20"]
+      "language": "ar",
+      "category": "all",
+      "expect_evidence": true,
+      "expected_source_id": "idf_diabetes_atlas_2025",
+      "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+      "expected_page": 46,
+      "expected_section": "Key messages",
+      "text_anchors": [
+        "589 million adults aged 20"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 46,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p46_c77",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "كان 589 مليون بالغ تتراوح أعمارهم بين 20 و79 عاماً يعيشون مع السكري في عام 2024."
+      ],
+      "required_claims": [
+        "589 مليون",
+        "20 و79",
+        "2024"
+      ],
+      "accepted_aliases": [
+        "589 مليون بالغ"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "idf_ar_undiagnosed",
       "query": "كم عدد البالغين المصابين بالسكري الذين لا يعلمون بإصابتهم؟",
-      "language": "ar", "category": "all", "expect_evidence": true,
-      "expected_source_id": "idf_diabetes_atlas_2025", "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
-      "expected_page": 46, "expected_section": "Key messages", "text_anchors": ["252 million adults living with diabetes are unaware"]
+      "language": "ar",
+      "category": "all",
+      "expect_evidence": true,
+      "expected_source_id": "idf_diabetes_atlas_2025",
+      "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+      "expected_page": 46,
+      "expected_section": "Key messages",
+      "text_anchors": [
+        "252 million adults living with diabetes are unaware"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 46,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p46_c77",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "يُقدَّر أن 252 مليون بالغ يعيشون مع السكري لا يعلمون بإصابتهم."
+      ],
+      "required_claims": [
+        "252 مليون",
+        "لا يعلمون"
+      ],
+      "accepted_aliases": [
+        "252 مليون بالغ"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "idf_en_expenditure_rephrased",
       "query": "What was global diabetes-related health spending in 2024?",
-      "language": "en", "category": "all", "expect_evidence": true,
-      "expected_source_id": "idf_diabetes_atlas_2025", "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
-      "expected_page": 66, "expected_section": "In 2024, the total global diabetes-related health expenditure", "text_anchors": ["total global diabetes-related health expenditure"]
+      "language": "en",
+      "category": "all",
+      "expect_evidence": true,
+      "expected_source_id": "idf_diabetes_atlas_2025",
+      "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+      "expected_page": 66,
+      "expected_section": "In 2024, the total global diabetes-related health expenditure",
+      "text_anchors": [
+        "total global diabetes-related health expenditure"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 46,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p46_c77",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "More than USD 1 trillion was spent on diabetes in 2024."
+      ],
+      "required_claims": [
+        "USD 1 trillion",
+        "2024"
+      ],
+      "accepted_aliases": [
+        "over one trillion USD"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "idf_ar_regions",
       "query": "إلى كم إقليماً يقسم الاتحاد الدولي للسكري تقديرات عام 2024؟",
-      "language": "ar", "category": "all", "expect_evidence": true,
-      "expected_source_id": "idf_diabetes_atlas_2025", "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
-      "expected_page": 47, "expected_section": "3.1 Diabetes prevalence in 2024", "text_anchors": ["grouped into the seven IDF Regions"]
+      "language": "ar",
+      "category": "all",
+      "expect_evidence": true,
+      "expected_source_id": "idf_diabetes_atlas_2025",
+      "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+      "expected_page": 47,
+      "expected_section": "3.1 Diabetes prevalence in 2024",
+      "text_anchors": [
+        "grouped into the seven IDF Regions"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 47,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p47_c78",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "تُقسَّم تقديرات الاتحاد الدولي للسكري إلى سبعة أقاليم."
+      ],
+      "required_claims": [
+        "سبعة",
+        "أقاليم"
+      ],
+      "accepted_aliases": [
+        "7 أقاليم"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "who_en_recommendation_count",
       "query": "How many recommendations did the guideline development group issue for diabetes care during pregnancy?",
-      "language": "en", "category": "treatment", "expect_evidence": true,
-      "expected_source_id": "who_diabetes_pregnancy_2025", "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
-      "expected_page": 27, "expected_section": "3", "text_anchors": ["GDG issued 27 recommendations"]
+      "language": "en",
+      "category": "treatment",
+      "expect_evidence": true,
+      "expected_source_id": "who_diabetes_pregnancy_2025",
+      "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+      "expected_page": 27,
+      "expected_section": "3",
+      "text_anchors": [
+        "GDG issued 27 recommendations"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 27,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p27_c44",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "The guideline development group issued 27 recommendations."
+      ],
+      "required_claims": [
+        "27",
+        "recommendations"
+      ],
+      "accepted_aliases": [
+        "twenty-seven recommendations"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "who_ar_monitoring_scope",
       "query": "كم توصية من توصيات منظمة الصحة العالمية تتعلق بمراقبة الغلوكوز أثناء الحمل؟",
-      "language": "ar", "category": "treatment", "expect_evidence": true,
-      "expected_source_id": "who_diabetes_pregnancy_2025", "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
-      "expected_page": 27, "expected_section": "3", "text_anchors": ["six on glucose monitoring"]
+      "language": "ar",
+      "category": "treatment",
+      "expect_evidence": true,
+      "expected_source_id": "who_diabetes_pregnancy_2025",
+      "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+      "expected_page": 27,
+      "expected_section": "3",
+      "text_anchors": [
+        "six on glucose monitoring"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 27,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p27_c44",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "تتعلق ست توصيات بمراقبة الغلوكوز أثناء الحمل."
+      ],
+      "required_claims": [
+        "ست",
+        "مراقبة الغلوكوز"
+      ],
+      "accepted_aliases": [
+        "6 توصيات"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "who_en_individualized_care",
       "query": "What approach does WHO encourage when setting an individual glucose-control target during pregnancy?",
-      "language": "en", "category": "treatment", "expect_evidence": true,
-      "expected_source_id": "who_diabetes_pregnancy_2025", "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
-      "expected_page": 38, "expected_section": "3.1.2 Glucose monitoring", "text_anchors": ["individualized approach is encouraged"]
+      "language": "en",
+      "category": "treatment",
+      "expect_evidence": true,
+      "expected_source_id": "who_diabetes_pregnancy_2025",
+      "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+      "expected_page": 38,
+      "expected_section": "3.1.2 Glucose monitoring",
+      "text_anchors": [
+        "individualized approach is encouraged"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 38,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p38_c65",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "WHO encourages an individualized approach when setting a glucose-control target during pregnancy."
+      ],
+      "required_claims": [
+        "individualized",
+        "glucose-control"
+      ],
+      "accepted_aliases": [
+        "individualized approach"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "who_ar_lifestyle_trial",
       "query": "ما التجربة التي تُجرى عادة قبل التفكير في أدوية خفض الغلوكوز لسكر الحمل؟",
-      "language": "ar", "category": "treatment", "expect_evidence": true,
-      "expected_source_id": "who_diabetes_pregnancy_2025", "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
-      "expected_page": 44, "expected_section": "3.1.3 Pharmacological treatment", "text_anchors": ["two-week trial of diet and physical activity"]
+      "language": "ar",
+      "category": "treatment",
+      "expect_evidence": true,
+      "expected_source_id": "who_diabetes_pregnancy_2025",
+      "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+      "expected_page": 44,
+      "expected_section": "3.1.3 Pharmacological treatment",
+      "text_anchors": [
+        "two-week trial of diet and physical activity"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 44,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p44_c77",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "تُجرى عادة تجربة لمدة أسبوعين من النظام الغذائي والنشاط البدني أولاً."
+      ],
+      "required_claims": [
+        "أسبوعين",
+        "النظام الغذائي",
+        "النشاط البدني"
+      ],
+      "accepted_aliases": [
+        "تجربة أسبوعين"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
       "case_id": "who_en_care_actions",
       "query": "What support should be offered to a woman with diabetes during pregnancy for blood-glucose monitoring?",
-      "language": "en", "category": "treatment", "expect_evidence": true,
-      "expected_source_id": "who_diabetes_pregnancy_2025", "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
-      "expected_page": 34, "expected_section": "3.1.2 Glucose monitoring", "text_anchors": ["support the woman in monitoring blood glucose"]
+      "language": "en",
+      "category": "treatment",
+      "expect_evidence": true,
+      "expected_source_id": "who_diabetes_pregnancy_2025",
+      "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+      "expected_page": 34,
+      "expected_section": "3.1.2 Glucose monitoring",
+      "text_anchors": [
+        "support the woman in monitoring blood glucose"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 34,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p34_c57",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "The woman should be supported to monitor her blood glucose during pregnancy."
+      ],
+      "required_claims": [
+        "supported",
+        "monitor",
+        "blood glucose"
+      ],
+      "accepted_aliases": [
+        "support blood-glucose monitoring"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
     },
     {
-      "case_id": "no_evidence_en_vague", "query": "Tell me more", "language": "en", "category": "all", "expect_evidence": false, "text_anchors": []
+      "case_id": "no_evidence_en_vague",
+      "query": "Tell me more",
+      "language": "en",
+      "category": "all",
+      "expect_evidence": false,
+      "text_anchors": [],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "needs_clarification",
+      "relevant_items": [],
+      "reference_answers": [],
+      "required_claims": [],
+      "accepted_aliases": [],
+      "query_variants": [
+        "Can you explain?",
+        "More details, please"
+      ],
+      "task_pass_rules": [
+        "expected_status",
+        "generation_not_called",
+        "retrieval_not_called"
+      ]
     },
     {
-      "case_id": "no_evidence_ar_vague", "query": "أخبرني المزيد", "language": "ar", "category": "all", "expect_evidence": false, "text_anchors": []
+      "case_id": "no_evidence_ar_vague",
+      "query": "أخبرني المزيد",
+      "language": "ar",
+      "category": "all",
+      "expect_evidence": false,
+      "text_anchors": [],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "needs_clarification",
+      "relevant_items": [],
+      "reference_answers": [],
+      "required_claims": [],
+      "accepted_aliases": [],
+      "query_variants": [
+        "اشرح أكثر",
+        "مزيد من التفاصيل"
+      ],
+      "task_pass_rules": [
+        "expected_status",
+        "generation_not_called",
+        "retrieval_not_called"
+      ]
     },
     {
-      "case_id": "no_evidence_en_type2_cross_condition", "query": "What are the main risk factors for type 2 diabetes?", "language": "en", "category": "all", "expect_evidence": false, "text_anchors": []
+      "case_id": "no_evidence_en_type2_cross_condition",
+      "query": "What are the main risk factors for type 2 diabetes?",
+      "language": "en",
+      "category": "all",
+      "expect_evidence": false,
+      "text_anchors": [],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "out_of_scope",
+      "relevant_items": [],
+      "reference_answers": [],
+      "required_claims": [],
+      "accepted_aliases": [],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "generation_not_called"
+      ]
     },
     {
-      "case_id": "no_evidence_ar_type1_cross_condition", "query": "ما جرعة الإنسولين المناسبة لسكري النوع الأول؟", "language": "ar", "category": "all", "expect_evidence": false, "text_anchors": []
+      "case_id": "no_evidence_ar_type1_cross_condition",
+      "query": "ما جرعة الإنسولين المناسبة لسكري النوع الأول؟",
+      "language": "ar",
+      "category": "all",
+      "expect_evidence": false,
+      "text_anchors": [],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "out_of_scope",
+      "relevant_items": [],
+      "reference_answers": [],
+      "required_claims": [],
+      "accepted_aliases": [],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "generation_not_called"
+      ]
     },
     {
-      "case_id": "no_evidence_en_football", "query": "Who won the football World Cup in 2022?", "language": "en", "category": "all", "expect_evidence": false, "text_anchors": []
+      "case_id": "no_evidence_en_football",
+      "query": "Who won the football World Cup in 2022?",
+      "language": "en",
+      "category": "all",
+      "expect_evidence": false,
+      "text_anchors": [],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "out_of_scope",
+      "relevant_items": [],
+      "reference_answers": [],
+      "required_claims": [],
+      "accepted_aliases": [],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "generation_not_called"
+      ]
     },
     {
-      "case_id": "no_evidence_ar_out_of_scope", "query": "ما هي عاصمة كندا؟", "language": "ar", "category": "all", "expect_evidence": false, "text_anchors": []
+      "case_id": "no_evidence_ar_out_of_scope",
+      "query": "ما هي عاصمة كندا؟",
+      "language": "ar",
+      "category": "all",
+      "expect_evidence": false,
+      "text_anchors": [],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "out_of_scope",
+      "relevant_items": [],
+      "reference_answers": [],
+      "required_claims": [],
+      "accepted_aliases": [],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "generation_not_called"
+      ]
+    },
+    {
+      "case_id": "idf_en_projection_2050",
+      "query": "To how many adults is the number living with diabetes projected to rise by 2050?",
+      "language": "en",
+      "category": "all",
+      "expect_evidence": true,
+      "expected_source_id": "idf_diabetes_atlas_2025",
+      "expected_document_name": "IDF Diabetes Atlas 11th Edition 2025.pdf",
+      "expected_page": 25,
+      "text_anchors": [
+        "853 million"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 46,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p46_c77",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "The number is projected to rise to 853 million adults by 2050."
+      ],
+      "required_claims": [
+        "853 million",
+        "2050"
+      ],
+      "accepted_aliases": [
+        "853 million adults"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
+    },
+    {
+      "case_id": "idf_en_projection_increase",
+      "query": "Using the source figures for 2024 and 2050, what is the projected percentage increase in adults living with diabetes?",
+      "language": "en",
+      "category": "all",
+      "expect_evidence": true,
+      "expected_source_id": "idf_diabetes_atlas_2025",
+      "expected_document_name": "IDF Diabetes Atlas 11th Edition 2025.pdf",
+      "expected_page": 25,
+      "text_anchors": [
+        "589 million",
+        "853 million"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 46,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p46_c77",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "The projected increase is approximately 41.4%, from 589 million in 2024 to 853 million in 2050."
+      ],
+      "required_claims": [
+        "41.4",
+        "589 million",
+        "853 million"
+      ],
+      "accepted_aliases": [
+        "about 41%"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
+    },
+    {
+      "case_id": "idf_ar_projection_increase",
+      "query": "إذا ارتفع عدد البالغين المصابين بالسكري من 589 مليوناً في 2024 إلى 853 مليوناً في 2050 حسب المصدر، فما نسبة الزيادة المتوقعة؟",
+      "language": "ar",
+      "category": "all",
+      "expect_evidence": true,
+      "expected_source_id": "idf_diabetes_atlas_2025",
+      "expected_document_name": "IDF Diabetes Atlas 11th Edition 2025.pdf",
+      "expected_page": 25,
+      "text_anchors": [
+        "589 million",
+        "853 million"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 46,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p46_c77",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "الزيادة المتوقعة تقارب 41.4%، من 589 مليوناً في 2024 إلى 853 مليوناً في 2050."
+      ],
+      "required_claims": [
+        "41.4",
+        "589 مليون",
+        "853 مليون"
+      ],
+      "accepted_aliases": [
+        "نحو 41%"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
+    },
+    {
+      "case_id": "who_en_monitoring_percentage",
+      "query": "What percentage of the 27 pregnancy-diabetes recommendations concern glucose monitoring if six recommendations cover that topic?",
+      "language": "en",
+      "category": "treatment",
+      "expect_evidence": true,
+      "expected_source_id": "who_diabetes_pregnancy_2025",
+      "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+      "expected_page": 27,
+      "text_anchors": [
+        "27 recommendations",
+        "six on glucose monitoring"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 27,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p27_c44",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "Six of 27 recommendations is approximately 22.2%."
+      ],
+      "required_claims": [
+        "22.2",
+        "six",
+        "27"
+      ],
+      "accepted_aliases": [
+        "about 22%"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
+    },
+    {
+      "case_id": "who_ar_monitoring_percentage",
+      "query": "ما نسبة توصيات مراقبة الغلوكوز من أصل 27 توصية لرعاية السكري أثناء الحمل إذا كانت ست توصيات تتعلق بهذا الموضوع؟",
+      "language": "ar",
+      "category": "treatment",
+      "expect_evidence": true,
+      "expected_source_id": "who_diabetes_pregnancy_2025",
+      "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+      "expected_page": 27,
+      "text_anchors": [
+        "27 recommendations",
+        "six on glucose monitoring"
+      ],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "ready",
+      "relevant_items": [
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 27,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p27_c44",
+          "relevance_grade": 3
+        }
+      ],
+      "reference_answers": [
+        "ست من أصل 27 توصية تساوي تقريباً 22.2%."
+      ],
+      "required_claims": [
+        "22.2",
+        "ست",
+        "27"
+      ],
+      "accepted_aliases": [
+        "نحو 22%"
+      ],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "required_claims_present",
+        "certified_citation_present"
+      ]
+    },
+    {
+      "case_id": "no_evidence_en_canada",
+      "query": "What is the capital of Canada?",
+      "language": "en",
+      "category": "all",
+      "expect_evidence": false,
+      "text_anchors": [],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "out_of_scope",
+      "relevant_items": [],
+      "reference_answers": [],
+      "required_claims": [],
+      "accepted_aliases": [],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "generation_not_called"
+      ]
+    },
+    {
+      "case_id": "no_evidence_ar_football",
+      "query": "من فاز بكأس العالم لكرة القدم عام 2022؟",
+      "language": "ar",
+      "category": "all",
+      "expect_evidence": false,
+      "text_anchors": [],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "out_of_scope",
+      "relevant_items": [],
+      "reference_answers": [],
+      "required_claims": [],
+      "accepted_aliases": [],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "generation_not_called"
+      ]
+    },
+    {
+      "case_id": "no_evidence_ar_malaria",
+      "query": "ما علاج الملاريا؟",
+      "language": "ar",
+      "category": "all",
+      "expect_evidence": false,
+      "text_anchors": [],
+      "review": {
+        "status": "reviewed",
+        "reviewer_role": "implementation_source_review",
+        "reviewed_at": "2026-08-19T00:00:00Z"
+      },
+      "expected_status": "out_of_scope",
+      "relevant_items": [],
+      "reference_answers": [],
+      "required_claims": [],
+      "accepted_aliases": [],
+      "query_variants": [],
+      "task_pass_rules": [
+        "expected_status",
+        "generation_not_called"
+      ]
     }
   ]
 }

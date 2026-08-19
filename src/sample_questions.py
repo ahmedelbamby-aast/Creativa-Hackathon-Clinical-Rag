@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from src.config import config
+from src.quality_metrics import match_case
 
 
 DEFAULT_SAMPLE_PATH = config.project_root / "data" / "sample_questions.json"
@@ -43,6 +44,10 @@ def load_sample_questions(path: Path = DEFAULT_SAMPLE_PATH) -> dict:
                 raise ValueError(f"invalid category for {question_id}")
             if not str(question.get("text", "")).strip():
                 raise ValueError(f"empty sample question: {question_id}")
+            case, _ = match_case(str(question["text"]), str(question.get("case_id", "")))
+            if not case:
+                raise ValueError(f"sample question has no stable gold case: {question_id}")
+            question["case_id"] = case["case_id"]
             seen.add(question_id)
     return payload
 

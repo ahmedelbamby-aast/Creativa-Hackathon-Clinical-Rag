@@ -8,6 +8,7 @@ Usage
     print(config.gemini_model)
 """
 
+import json
 import os
 import logging
 from dataclasses import dataclass, field
@@ -38,6 +39,44 @@ _ENV_FILE = (
 load_dotenv(_ENV_FILE, override=False)
 
 logger = logging.getLogger(__name__)
+
+
+def _pricing_map_from_environment() -> dict[str, dict[str, dict[str, float]]]:
+    """Read provider/model token pricing without embedding volatile prices in code.
+
+    The optional value is JSON shaped as
+    ``{"provider": {"model": {"input": 1.25, "output": 5.0}}}``, with
+    values expressed in USD per million tokens.  A ``"*"`` model can provide
+    a provider-wide default.  Invalid configuration must fail at startup
+    rather than silently producing an incorrect cost figure.
+    """
+    raw = os.environ.get("GENERATION_PRICING_USD_PER_MILLION_JSON", "").strip()
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError("GENERATION_PRICING_USD_PER_MILLION_JSON must be valid JSON") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError("GENERATION_PRICING_USD_PER_MILLION_JSON must be an object")
+    pricing: dict[str, dict[str, dict[str, float]]] = {}
+    for provider, models in parsed.items():
+        if not isinstance(provider, str) or not isinstance(models, dict):
+            raise ValueError("pricing configuration must map providers to model objects")
+        pricing[provider.lower()] = {}
+        for model, prices in models.items():
+            if not isinstance(model, str) or not isinstance(prices, dict):
+                raise ValueError("pricing configuration must map models to price objects")
+            if set(prices) - {"input", "output"} or "input" not in prices or "output" not in prices:
+                raise ValueError("each pricing entry requires numeric input and output prices")
+            try:
+                input_price, output_price = float(prices["input"]), float(prices["output"])
+            except (TypeError, ValueError) as exc:
+                raise ValueError("pricing values must be numeric") from exc
+            if input_price < 0 or output_price < 0:
+                raise ValueError("pricing values must be zero or positive")
+            pricing[provider.lower()][model] = {"input": input_price, "output": output_price}
+    return pricing
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +159,9 @@ class AppConfig:
     )
     generation_output_cost_per_million_usd: float = field(
         default_factory=lambda: float(os.environ.get("GENERATION_OUTPUT_COST_PER_MILLION_USD", "0"))
+    )
+    generation_pricing_usd_per_million: dict[str, dict[str, dict[str, float]]] = field(
+        default_factory=_pricing_map_from_environment
     )
 
     # ── Embedding ──────────────────────────────────────────────────────────
@@ -320,6 +362,21 @@ class AppConfig:
         if provider == "extractive":
             return True
         return bool(self.gemini_api_key)
+
+    def generation_pricing(self, provider: str, model: str) -> tuple[float, float] | None:
+        """Return configured USD-per-million input/output prices for a request.
+
+        The legacy pair of environment variables remains a backwards-compatible
+        generic fallback.  A configured map takes precedence and may contain a
+        provider-wide ``*`` model entry.
+        """
+        provider_prices = self.generation_pricing_usd_per_million.get(provider.lower(), {})
+        price = provider_prices.get(model) or provider_prices.get("*")
+        if price is not None:
+            return float(price["input"]), float(price["output"])
+        if self.generation_input_cost_per_million_usd or self.generation_output_cost_per_million_usd:
+            return self.generation_input_cost_per_million_usd, self.generation_output_cost_per_million_usd
+        return None
 
     @property
     def configured_generation_provider_label(self) -> str:

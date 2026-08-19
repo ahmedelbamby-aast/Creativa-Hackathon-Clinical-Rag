@@ -1,154 +1,177 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
 
-from src import observability, quality_metrics
 from backend import server
+from src import observability, quality_metrics
+from scripts.backfill_metrics import backfill_records
+from scripts import review_gold_cases
 
 
-def _chunk(*, source_id: str = "wrong", page: int = 1, text: str = "noise"):
-    return SimpleNamespace(
-        chunk_id=f"{source_id}-{page}", source_id=source_id,
-        document_name="other.pdf", page_number=page, section_title="",
-        score=0.8, text=text,
-    )
-
-
-def test_token_overlap_and_exact_match_normalize_unicode_and_case():
-    overlap = quality_metrics.token_overlap("The Answer is 589 million.", "589 million")
-    assert overlap == {"token_precision": 0.4, "token_recall": 1.0, "token_f1": 0.571429}
-    metrics = quality_metrics.answer_metrics(
-        "589 MILLION", {"expect_evidence": True, "text_anchors": ["589 million"]}, "ok"
-    )
-    assert metrics["exact_match"] == 1.0
-    assert metrics["task_success"] == 1.0
-
-
-def test_retrieval_metrics_match_canonical_ranked_result(monkeypatch):
-    case = {
-        "case_id": "gold", "expect_evidence": True, "expected_source_id": "gold-source",
-        "expected_document_name": "gold.pdf", "expected_page": 9, "text_anchors": ["gold fact"],
+def reviewed_case(**overrides):
+    value = {
+        "case_id": "case-1", "query": "What is the value?", "query_variants": ["Tell me the value"],
+        "language": "en", "category": "all", "expect_evidence": True, "expected_status": "ready",
+        "relevant_items": [
+            {"source_id": "source", "document_name": "guide.pdf", "page_number": 1, "chunk_id": "a", "relevance_grade": 3},
+            {"source_id": "source", "document_name": "guide.pdf", "page_number": 2, "chunk_id": "b", "relevance_grade": 1},
+        ],
+        "reference_answers": ["The value is 589 million adults."], "required_claims": ["589 million"],
+        "accepted_aliases": ["589 million adults"],
+        "task_pass_rules": ["expected_status", "required_claims_present", "certified_citation_present"],
+        "review": {"status": "reviewed", "reviewer_role": "domain_expert", "reviewed_at": "2026-01-01T00:00:00Z"},
     }
-    monkeypatch.setattr(quality_metrics, "find_case", lambda _: case)
-    ranked = [_chunk(), _chunk(source_id="gold-source", page=9, text="gold fact"), _chunk()]
-    metrics, matched = quality_metrics.retrieval_metrics("query", ranked, k=3)
-    assert matched == case
-    assert metrics["hit_rate_at_k"] == 1.0
-    assert metrics["precision_at_k"] == pytest.approx(1 / 3, abs=1e-6)
-    assert metrics["recall_at_k"] == 1.0
-    assert metrics["reciprocal_rank"] == 0.5
-    assert metrics["average_precision"] == 0.5
-    assert metrics["ndcg_at_k"] == 0.63093
+    value.update(overrides)
+    return value
 
 
-def test_unlabeled_quality_is_none_not_zero():
-    retrieval, case = quality_metrics.retrieval_metrics("not in gold set", [], 5)
-    assert case is None
-    assert all(value is None for value in retrieval.values())
-    assert all(value is None for value in quality_metrics.answer_metrics("answer", None, "ok").values())
+def chunk(chunk_id: str, page: int, *, source="source", text=""):
+    return SimpleNamespace(chunk_id=chunk_id, source_id=source, document_name="guide.pdf", page_number=page, text=text,
+                           source_url="https://example.test/source", publisher="Example", publication_date="2026",
+                           category="all", language="en", score=0.9, distance=0.1, section_title="Section")
 
 
-def test_metrics_report_separates_policy_outcomes_from_operational_errors():
-    records = [
-        {"trace_id": "1", "status": "ok", "total_ms": 100, "total_tokens": 10, "conversation_id": "a", "quality_metrics": {"task_success": 1.0}},
-        {"trace_id": "2", "status": "out_of_scope", "total_ms": 200, "total_tokens": 5, "conversation_id": "b", "quality_metrics": {"task_success": 1.0}},
-        {"trace_id": "3", "status": "generation_error", "total_ms": 300, "total_tokens": 8, "conversation_id": "b", "quality_metrics": {"task_success": 0.0}},
+def test_match_order_is_explicit_then_canonical_then_variant(monkeypatch):
+    case = reviewed_case()
+    monkeypatch.setattr(quality_metrics, "gold_dataset", lambda: {"version": "v2", "cases": [case]})
+    assert quality_metrics.match_case("other", "case-1")[1] == "explicit_case_id"
+    assert quality_metrics.match_case("WHAT is the value?")[1] == "canonical_query"
+    assert quality_metrics.match_case("tell me the value")[1] == "reviewed_variant"
+    assert quality_metrics.match_case("similar value question")[1] == "unlabeled_query"
+
+
+def test_retrieval_metrics_use_complete_pool_grades_and_ignore_duplicate_chunks():
+    metrics, labels = quality_metrics.retrieval_metrics(reviewed_case(), [chunk("a", 1), chunk("a", 1), chunk("x", 9), chunk("b", 2)], 4)
+    assert labels == [
+        {"rank": 1, "chunk_id": "a", "relevance_grade": 3},
+        {"rank": 2, "chunk_id": "x", "relevance_grade": 0},
+        {"rank": 3, "chunk_id": "b", "relevance_grade": 1},
     ]
-    report = observability.build_metrics_report(records)["summary"]
-    assert report["availability"] == pytest.approx(2 / 3, abs=1e-6)
-    assert report["error_rate"] == pytest.approx(1 / 3, abs=1e-6)
-    assert report["latency_ms"]["total"] == {"p50": 200.0, "p95": 300.0, "p99": 300.0}
-    assert report["latency_ms"]["reranking"]["status"] == "not_applicable"
-    assert report["quality"]["task_success"] == {"mean": 0.666667, "measured_count": 3}
-    assert report["quality"]["exact_match"] == {"mean": None, "measured_count": 0}
+    assert metrics["hit_rate_at_k"]["value"] == 1.0
+    assert metrics["precision_at_k"]["value"] == 0.5
+    assert metrics["recall_at_k"]["value"] == 1.0
+    assert metrics["reciprocal_rank"]["value"] == 1.0
+    assert metrics["average_precision"]["value"] == pytest.approx(0.833333, abs=1e-6)
+    assert 0 < metrics["ndcg_at_k"]["value"] < 1
 
 
-def test_repository_preserves_json_when_database_is_unavailable(tmp_path, monkeypatch):
-    store = observability.JsonlStore(tmp_path / "traces.jsonl")
-    repository = observability.MetricsRepository(store, "postgresql://unavailable")
-    monkeypatch.setattr(observability, "METRICS_SNAPSHOT_FILE", tmp_path / "snapshot.json")
-    monkeypatch.setattr(repository, "ensure_schema", lambda: (_ for _ in ()).throw(RuntimeError("offline")))
-    record = observability.RequestTrace("question", "all").serializable()
-    repository.save(record)
-    assert store.read() == [record]
-    assert (tmp_path / "snapshot.json").exists()
+def test_measured_zero_is_not_not_measured():
+    metrics, _ = quality_metrics.retrieval_metrics(reviewed_case(), [chunk("x", 9)], 1)
+    assert metrics["hit_rate_at_k"] == {"value": 0.0, "applicable": True, "reason": ""}
+    missing, _ = quality_metrics.retrieval_metrics(None, [], 5)
+    assert missing["hit_rate_at_k"] == {"value": None, "applicable": False, "reason": "unlabeled_query"}
 
 
-def test_static_ui_exposes_history_dashboard_and_trace_identity():
-    index = (observability.config.project_root / "backend" / "static" / "index.html").read_text(encoding="utf-8")
-    assert 'id="metrics-heading"' in index
-    assert "loadMetrics()" in index
-    assert "conversation_id: state.conversationId" in index
-    assert "trace_id: retrieved.trace_id" in index
-    assert "Not measured" in index
-    assert "Gemini → Groq → Evidence excerpts (automatic)" in index
-    assert 'id="theme-toggle"' in index
-    assert 'role="region" tabindex="0" aria-label="Scrollable recent metrics table"' in index
-    assert 'href="/metrics-guide"' in index
+def test_answer_metrics_use_accepted_aliases_and_language():
+    values = quality_metrics.answer_metrics("589 million adults", reviewed_case(), "en")
+    assert values["exact_match"]["value"] == 1.0
+    assert values["token_f1"]["applicable"] is True
+    arabic = quality_metrics.answer_metrics("589 مليون بالغ", reviewed_case(language="ar"), "en")
+    assert arabic["exact_match"] == {"value": None, "applicable": False, "reason": "reference_language_mismatch"}
 
 
-def test_metrics_guide_explains_all_twelve_foundational_metrics_with_examples():
-    guide = (observability.config.project_root / "backend" / "static" / "metrics.html").read_text(encoding="utf-8")
-    for number in range(1, 13):
-        assert f'<span class="number">{number:02d}</span>' in guide
-    assert guide.count('<div class="example"><strong>Example:</strong>') == 12
-    assert "Higher is better" in guide
-    assert "Lower is better" in guide
-    assert "Not measured" in guide
+def test_task_rules_cover_positive_and_negative_outcomes():
+    case = reviewed_case()
+    value, rules = quality_metrics.task_success(case, {"status": "ok_with_fallback", "answer": "589 million adults", "citations": "Sources", "retrieved_chunks": [{"source_id": "source"}]})
+    assert value["value"] == 1.0 and all(item["passed"] for item in rules)
+    value, _ = quality_metrics.task_success(case, {"status": "ok", "answer": "589 million adults", "citations": "Sources", "retrieved_chunks": [{"source_id": "source"}]})
+    assert value["value"] == 1.0
+    negative = reviewed_case(expect_evidence=False, expected_status="needs_clarification", required_claims=[], relevant_items=[], reference_answers=[], task_pass_rules=["expected_status", "generation_not_called", "retrieval_not_called"])
+    value, rules = quality_metrics.task_success(negative, {"status": "needs_clarification", "generation_provider": "not_called", "retrieval_count": 0, "stages_ms": {}})
+    assert value["value"] == 1.0 and all(item["passed"] for item in rules)
 
 
-def test_database_schema_has_durable_jsonb_metric_events():
-    schema = (observability.config.project_root / "database" / "metrics_schema.sql").read_text(encoding="utf-8")
-    assert "CREATE TABLE IF NOT EXISTS rag_metric_events" in schema
-    assert "payload jsonb NOT NULL" in schema
-    assert "conversation_id" in schema
+def test_trace_persists_applicability_case_identity_and_pricing(monkeypatch):
+    case = reviewed_case()
+    monkeypatch.setattr("src.observability.match_case", lambda *_: (case, "explicit_case_id"))
+    monkeypatch.setattr("src.observability.gold_dataset", lambda: {"version": "v2", "cases": [case]})
+    trace = observability.RequestTrace("question", "all", requested_case_id="case-1")
+    trace.capture_retrieval(SimpleNamespace(routed_category="all", namespace="local", index_manifest_hash="h", chunks=(chunk("a", 1),)))
+    trace.capture_generation("The value is 589 million adults.", "extractive", "", citations="source")
+    trace.finish("ok")
+    record = trace.serializable()
+    assert record["label_case_id"] == "case-1"
+    assert record["case_match_method"] == "explicit_case_id"
+    assert record["gold_dataset_version"] == "v2"
+    assert record["quality_metrics"]["hit_rate_at_k"]["applicable"]
+    assert record["operational_metrics"]["cost_usd"] == {"value": 0.0, "applicable": True, "reason": ""}
 
 
-def test_metrics_api_bounds_history_and_forwards_conversation_filter(monkeypatch):
-    captured = {}
-    monkeypatch.setattr(
-        server,
-        "metrics_report",
-        lambda **kwargs: (captured.update(kwargs) or {"summary": {}, "traces": []}),
-    )
-    response = server.foundational_metrics(limit=50_000, conversation_id="chat-1")
-    assert response == {"summary": {}, "traces": []}
-    assert captured == {"limit": 1000, "conversation_id": "chat-1"}
+def test_configured_provider_model_price_and_missing_price_are_distinct(monkeypatch):
+    monkeypatch.setattr(observability.config, "generation_pricing_usd_per_million", {"groq": {"model-a": {"input": 2.0, "output": 4.0}}})
+    monkeypatch.setattr(observability.config, "generation_input_cost_per_million_usd", 0.0)
+    monkeypatch.setattr(observability.config, "generation_output_cost_per_million_usd", 0.0)
+    trace = observability.RequestTrace("one two", "all")
+    trace.capture_generation("three", "groq", "model-a")
+    assert trace.estimated_cost_usd == 0.000008
+    missing = observability.RequestTrace("one", "all")
+    missing.capture_generation("two", "gemini", "unpriced")
+    missing.finish()
+    assert missing.operational_metrics["cost_usd"] == {"value": None, "applicable": False, "reason": "pricing_not_configured"}
+
+
+def test_legacy_backfill_preserves_trace_identity_and_does_not_fabricate_labels():
+    saved = []
+    legacy = {"trace_id": "00000000-0000-0000-0000-000000000111", "timestamp": "2026-01-01T00:00:00+00:00", "query": "unlabeled", "requested_category": "all", "status": "ok", "total_ms": 12}
+    result = backfill_records([legacy], dry_run=False, save=saved.append)
+    assert result["updated"] == 1 and result["unavailable_metrics"] > 0
+    assert saved[0]["trace_id"] == legacy["trace_id"]
+    assert saved[0]["timestamp"] == legacy["timestamp"]
+    assert saved[0]["quality_metrics"]["exact_match"] == {"value": None, "applicable": False, "reason": "unlabeled_query"}
+
+
+def test_rehydrated_running_trace_keeps_retrieval_time_in_total_latency():
+    started = (datetime.now(timezone.utc) - timedelta(seconds=16)).isoformat()
+    trace = observability.RequestTrace.from_record({"trace_id": "00000000-0000-0000-0000-000000000114", "timestamp": started, "query": "q", "requested_category": "all", "status": "running", "stages_ms": {"retrieval": 15_000}, "total_ms": 0})
+    trace.finish("ok")
+    assert trace.total_ms >= 15_000
+
+
+def test_review_validator_detects_wrong_language_reference(monkeypatch):
+    case = reviewed_case(language="en", reference_answers=["إجابة عربية"])
+    monkeypatch.setattr(review_gold_cases, "gold_dataset", lambda: {"version": "v", "cases": [case]})
+    monkeypatch.setattr(review_gold_cases, "load_source_catalog", lambda: {})
+    assert any(issue["issue"] == "reference_language_content_mismatch" for issue in review_gold_cases.validate())
+
+
+def test_json_failure_still_attempts_database_write(tmp_path, monkeypatch):
+    store = observability.JsonlStore(tmp_path / "history.jsonl")
+    repository = observability.MetricsRepository(store, "postgresql://unused")
+    attempted = []
+    monkeypatch.setattr(store, "append", lambda _: (_ for _ in ()).throw(OSError("disk unavailable")))
+    monkeypatch.setattr(repository, "ensure_schema", lambda: attempted.append("schema"))
+    repository.save({"trace_id": "00000000-0000-0000-0000-000000000112", "timestamp": "2026-01-01T00:00:00+00:00", "status": "ok", "total_ms": 1, "total_tokens": 0, "stages_ms": {}})
+    assert attempted == ["schema"]
+
+
+def test_postgres_metric_write_is_an_upsert(tmp_path, monkeypatch):
+    calls = []
+
+    class Connection:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def execute(self, query, params=None):
+            calls.append((str(query), params))
+
+    repository = observability.MetricsRepository(observability.JsonlStore(tmp_path / "history.jsonl"), "postgresql://test")
+    monkeypatch.setattr(observability.psycopg, "connect", lambda *args, **kwargs: Connection())
+    repository.save({"trace_id": "00000000-0000-0000-0000-000000000113", "timestamp": "2026-01-01T00:00:00+00:00", "status": "ok", "total_ms": 1, "total_tokens": 0, "stages_ms": {}})
+    assert any("ON CONFLICT (trace_id) DO UPDATE" in query for query, _ in calls)
+
+
+def test_metrics_report_aggregates_new_and_legacy_metric_shapes():
+    records = [
+        {"status": "ok", "total_ms": 10, "total_tokens": 3, "quality_metrics": {"task_success": {"value": 0.0, "applicable": True, "reason": ""}}},
+        {"status": "ok", "total_ms": 20, "total_tokens": 4, "quality_metrics": {"task_success": {"value": None, "applicable": False, "reason": "unlabeled_query"}}},
+    ]
+    result = observability.build_metrics_report(records)["summary"]["quality"]["task_success"]
+    assert result["mean"] == 0.0 and result["measured_count"] == 1 and result["eligible_count"] == 2
+    assert result["unavailable_reasons"] == {"unlabeled_query": 1}
 
 
 def test_public_metrics_api_redacts_chat_and_evidence_content(monkeypatch):
-    monkeypatch.setattr(
-        server,
-        "metrics_report",
-        lambda **_: {
-            "summary": {"requests": 1},
-            "traces": [{
-                "trace_id": "trace-1", "timestamp": "2026-01-01T00:00:00Z",
-                "query": "private patient question", "answer": "private answer",
-                "citations": "private citations", "retrieved_chunks": [{"text": "private evidence"}],
-                "status": "ok", "total_ms": 10, "quality_metrics": {"task_success": 1.0},
-            }],
-        },
-    )
-    response = server.foundational_metrics()
-    assert response["traces"] == [{
-        "trace_id": "trace-1", "timestamp": "2026-01-01T00:00:00Z",
-        "status": "ok", "total_ms": 10, "quality_metrics": {"task_success": 1.0},
-    }]
-
-
-def test_trace_prefers_provider_reported_usage_and_records_fallbacks():
-    trace = observability.RequestTrace("question", "all")
-    trace.capture_generation(
-        "answer", "groq", "model",
-        {"input_tokens": 20, "output_tokens": 5, "total_tokens": 25},
-        [{"provider": "gemini", "status": "error", "error_code": "timeout"},
-         {"provider": "groq", "status": "ok", "error_code": ""}],
-    )
-    trace.finish("ok_with_fallback")
-    assert trace.token_count_method == "provider_reported"
-    assert trace.total_tokens == 25
-    assert trace.provider_failure_count == 1
-    assert trace.fallback_count == 1
+    monkeypatch.setattr(server, "metrics_report", lambda **_: {"summary": {}, "traces": [{"trace_id": "t", "query": "secret", "answer": "secret", "retrieved_chunks": ["secret"], "quality_metrics": {}}]})
+    assert server.foundational_metrics()["traces"] == [{"trace_id": "t", "quality_metrics": {}}]

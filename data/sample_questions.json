@@ -10,12 +10,12 @@
       },
       "expected_status": "ready",
       "questions": [
-        {"id": "direct_en_1", "language": "en", "category": "all", "text": "How many adults aged 20 to 79 were living with diabetes in 2024?"},
-        {"id": "direct_en_2", "language": "en", "category": "all", "text": "How many adults with diabetes are estimated to be unaware of their condition?"},
-        {"id": "direct_en_3", "language": "en", "category": "all", "text": "To how many adults is the number living with diabetes projected to rise by 2050?"},
-        {"id": "direct_ar_1", "language": "ar", "category": "all", "text": "كم بلغ عدد البالغين بين 20 و79 عاماً الذين يعيشون مع السكري في 2024؟"},
-        {"id": "direct_ar_2", "language": "ar", "category": "all", "text": "كم عدد البالغين المصابين بالسكري الذين لا يعلمون بإصابتهم؟"},
-        {"id": "direct_ar_3", "language": "ar", "category": "all", "text": "إلى كم عدد البالغين المصابين بالسكري المتوقع أن يرتفع العدد بحلول عام 2050؟"}
+        {"id": "direct_en_1", "case_id": "idf_en_global_prevalence", "language": "en", "category": "all", "text": "How many adults aged 20 to 79 were living with diabetes in 2024?"},
+        {"id": "direct_en_2", "case_id": "idf_en_undiagnosed", "language": "en", "category": "all", "text": "How many adults with diabetes are estimated to be unaware of their condition?"},
+        {"id": "direct_en_3", "case_id": "idf_en_projection_2050", "language": "en", "category": "all", "text": "To how many adults is the number living with diabetes projected to rise by 2050?"},
+        {"id": "direct_ar_1", "case_id": "idf_ar_prevalence_rephrased", "language": "ar", "category": "all", "text": "كم بلغ عدد البالغين بين 20 و79 عاماً الذين يعيشون مع السكري في 2024؟"},
+        {"id": "direct_ar_2", "case_id": "idf_ar_undiagnosed", "language": "ar", "category": "all", "text": "كم عدد البالغين المصابين بالسكري الذين لا يعلمون بإصابتهم؟"},
+        {"id": "direct_ar_3", "case_id": "idf_ar_projection_2050", "language": "ar", "category": "all", "text": "إلى كم عدد البالغين المصابين بالسكري المتوقع أن يرتفع العدد بحلول عام 2050؟"}
       ]
     },
     {
@@ -27,12 +27,12 @@
       },
       "expected_status": "needs_clarification",
       "questions": [
-        {"id": "clarify_en_1", "language": "en", "category": "all", "text": "Tell me more"},
-        {"id": "clarify_en_2", "language": "en", "category": "all", "text": "Can you explain?"},
-        {"id": "clarify_en_3", "language": "en", "category": "all", "text": "More details, please"},
-        {"id": "clarify_ar_1", "language": "ar", "category": "all", "text": "أخبرني المزيد"},
-        {"id": "clarify_ar_2", "language": "ar", "category": "all", "text": "اشرح أكثر"},
-        {"id": "clarify_ar_3", "language": "ar", "category": "all", "text": "مزيد من التفاصيل"}
+        {"id": "clarify_en_1", "case_id": "no_evidence_en_vague", "language": "en", "category": "all", "text": "Tell me more"},
+        {"id": "clarify_en_2", "case_id": "no_evidence_en_vague", "language": "en", "category": "all", "text": "Can you explain?"},
+        {"id": "clarify_en_3", "case_id": "no_evidence_en_vague", "language": "en", "category": "all", "text": "More details, please"},
+        {"id": "clarify_ar_1", "case_id": "no_evidence_ar_vague", "language": "ar", "category": "all", "text": "أخبرني المزيد"},
+        {"id": "clarify_ar_2", "case_id": "no_evidence_ar_vague", "language": "ar", "category": "all", "text": "اشرح أكثر"},
+        {"id": "clarify_ar_3", "case_id": "no_evidence_ar_vague", "language": "ar", "category": "all", "text": "مزيد من التفاصيل"}
       ]
     },
     {
@@ -44,12 +44,12 @@
       },
       "expected_status": "out_of_scope",
       "questions": [
-        {"id": "unknown_en_1", "language": "en", "category": "all", "text": "Who won the football World Cup in 2022?"},
-        {"id": "unknown_en_2", "language": "en", "category": "all", "text": "What is the treatment for malaria?"},
-        {"id": "unknown_en_3", "language": "en", "category": "all", "text": "What is the capital of Canada?"},
-        {"id": "unknown_ar_1", "language": "ar", "category": "all", "text": "من فاز بكأس العالم لكرة القدم عام 2022؟"},
-        {"id": "unknown_ar_2", "language": "ar", "category": "all", "text": "ما علاج الملاريا؟"},
-        {"id": "unknown_ar_3", "language": "ar", "category": "all", "text": "ما هي عاصمة كندا؟"}
+        {"id": "unknown_en_1", "case_id": "no_evidence_en_football", "language": "en", "category": "all", "text": "Who won the football World Cup in 2022?"},
+        {"id": "unknown_en_2", "case_id": "no_evidence_en_malaria", "language": "en", "category": "all", "text": "What is the treatment for malaria?"},
+        {"id": "unknown_en_3", "case_id": "no_evidence_en_canada", "language": "en", "category": "all", "text": "What is the capital of Canada?"},
+        {"id": "unknown_ar_1", "case_id": "no_evidence_ar_football", "language": "ar", "category": "all", "text": "من فاز بكأس العالم لكرة القدم عام 2022؟"},
+        {"id": "unknown_ar_2", "case_id": "no_evidence_ar_malaria", "language": "ar", "category": "all", "text": "ما علاج الملاريا؟"},
+        {"id": "unknown_ar_3", "case_id": "no_evidence_ar_out_of_scope", "language": "ar", "category": "all", "text": "ما هي عاصمة كندا؟"}
       ]
     },
     {
@@ -61,12 +61,12 @@
       },
       "expected_status": "ready",
       "questions": [
-        {"id": "infer_en_1", "language": "en", "category": "all", "text": "Using the 2024 source figures, approximately what percentage of adults living with diabetes were unaware they had it?"},
-        {"id": "infer_en_2", "language": "en", "category": "all", "text": "Using the source figures for 2024 and 2050, what is the projected percentage increase in adults living with diabetes?"},
-        {"id": "infer_en_3", "language": "en", "category": "treatment", "text": "What percentage of the 27 pregnancy-diabetes recommendations concern glucose monitoring if six recommendations cover that topic?"},
-        {"id": "infer_ar_1", "language": "ar", "category": "all", "text": "إذا كان 589 مليون بالغ يعيشون مع السكري و252 مليوناً منهم لا يعلمون بإصابتهم وفق المصدر، فما النسبة المئوية التقريبية لغير المشخَّصين؟"},
-        {"id": "infer_ar_2", "language": "ar", "category": "all", "text": "إذا ارتفع عدد البالغين المصابين بالسكري من 589 مليوناً في 2024 إلى 853 مليوناً في 2050 حسب المصدر، فما نسبة الزيادة المتوقعة؟"},
-        {"id": "infer_ar_3", "language": "ar", "category": "treatment", "text": "ما نسبة توصيات مراقبة الغلوكوز من أصل 27 توصية لرعاية السكري أثناء الحمل إذا كانت ست توصيات تتعلق بهذا الموضوع؟"}
+        {"id": "infer_en_1", "case_id": "idf_en_undiagnosed", "language": "en", "category": "all", "text": "Using the 2024 source figures, approximately what percentage of adults living with diabetes were unaware they had it?"},
+        {"id": "infer_en_2", "case_id": "idf_en_projection_increase", "language": "en", "category": "all", "text": "Using the source figures for 2024 and 2050, what is the projected percentage increase in adults living with diabetes?"},
+        {"id": "infer_en_3", "case_id": "who_en_monitoring_percentage", "language": "en", "category": "treatment", "text": "What percentage of the 27 pregnancy-diabetes recommendations concern glucose monitoring if six recommendations cover that topic?"},
+        {"id": "infer_ar_1", "case_id": "idf_ar_undiagnosed", "language": "ar", "category": "all", "text": "إذا كان 589 مليون بالغ يعيشون مع السكري و252 مليوناً منهم لا يعلمون بإصابتهم وفق المصدر، فما النسبة المئوية التقريبية لغير المشخَّصين؟"},
+        {"id": "infer_ar_2", "case_id": "idf_ar_projection_increase", "language": "ar", "category": "all", "text": "إذا ارتفع عدد البالغين المصابين بالسكري من 589 مليوناً في 2024 إلى 853 مليوناً في 2050 حسب المصدر، فما نسبة الزيادة المتوقعة؟"},
+        {"id": "infer_ar_3", "case_id": "who_ar_monitoring_percentage", "language": "ar", "category": "treatment", "text": "ما نسبة توصيات مراقبة الغلوكوز من أصل 27 توصية لرعاية السكري أثناء الحمل إذا كانت ست توصيات تتعلق بهذا الموضوع؟"}
       ]
     }
   ]

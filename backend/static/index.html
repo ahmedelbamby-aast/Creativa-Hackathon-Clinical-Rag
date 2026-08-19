@@ -305,7 +305,7 @@
         <svg id="trend-chart" class="trend-chart" viewBox="0 0 800 150" role="img" aria-label="Total response latency across completed chats"></svg>
       </div>
       <div class="metrics-table-wrap" role="region" tabindex="0" aria-label="Scrollable recent metrics table"><table class="metrics-table">
-        <thead><tr><th>Time</th><th>Chat / turn</th><th>Status</th><th>Total</th><th>Retrieval</th><th>Generation</th><th>Tokens</th><th>Hit@k</th><th>Token F1</th><th>Task success</th><th>Δ total</th><th>Δ task</th></tr></thead>
+        <thead><tr><th>Time</th><th>Chat / turn</th><th>Label match</th><th>Status</th><th>Total</th><th>Retrieval</th><th>Generation</th><th>Tokens</th><th>Hit@k</th><th>Token F1</th><th>Task success</th><th>Metric state</th><th>Δ total</th><th>Δ task</th></tr></thead>
         <tbody id="metrics-rows"></tbody>
       </table></div>
     </section>
@@ -316,13 +316,25 @@
     function newConversationId() {
       return (window.crypto && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`).replace(/[^A-Za-z0-9_-]/g, '');
     }
-    const state = { history: [], ready: false, configured: false, conversationId: newConversationId(), turnIndex: 0 };
+    const state = { history: [], ready: false, configured: false, conversationId: newConversationId(), turnIndex: 0, selectedCaseId: '' };
     const $ = (id) => document.getElementById(id);
     const form = $('chat-form');
     const input = $('question');
     const send = $('send');
     const conversation = $('conversation');
     const pendingMath = new Set();
+    const metricReasonText = {
+      unlabeled_query: 'this chat has no reviewed label',
+      missing_relevance_judgments: 'the reviewed relevance labels are incomplete',
+      missing_reference_answer: 'this chat has no reviewed reference answer',
+      missing_required_claims: 'the reviewed required claims are incomplete',
+      reference_language_mismatch: 'the reviewed reference is in another language',
+      negative_case_not_applicable: 'this is a safe refusal case',
+      legacy_trace_missing_context: 'this older trace lacks evaluation context',
+      pricing_not_configured: 'pricing has not been configured',
+      stage_not_present: 'that pipeline stage did not run',
+      reranker_not_configured: 'no reranker is configured',
+    };
 
     function applyTheme(theme, persist = false) {
       const resolved = theme === 'light' ? 'light' : 'dark';
@@ -528,6 +540,7 @@
               input.value = question.text;
               input.dir = language === 'ar' ? 'rtl' : 'ltr';
               $('category').value = question.category;
+              state.selectedCaseId = question.case_id || '';
               input.focus();
             });
             group.append(button);
@@ -537,6 +550,7 @@
       });
     }
     function metricValue(value, kind = 'score') {
+      if (value && typeof value === 'object' && 'value' in value) value = value.value;
       if (value === null || value === undefined) return 'Not measured';
       if (kind === 'percent') return `${(Number(value) * 100).toFixed(1)}%`;
       if (kind === 'ms') return `${Number(value).toFixed(0)} ms`;
@@ -576,7 +590,10 @@
         const metric = quality[key] || { mean: null, measured_count: 0 };
         const item = document.createElement('div'); item.className = 'quality-item';
         const value = document.createElement('strong'); value.textContent = metricValue(metric.mean);
-        item.append(value, document.createTextNode(`${label} · ${metric.measured_count} labeled`));
+        const suffix = metric.unavailable_reasons && Object.keys(metric.unavailable_reasons).length
+          ? ` · ${Object.entries(metric.unavailable_reasons).map(([reason, count]) => `${count}: ${metricReasonText[reason] || reason.replaceAll('_', ' ')}`).join(', ')}`
+          : '';
+        item.append(value, document.createTextNode(`${label} · ${metric.measured_count}/${metric.eligible_count ?? metric.measured_count} measured${suffix}`));
         container.append(item);
       });
     }
@@ -609,20 +626,28 @@
         const delta = previous ? Number(trace.total_ms) - Number(previous.total_ms) : null;
         const task = trace.quality_metrics?.task_success;
         const previousTask = previous?.quality_metrics?.task_success;
-        const taskDelta = task !== null && task !== undefined && previousTask !== null && previousTask !== undefined ? Number(task) - Number(previousTask) : null;
+        const taskValue = task && typeof task === 'object' ? task.value : task;
+        const previousTaskValue = previousTask && typeof previousTask === 'object' ? previousTask.value : previousTask;
+        const taskDelta = taskValue !== null && taskValue !== undefined && previousTaskValue !== null && previousTaskValue !== undefined ? Number(taskValue) - Number(previousTaskValue) : null;
+        const stateReason = !task
+          ? 'Not measured: this older trace lacks evaluation context'
+          : (typeof task === 'object' && !task.applicable
+            ? `Not measured: ${metricReasonText[task.reason] || String(task.reason || 'unlabeled query').replaceAll('_', ' ')}`
+            : 'Measured');
         const row = document.createElement('tr');
         const values = [
           new Date(trace.timestamp).toLocaleString(), `${String(trace.conversation_id || 'legacy').slice(0, 8)} / ${trace.turn_index || 0}`,
+          trace.label_case_id ? `${trace.label_case_id} · ${trace.case_match_method || 'legacy'} · ${trace.reference_language || '—'}` : `— · ${trace.case_match_method || 'unlabeled query'}`,
           trace.status, `${Number(trace.total_ms || 0).toFixed(0)} ms`,
           `${Number(trace.stages_ms?.retrieval || 0).toFixed(0)} ms`, `${Number(trace.stages_ms?.generation || 0).toFixed(0)} ms`,
           trace.total_tokens || 0, metricValue(trace.quality_metrics?.hit_rate_at_k), metricValue(trace.quality_metrics?.token_f1),
-          metricValue(task), delta === null ? '—' : `${delta >= 0 ? '+' : ''}${delta.toFixed(0)} ms`,
+          metricValue(task), stateReason, delta === null ? '—' : `${delta >= 0 ? '+' : ''}${delta.toFixed(0)} ms`,
           taskDelta === null ? '—' : `${taskDelta >= 0 ? '+' : ''}${taskDelta.toFixed(3)}`,
         ];
         values.forEach((value, index) => {
           const cell = document.createElement('td'); cell.textContent = value;
-          if (index === 10 && delta !== null) cell.className = delta <= 0 ? 'delta-good' : 'delta-bad';
-          if (index === 11 && taskDelta !== null) cell.className = taskDelta >= 0 ? 'delta-good' : 'delta-bad';
+          if (index === 12 && delta !== null) cell.className = delta <= 0 ? 'delta-good' : 'delta-bad';
+          if (index === 13 && taskDelta !== null) cell.className = taskDelta >= 0 ? 'delta-good' : 'delta-bad';
           row.append(cell);
         });
         body.append(row);
@@ -676,7 +701,7 @@
         const retrieveResponse = await fetch('/api/retrieve', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message, category: $('category').value, history: priorHistory, conversation_id: state.conversationId, turn_index: state.turnIndex }),
+          body: JSON.stringify({ message, category: $('category').value, history: priorHistory, conversation_id: state.conversationId, turn_index: state.turnIndex, case_id: state.selectedCaseId }),
         });
         const retrieved = await retrieveResponse.json();
         if (!retrieveResponse.ok) throw new Error(retrieved.detail || 'The assistant could not retrieve evidence.');
@@ -713,6 +738,7 @@
             trace_id: retrieved.trace_id,
             conversation_id: state.conversationId,
             turn_index: state.turnIndex,
+            case_id: state.selectedCaseId,
           }),
         });
         const data = await response.json();
@@ -724,6 +750,7 @@
         $('debug-wrap').hidden = !data.debug;
         setFeedback(`${data.generation_provider ? providerText(data.generation_provider, data.generation_model) : 'Answer complete.'}`);
         state.turnIndex += 1;
+        state.selectedCaseId = '';
         loadMetrics();
       } catch (error) {
         addMessage('assistant', `I could not complete that request. ${error.message}`);
@@ -737,6 +764,7 @@
       state.history = [];
       state.conversationId = newConversationId();
       state.turnIndex = 0;
+      state.selectedCaseId = '';
       conversation.innerHTML = '<div class="empty">Ask a question to receive a grounded answer with document and page citations.</div>';
       $('sources').textContent = 'Sources will appear after your first question.';
       $('evidence').textContent = 'Evidence will appear here before an answer is generated.';
@@ -744,7 +772,7 @@
       setFeedback('Conversation cleared.');
       input.focus();
     });
-    input.addEventListener('input', () => { input.dir = isArabic(input.value) ? 'rtl' : 'ltr'; });
+    input.addEventListener('input', () => { input.dir = isArabic(input.value) ? 'rtl' : 'ltr'; state.selectedCaseId = ''; });
     $('refresh-metrics').addEventListener('click', loadMetrics);
     $('theme-toggle').addEventListener('click', () => {
       applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light', true);

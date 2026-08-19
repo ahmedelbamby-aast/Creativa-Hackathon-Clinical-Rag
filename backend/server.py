@@ -62,6 +62,7 @@ class ChatRequest(BaseModel):
     history: list[ChatMessage] = Field(default_factory=list, max_length=12)
     conversation_id: str = Field(default="", max_length=64, pattern=r"^[A-Za-z0-9_-]*$")
     turn_index: int = Field(default=0, ge=0)
+    case_id: str = Field(default="", max_length=120, pattern=r"^[A-Za-z0-9_-]*$")
 
 
 class CitationItem(BaseModel):
@@ -131,6 +132,7 @@ class SampleQuestion(BaseModel):
     language: Literal["en", "ar"]
     category: str
     text: str
+    case_id: str = ""
 
 
 class SampleScenario(BaseModel):
@@ -215,7 +217,9 @@ def foundational_metrics(limit: int = 200, conversation_id: str = "") -> dict:
         "generation_provider", "generation_model", "provider_failure_count", "fallback_count",
         "input_tokens", "context_tokens", "output_tokens", "total_tokens", "token_count_method",
         "estimated_cost_usd", "cost_status", "quality_metrics", "quality_basis", "label_case_id",
-        "stages_ms", "total_ms",
+        "requested_case_id", "case_match_method", "gold_dataset_version", "reference_language",
+        "retrieval_relevance_labels", "task_rule_results", "operational_metrics",
+        "metric_implementation_version", "stages_ms", "total_ms",
     }
     report["traces"] = [
         {key: value for key, value in trace.items() if key in public_fields}
@@ -239,7 +243,7 @@ def chat_endpoint(request: ChatRequest) -> ChatResponse:
     memory = _build_memory(request.history, category)
 
     try:
-        answer, citations, debug = rag_pipeline(request.message, category, memory)
+        answer, citations, debug = rag_pipeline(request.message, category, memory, request.case_id)
     except Exception as exc:
         logger.exception("RAG request failed")
         raise HTTPException(
@@ -265,6 +269,7 @@ def retrieve_endpoint(request: ChatRequest) -> RetrieveResponse:
     trace = RequestTrace(
         query=request.message[:2000], requested_category=category,
         conversation_id=request.conversation_id, turn_index=request.turn_index,
+        requested_case_id=request.case_id,
     )
     with trace.stage("retrieval"):
         envelope = stage_evidence(request.message, category, _build_memory(request.history, category).get_history())
@@ -317,6 +322,7 @@ def generate_endpoint(request: GenerateRequest) -> ChatResponse:
             query=request.message[:2000], requested_category=category,
             trace_id=request.trace_id or RequestTrace(request.message, category).trace_id,
             conversation_id=request.conversation_id, turn_index=request.turn_index,
+            requested_case_id=request.case_id,
         )
     envelope = rehydrate_evidence(
         request.message,

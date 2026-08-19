@@ -20,7 +20,17 @@ import psycopg
 from psycopg.rows import dict_row
 
 from src.config import CATEGORY_PREVENTION, config
-from src.quality_metrics import answer_metrics, count_tokens, retrieval_metrics
+from src.quality_metrics import (
+    ALL_QUALITY_METRICS,
+    answer_metrics,
+    count_tokens,
+    gold_dataset,
+    match_case,
+    metric,
+    retrieval_metrics,
+    task_success,
+    unavailable_metrics,
+)
 
 logger = logging.getLogger(__name__)
 RUNTIME_DIR = Path(tempfile.gettempdir()) / "creativa-diabetes" if config.is_deployment else config.project_root / ".runtime"
@@ -29,17 +39,15 @@ METRICS_SNAPSHOT_FILE = RUNTIME_DIR / "metrics_snapshot.json"
 BENCHMARK_FILE = RUNTIME_DIR / "benchmark_history.jsonl"
 METRICS_SCHEMA_PATH = config.project_root / "database" / "metrics_schema.sql"
 
-FOUNDATIONAL_QUALITY_KEYS = (
-    "hit_rate_at_k", "precision_at_k", "recall_at_k", "reciprocal_rank",
-    "average_precision", "ndcg_at_k", "exact_match", "token_precision",
-    "token_recall", "token_f1", "task_success",
-)
+FOUNDATIONAL_QUALITY_KEYS = ALL_QUALITY_METRICS
+METRIC_IMPLEMENTATION_VERSION = "2.1.0"
 
 
 @dataclass
 class RequestTrace:
     query: str
     requested_category: str
+    requested_case_id: str = ""
     trace_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     conversation_id: str = ""
     turn_index: int = 0
@@ -70,9 +78,16 @@ class RequestTrace:
     token_count_method: str = "lexical_approximation"
     estimated_cost_usd: float | None = None
     cost_status: str = "pricing_not_configured"
-    quality_metrics: dict[str, float | None] = field(default_factory=dict)
+    quality_metrics: dict[str, dict[str, Any]] = field(default_factory=dict)
     quality_basis: dict[str, str] = field(default_factory=dict)
     label_case_id: str = ""
+    case_match_method: str = "unlabeled_query"
+    gold_dataset_version: str = ""
+    reference_language: str = ""
+    retrieval_relevance_labels: list[dict[str, Any]] = field(default_factory=list)
+    task_rule_results: list[dict[str, Any]] = field(default_factory=list)
+    operational_metrics: dict[str, dict[str, Any]] = field(default_factory=dict)
+    metric_implementation_version: str = METRIC_IMPLEMENTATION_VERSION
     status: str = "running"
     error: str = ""
     total_ms: float = 0.0
@@ -87,7 +102,15 @@ class RequestTrace:
         finally:
             self.stages_ms[name] = round((time.perf_counter() - started) * 1000, 2)
 
+    def attach_gold_case(self) -> None:
+        self._gold_case, self.case_match_method = match_case(self.query, self.requested_case_id)
+        self.gold_dataset_version = gold_dataset()["version"]
+        self.label_case_id = str(self._gold_case.get("case_id", "")) if self._gold_case else ""
+        self.reference_language = str(self._gold_case.get("language", "")) if self._gold_case else ""
+
     def capture_retrieval(self, envelope: Any) -> None:
+        if self._gold_case is None:
+            self.attach_gold_case()
         self.routed_category = envelope.routed_category
         self.language = "ar" if re.search(r"[\u0600-\u06FF]", self.query) else "en"
         from src.safety import classify_safety
@@ -108,14 +131,13 @@ class RequestTrace:
             }
             for rank, item in enumerate(envelope.chunks, start=1)
         ]
-        metrics, case = retrieval_metrics(self.query, envelope.chunks, self.top_k)
+        metrics, labels = retrieval_metrics(self._gold_case, envelope.chunks, self.top_k)
         self.quality_metrics.update(metrics)
-        self._gold_case = case
-        self.label_case_id = str(case.get("case_id", "")) if case else ""
-        if case:
+        self.retrieval_relevance_labels = labels
+        if self._gold_case:
             self.quality_basis = {
-                "retrieval": "curated_expected_provenance_and_text_anchor",
-                "answer": "atomic_evidence_anchor_proxy" if case.get("expect_evidence") else "labeled_rejection_outcome",
+                "retrieval": "reviewed_relevance_pool",
+                "answer": "reviewed_language_specific_references",
             }
         self.context_tokens = sum(count_tokens(item.text) for item in envelope.chunks)
 
@@ -142,10 +164,14 @@ class RequestTrace:
         if provider == "extractive":
             self.estimated_cost_usd = 0.0
             self.cost_status = "no_provider_cost"
-        elif config.generation_input_cost_per_million_usd or config.generation_output_cost_per_million_usd:
+        else:
+            prices = config.generation_pricing(provider, model)
+            if prices is None:
+                return
+            input_price, output_price = prices
             self.estimated_cost_usd = round(
-                (self.input_tokens / 1_000_000) * config.generation_input_cost_per_million_usd
-                + (self.output_tokens / 1_000_000) * config.generation_output_cost_per_million_usd,
+                (self.input_tokens / 1_000_000) * input_price
+                + (self.output_tokens / 1_000_000) * output_price,
                 8,
             )
             self.cost_status = "configured_estimate"
@@ -154,9 +180,20 @@ class RequestTrace:
         self.status = status
         self.error = error[:300]
         self.total_ms = round((time.perf_counter() - self._started) * 1000, 2)
-        self.quality_metrics.update(answer_metrics(self.answer, self._gold_case, status))
+        if self._gold_case is None:
+            self.attach_gold_case()
+        self.quality_metrics.update(answer_metrics(self.answer, self._gold_case, self.language or "en"))
+        task_value, self.task_rule_results = task_success(self._gold_case, self.serializable())
+        self.quality_metrics["task_success"] = task_value
         for key in FOUNDATIONAL_QUALITY_KEYS:
-            self.quality_metrics.setdefault(key, None)
+            self.quality_metrics.setdefault(key, metric(None, False, "legacy_trace_missing_context"))
+        self.operational_metrics = {
+            "retrieval_latency_ms": metric(self.stages_ms.get("retrieval"), "retrieval" in self.stages_ms, "stage_not_present" if "retrieval" not in self.stages_ms else ""),
+            "generation_latency_ms": metric(self.stages_ms.get("generation"), "generation" in self.stages_ms, "stage_not_present" if "generation" not in self.stages_ms else ""),
+            "total_latency_ms": metric(self.total_ms, True),
+            "reranking_latency_ms": metric(None, False, "reranker_not_configured"),
+            "cost_usd": metric(self.estimated_cost_usd, self.estimated_cost_usd is not None, self.cost_status if self.estimated_cost_usd is None else ""),
+        }
 
     def serializable(self) -> dict[str, Any]:
         value = asdict(self)
@@ -168,9 +205,19 @@ class RequestTrace:
     def from_record(cls, record: dict[str, Any]) -> "RequestTrace":
         allowed = {name for name in cls.__dataclass_fields__ if not name.startswith("_")}
         trace = cls(**{key: value for key, value in record.items() if key in allowed})
-        trace._started = time.perf_counter() - (float(record.get("total_ms", 0.0)) / 1000)
-        from src.quality_metrics import find_case
-        trace._gold_case = find_case(trace.query)
+        # A retrieve trace is persisted while still running and then reloaded
+        # by `/api/generate`.  Use its recorded wall-clock start so total
+        # latency covers both HTTP stages rather than generation alone.
+        elapsed_ms = float(record.get("total_ms", 0.0))
+        if record.get("status") == "running":
+            try:
+                started_at = datetime.fromisoformat(str(record["timestamp"]).replace("Z", "+00:00"))
+                elapsed_ms = max(elapsed_ms, (datetime.now(timezone.utc) - started_at).total_seconds() * 1000)
+            except (KeyError, TypeError, ValueError):
+                pass
+        trace._started = time.perf_counter() - (elapsed_ms / 1000)
+        trace._gold_case, trace.case_match_method = match_case(trace.query, trace.requested_case_id)
+        trace.gold_dataset_version = trace.gold_dataset_version or gold_dataset()["version"]
         return trace
 
 
@@ -209,6 +256,7 @@ class MetricsRepository:
     def __init__(self, json_store: JsonlStore | None = None, database_url: str | None = None) -> None:
         self.json_store = json_store or JsonlStore(TRACE_FILE)
         self.database_url = database_url or config.database_url
+        self.schema_database_url = config.schema_database_url if database_url is None else self.database_url
         self._schema_ready = False
         self._schema_lock = threading.Lock()
 
@@ -217,7 +265,7 @@ class MetricsRepository:
             return
         with self._schema_lock:
             if not self._schema_ready:
-                with psycopg.connect(config.schema_database_url, autocommit=True) as connection:
+                with psycopg.connect(self.schema_database_url, autocommit=True) as connection:
                     connection.execute(METRICS_SCHEMA_PATH.read_text(encoding="utf-8"))
                 self._schema_ready = True
 
@@ -228,15 +276,23 @@ class MetricsRepository:
         return sorted(latest.values(), key=lambda item: item.get("timestamp", ""))
 
     def save(self, record: dict[str, Any]) -> None:
-        self.json_store.append(record)
+        json_written = False
         try:
-            METRICS_SNAPSHOT_FILE.parent.mkdir(parents=True, exist_ok=True)
-            temporary = METRICS_SNAPSHOT_FILE.with_suffix(".json.tmp")
-            temporary.write_text(
-                json.dumps(build_metrics_report(self._deduplicated_json()), ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-            temporary.replace(METRICS_SNAPSHOT_FILE)
+            self.json_store.append(record)
+            json_written = True
+        except Exception:
+            # Continue to the database write: losing JSON must never also lose
+            # an otherwise durable PostgreSQL metric event.
+            logger.exception("JSONL metrics persistence failed; attempting PostgreSQL persistence")
+        try:
+            if json_written:
+                METRICS_SNAPSHOT_FILE.parent.mkdir(parents=True, exist_ok=True)
+                temporary = METRICS_SNAPSHOT_FILE.with_suffix(".json.tmp")
+                temporary.write_text(
+                    json.dumps(build_metrics_report(self._deduplicated_json()), ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                temporary.replace(METRICS_SNAPSHOT_FILE)
         except OSError:
             logger.exception("Could not refresh the metrics JSON snapshot")
         try:
@@ -318,6 +374,24 @@ def _percentile(values: list[float], percentile: float) -> float | None:
     return round(ordered[round((len(ordered) - 1) * percentile)], 2)
 
 
+def _metric_value(entry: Any) -> float | None:
+    """Read v1 numeric values and v2 applicability records during backfill."""
+    if isinstance(entry, dict):
+        value = entry.get("value")
+        return float(value) if value is not None else None
+    return float(entry) if entry is not None else None
+
+
+def _metric_applicable(entry: Any) -> bool:
+    if isinstance(entry, dict):
+        return bool(entry.get("applicable")) and entry.get("value") is not None
+    return entry is not None
+
+
+def _metric_reason(entry: Any) -> str:
+    return str(entry.get("reason", "")) if isinstance(entry, dict) else "legacy_trace_missing_context"
+
+
 def build_metrics_report(records: list[dict[str, Any]]) -> dict[str, Any]:
     completed = [item for item in records if item.get("status") != "running"]
     total = len(completed)
@@ -334,10 +408,22 @@ def build_metrics_report(records: list[dict[str, Any]]) -> dict[str, Any]:
     quality: dict[str, Any] = {}
     for key in FOUNDATIONAL_QUALITY_KEYS:
         values = [
-            float(item.get("quality_metrics", {}).get(key)) for item in completed
-            if item.get("quality_metrics", {}).get(key) is not None
+            float(_metric_value(item.get("quality_metrics", {}).get(key))) for item in completed
+            if _metric_applicable(item.get("quality_metrics", {}).get(key))
         ]
-        quality[key] = {"mean": round(statistics.fmean(values), 6) if values else None, "measured_count": len(values)}
+        eligible = sum(key in item.get("quality_metrics", {}) for item in completed)
+        reasons: dict[str, int] = {}
+        for item in completed:
+            entry = item.get("quality_metrics", {}).get(key)
+            if not _metric_applicable(entry):
+                reason = _metric_reason(entry)
+                if reason:
+                    reasons[reason] = reasons.get(reason, 0) + 1
+        quality[key] = {
+            "mean": round(statistics.fmean(values), 6) if values else None,
+            "measured_count": len(values), "eligible_count": eligible,
+            "unavailable_reasons": reasons,
+        }
     costs = [float(item["estimated_cost_usd"]) for item in completed if item.get("estimated_cost_usd") is not None]
     tokens = [float(item.get("total_tokens", 0)) for item in completed]
     return {
