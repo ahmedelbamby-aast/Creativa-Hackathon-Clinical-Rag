@@ -186,9 +186,6 @@ class AppConfig:
     embedding_namespace: str = field(
         default_factory=lambda: os.environ.get("EMBEDDING_NAMESPACE", "")
     )
-    active_index_namespace: str = field(
-        default_factory=lambda: os.environ.get("ACTIVE_INDEX_NAMESPACE", "")
-    )
     online_embedding_batch_size: int = field(
         default_factory=lambda: int(os.environ.get("ONLINE_EMBEDDING_BATCH_SIZE", "16"))
     )
@@ -204,11 +201,11 @@ class AppConfig:
     similarity_threshold: float = field(
         default_factory=lambda: float(os.environ.get("SIMILARITY_THRESHOLD", "0.30"))
     )
+    # ACTIVE_INDEX_NAMESPACE overrides the auto-derived namespace when set.
+    # Use this to point the live system at a specific ingestion run without
+    # changing EMBEDDING_PROVIDER or EMBEDDING_DIMENSION.
     active_index_namespace: str = field(
         default_factory=lambda: os.environ.get("ACTIVE_INDEX_NAMESPACE", "")
-    )
-    retrieval_profile: str = field(
-        default_factory=lambda: os.environ.get("RETRIEVAL_PROFILE", "default")
     )
 
     # ── Chunking ───────────────────────────────────────────────────────────
@@ -287,8 +284,12 @@ class AppConfig:
                 "Deployment requires EMBEDDING_PROVIDER=gemini; the local provider "
                 "depends on Torch and a persistent model cache."
             )
-        if not 1 <= self.embedding_dimension <= 2000:
-            raise ValueError("EMBEDDING_DIMENSION must be between 1 and 2000")
+        # ── Critical Issue 2 fix: raised from 2000 to 3072 (Gemini Embedding 2 maximum) ──
+        if not 1 <= self.embedding_dimension <= 3072:
+            raise ValueError(
+                "EMBEDDING_DIMENSION must be between 1 and 3072 "
+                "(3072 is the maximum output dimension of Gemini Embedding 2)"
+            )
         if self.online_embedding_batch_size < 1:
             raise ValueError("ONLINE_EMBEDDING_BATCH_SIZE must be at least 1")
         if self.online_embedding_rpm < 1:

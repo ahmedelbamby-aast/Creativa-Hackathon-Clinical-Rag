@@ -1,4 +1,29 @@
-"""PostgreSQL/pgvector storage for RAG chunks and similarity search."""
+"""PostgreSQL/pgvector storage for RAG chunks and similarity search.
+
+Parent table selection
+----------------------
+The baseline ``rag_chunks`` table stores 384-d embeddings and remains
+untouched for rollback safety.  Every higher dimension introduced by the
+Gemini Embedding 2 sequential rollout lives in its own parent table:
+
+    Dimension │ Parent table        │ Schema file
+    ──────────┼─────────────────────┼────────────────────────
+    384       │ rag_chunks          │ database/schema.sql
+    768       │ rag_chunks_d768     │ database/schema_d768.sql
+    1024      │ rag_chunks_d1024    │ database/schema_d1024.sql
+    2048      │ rag_chunks_d2048    │ database/schema_d2048.sql
+    3072      │ rag_chunks_d3072    │ database/schema_d3072.sql
+
+Each parent table uses ``PARTITION BY LIST (namespace)`` so multiple
+Gemini-embedding namespaces (e.g. ``gemini_768``, ``gemini_768_v2``) can
+coexist without schema changes.  Partitions and per-partition HNSW indexes
+are created dynamically by :meth:`VectorStore.ensure_schema`.
+
+Vectors from different parent tables are *never* mixed: the cosine-distance
+operator ``<=>`` would silently return wrong results for mismatched
+dimensions.  :class:`VectorStore` enforces the dimension contract on both
+reads and writes.
+"""
 
 import re
 from pathlib import Path
@@ -15,7 +40,21 @@ from src.scoring import cosine_distance_to_score
 from src.source_catalog import load_source_catalog
 
 
-SCHEMA_PATH = Path(__file__).resolve().parent.parent / "database" / "schema.sql"
+_DATABASE_DIR = Path(__file__).resolve().parent.parent / "database"
+
+# Mapping: output dimension → (parent table name, schema SQL file).
+# 384 is the backward-compatible baseline; add entries here for every new
+# Gemini Embedding 2 stage before running its ingestion migration.
+_DIMENSION_TABLE_MAP: dict[int, tuple[str, Path]] = {
+    384:  ("rag_chunks",       _DATABASE_DIR / "schema.sql"),
+    768:  ("rag_chunks_d768",  _DATABASE_DIR / "schema_d768.sql"),
+    1024: ("rag_chunks_d1024", _DATABASE_DIR / "schema_d1024.sql"),
+    2048: ("rag_chunks_d2048", _DATABASE_DIR / "schema_d2048.sql"),
+    3072: ("rag_chunks_d3072", _DATABASE_DIR / "schema_d3072.sql"),
+}
+
+# Convenience alias kept for callers that reference SCHEMA_PATH directly.
+SCHEMA_PATH = _DATABASE_DIR / "schema.sql"
 
 _LEXICAL_STOPWORDS = {
     "about", "adults", "answer", "approximately", "based", "condition", "diabetes",
@@ -43,8 +82,33 @@ def normalize_namespace(namespace: str) -> str:
     return normalized[:40]
 
 
+def _resolve_parent_table(dimension: int) -> tuple[str, Path]:
+    """Return the (parent_table_name, schema_path) for a given dimension.
+
+    Raises
+    ------
+    ValueError
+        If no parent table has been registered for *dimension*.  Always add
+        a row to ``_DIMENSION_TABLE_MAP`` and supply the matching SQL
+        migration file before using a new dimension.
+    """
+    entry = _DIMENSION_TABLE_MAP.get(dimension)
+    if entry is None:
+        supported = ", ".join(str(d) for d in sorted(_DIMENSION_TABLE_MAP))
+        raise ValueError(
+            f"No parent table registered for {dimension}-d embeddings. "
+            f"Supported dimensions: {supported}. "
+            f"Add a migration to database/ and register it in _DIMENSION_TABLE_MAP."
+        )
+    return entry
+
+
 class VectorStore:
-    """Store and retrieve one embedding namespace in PostgreSQL."""
+    """Store and retrieve one embedding namespace in PostgreSQL.
+
+    The active parent table is selected automatically from ``dimension``.
+    Vectors from different parent tables are never mixed in a single query.
+    """
 
     def __init__(
         self,
@@ -57,37 +121,71 @@ class VectorStore:
             namespace or config.resolved_embedding_namespace
         )
         self.dimension = dimension or config.embedding_dimension
-        self.partition_name = f"rag_chunks_{self.namespace}"
+
+        # Resolve the parent table and schema file for this dimension.
+        # Raises ValueError immediately if the dimension is not registered.
+        self.parent_table, self._schema_path = _resolve_parent_table(self.dimension)
+
+        # The namespace partition lives inside the dimension-specific parent.
+        self.partition_name = f"{self.parent_table}_{self.namespace}"
         self._schema_ready = False
 
     def ensure_schema(self) -> None:
-        """Enable pgvector and create the current namespace partition/index."""
-        schema_sql = SCHEMA_PATH.read_text(encoding="utf-8")
+        """Enable pgvector and create the current namespace partition/index.
+
+        The parent table must exist before this method creates the
+        namespace partition.  Run the dimension-specific SQL migration
+        (e.g. ``database/schema_d768.sql``) against the direct/unpooled
+        connection on an isolated Neon branch first.
+
+        Dimension safety check
+        ----------------------
+        Reads ``atttypmod`` from ``pg_attribute`` for *this* parent table to
+        confirm that the deployed schema matches the configured dimension.
+        Raises ``RuntimeError`` if they diverge, preventing silent
+        mixed-dimension corruption.
+        """
+        schema_sql = self._schema_path.read_text(encoding="utf-8")
         with psycopg.connect(config.schema_database_url, autocommit=True) as connection:
             connection.execute(schema_sql)
             register_vector(connection)
 
+            # Check the vector column width on the correct parent table, not
+            # the hardcoded 384-d baseline.  atttypmod stores the declared
+            # number of dimensions for pgvector columns.
             actual_dimension = connection.execute(
-                """
-                SELECT atttypmod
-                FROM pg_attribute
-                WHERE attrelid = 'rag_chunks'::regclass
-                  AND attname = 'embedding'
-                  AND NOT attisdropped
-                """
-            ).fetchone()[0]
-            if actual_dimension != self.dimension:
+                sql.SQL(
+                    """
+                    SELECT atttypmod
+                    FROM pg_attribute
+                    WHERE attrelid = {}::regclass
+                      AND attname = 'embedding'
+                      AND NOT attisdropped
+                    """
+                ).format(sql.Literal(self.parent_table)),
+            ).fetchone()
+
+            if actual_dimension is None:
                 raise RuntimeError(
-                    f"Database vector dimension is {actual_dimension}; "
-                    f"configuration requires {self.dimension}."
+                    f"Parent table '{self.parent_table}' does not exist or has no "
+                    f"'embedding' column.  Run the {self._schema_path.name} migration "
+                    f"against this database before calling ensure_schema()."
+                )
+
+            if actual_dimension[0] != self.dimension:
+                raise RuntimeError(
+                    f"Parent table '{self.parent_table}' stores {actual_dimension[0]}-d "
+                    f"vectors but configuration requires {self.dimension}-d.  "
+                    f"Check EMBEDDING_DIMENSION and the applied migration."
                 )
 
             connection.execute(
                 sql.SQL(
-                    "CREATE TABLE IF NOT EXISTS {} PARTITION OF rag_chunks "
+                    "CREATE TABLE IF NOT EXISTS {} PARTITION OF {} "
                     "FOR VALUES IN ({})"
                 ).format(
                     sql.Identifier(self.partition_name),
+                    sql.Identifier(self.parent_table),
                     sql.Literal(self.namespace),
                 )
             )
@@ -122,8 +220,9 @@ class VectorStore:
         if any(len(embedding) != self.dimension for embedding in embeddings):
             raise ValueError(f"all embeddings must have {self.dimension} dimensions")
 
-        statement = """
-            INSERT INTO rag_chunks (
+        statement = sql.SQL(
+            """
+            INSERT INTO {} (
                 namespace, chunk_id, document_name, page_number,
                 section_title, subsection_title, category, content_type,
                 language, source_id, source_url, content, char_count, word_count, quality_score,
@@ -131,8 +230,8 @@ class VectorStore:
             ) VALUES (
                 %(namespace)s, %(chunk_id)s, %(document_name)s, %(page_number)s,
                 %(section_title)s, %(subsection_title)s, %(category)s,
-                %(content_type)s, %(language)s, %(source_id)s, %(source_url)s, %(content)s, %(char_count)s,
-                %(word_count)s, %(quality_score)s, %(embedding)s
+                %(content_type)s, %(language)s, %(source_id)s, %(source_url)s, %(content)s,
+                %(char_count)s, %(word_count)s, %(quality_score)s, %(embedding)s
             )
             ON CONFLICT (namespace, chunk_id) DO UPDATE SET
                 document_name = EXCLUDED.document_name,
@@ -150,7 +249,9 @@ class VectorStore:
                 quality_score = EXCLUDED.quality_score,
                 embedding = EXCLUDED.embedding,
                 updated_at = now()
-        """
+            """
+        ).format(sql.Identifier(self.parent_table))
+
         rows = []
         category_counts = {category: 0 for category in ALL_CATEGORIES}
         for record, embedding in zip(chunk_records, embeddings):
@@ -191,12 +292,14 @@ class VectorStore:
     def has_document(self, document_name: str) -> bool:
         with self._connect() as connection:
             row = connection.execute(
-                """
-                SELECT EXISTS (
-                    SELECT 1 FROM rag_chunks
-                    WHERE namespace = %s AND document_name = %s
-                ) AS found
-                """,
+                sql.SQL(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1 FROM {}
+                        WHERE namespace = %s AND document_name = %s
+                    ) AS found
+                    """
+                ).format(sql.Identifier(self.parent_table)),
                 (self.namespace, document_name),
             ).fetchone()
         return bool(row["found"])
@@ -204,7 +307,9 @@ class VectorStore:
     def delete_document(self, document_name: str) -> None:
         with self._connect() as connection:
             connection.execute(
-                "DELETE FROM rag_chunks WHERE namespace = %s AND document_name = %s",
+                sql.SQL(
+                    "DELETE FROM {} WHERE namespace = %s AND document_name = %s"
+                ).format(sql.Identifier(self.parent_table)),
                 (self.namespace, document_name),
             )
 
@@ -221,14 +326,15 @@ class VectorStore:
         if len(query_embedding) != self.dimension:
             raise ValueError(f"query embedding must have {self.dimension} dimensions")
 
-        category_clause = ""
+        category_clause_sql = sql.SQL("")
         parameters: list = []
         if category != CATEGORY_ALL and category in ALL_CATEGORIES:
-            category_clause = "AND (category = %s OR category = %s)"
+            category_clause_sql = sql.SQL("AND (category = %s OR category = %s)")
             parameters.extend([category, CATEGORY_GENERAL])
         vector = Vector(query_embedding)
         limit = max(0, min(top_k, 1000))
-        statement = f"""
+        statement = sql.SQL(
+            """
             SELECT
                 chunk_id AS id,
                 content AS document,
@@ -241,12 +347,16 @@ class VectorStore:
                 language,
                 quality_score,
                 embedding <=> %s AS distance
-            FROM rag_chunks
+            FROM {}
             WHERE namespace = %s
-            {category_clause}
+            {}
             ORDER BY embedding <=> %s
             LIMIT %s
-        """
+            """
+        ).format(
+            sql.Identifier(self.parent_table),
+            category_clause_sql,
+        )
         query_parameters = [vector, self.namespace, *parameters, vector, limit]
         with self._connect() as connection:
             rows = connection.execute(statement, query_parameters).fetchall()
@@ -283,7 +393,8 @@ class VectorStore:
         if not chunk_ids:
             return []
         unique_ids = list(dict.fromkeys(chunk_ids))
-        statement = """
+        statement = sql.SQL(
+            """
             SELECT
                 chunk_id AS id,
                 content AS document,
@@ -295,9 +406,10 @@ class VectorStore:
                 content_type,
                 language,
                 quality_score
-            FROM rag_chunks
+            FROM {}
             WHERE namespace = %s AND chunk_id = ANY(%s)
-        """
+            """
+        ).format(sql.Identifier(self.parent_table))
         with self._connect() as connection:
             rows = connection.execute(statement, (self.namespace, unique_ids)).fetchall()
         source_catalog = load_source_catalog()
@@ -346,7 +458,8 @@ class VectorStore:
         score_expression = " + ".join(match_parts)
         match_parameters = [f"%{term}%" for term in terms]
         limit = max(0, min(top_k, 1000))
-        statement = f"""
+        statement = sql.SQL(
+            f"""
             SELECT
                 chunk_id AS id,
                 content AS document,
@@ -359,13 +472,14 @@ class VectorStore:
                 language,
                 quality_score,
                 ({score_expression})::float / %s AS lexical_score
-            FROM rag_chunks
+            FROM {{}}
             WHERE namespace = %s
               {category_clause}
               AND ({score_expression}) > 0
             ORDER BY lexical_score DESC, quality_score DESC, chunk_id
             LIMIT %s
-        """
+            """
+        ).format(sql.Identifier(self.parent_table))
         query_parameters = [
             *match_parameters,
             len(terms),
@@ -405,12 +519,14 @@ class VectorStore:
         """Return category counts, including general chunks in each category."""
         with self._connect() as connection:
             rows = connection.execute(
-                """
-                SELECT category, count(*) AS count
-                FROM rag_chunks
-                WHERE namespace = %s
-                GROUP BY category
-                """,
+                sql.SQL(
+                    """
+                    SELECT category, count(*) AS count
+                    FROM {}
+                    WHERE namespace = %s
+                    GROUP BY category
+                    """
+                ).format(sql.Identifier(self.parent_table)),
                 (self.namespace,),
             ).fetchall()
         counts = {row["category"]: row["count"] for row in rows}
@@ -424,7 +540,9 @@ class VectorStore:
         """Remove every chunk in the active embedding namespace."""
         with self._connect() as connection:
             connection.execute(
-                "DELETE FROM rag_chunks WHERE namespace = %s",
+                sql.SQL(
+                    "DELETE FROM {} WHERE namespace = %s"
+                ).format(sql.Identifier(self.parent_table)),
                 (self.namespace,),
             )
 

@@ -19,7 +19,7 @@ def main() -> None:
     local = sorted(path.name for path in config.data_dir.glob("*.pdf"))
     with psycopg.connect(config.database_url) as connection:
         rows = connection.execute(
-            "SELECT document_name, count(*) FROM rag_chunks WHERE namespace = %s GROUP BY document_name",
+            f"SELECT document_name, count(*) FROM {vector_store.parent_table} WHERE namespace = %s GROUP BY document_name",
             (vector_store.namespace,),
         ).fetchall()
     indexed = {name: count for name, count in rows}

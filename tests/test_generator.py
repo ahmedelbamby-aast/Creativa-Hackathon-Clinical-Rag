@@ -42,6 +42,7 @@ def test_exhausted_transient_retries_raise_a_sanitized_error(monkeypatch) -> Non
     generator._initialised = True
     monkeypatch.setattr("src.generator.config.generation_provider", "gemini")
     monkeypatch.setattr("src.generator.config.generation_fallback_provider", "")
+    monkeypatch.setattr(generator, "_initialise", lambda _provider: None)
     monkeypatch.setattr(generator, "_generate_once", lambda *_: (_ for _ in ()).throw(RuntimeError("429 RESOURCE_EXHAUSTED")))
     monkeypatch.setattr("src.generator.time.sleep", lambda _: None)
 

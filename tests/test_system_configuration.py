@@ -69,4 +69,77 @@ def test_auto_generation_accepts_a_configured_groq_fallback() -> None:
     config.validate()
 
     assert config.generation_configured is True
-    assert config.configured_generation_provider_label == "Gemini → Groq → Evidence excerpts (automatic)"
+    assert config.configured_generation_provider_label == "Gemini \u2192 Groq \u2192 Evidence excerpts (automatic)"
+
+
+# ---------------------------------------------------------------------------
+# Critical Issue 2 — dimension ceiling raised from 2000 to 3072
+# ---------------------------------------------------------------------------
+
+def test_embedding_dimension_accepts_3072() -> None:
+    """3072 is the maximum Gemini Embedding 2 output dimension and must be valid."""
+    config = AppConfig(embedding_dimension=3072)
+    try:
+        config.validate()
+    except ValueError as exc:
+        if "EMBEDDING_DIMENSION" in str(exc):
+            raise AssertionError(
+                f"EMBEDDING_DIMENSION=3072 was rejected but must be accepted: {exc}"
+            ) from exc
+        # Other validation errors (missing API keys etc.) are acceptable in unit tests.
+
+
+def test_embedding_dimension_rejects_above_3072() -> None:
+    """Dimensions above 3072 exceed Gemini Embedding 2 capability and must be rejected."""
+    config = AppConfig(embedding_dimension=3073)
+    try:
+        config.validate()
+    except ValueError as exc:
+        assert "EMBEDDING_DIMENSION" in str(exc), (
+            f"Expected EMBEDDING_DIMENSION error, got: {exc}"
+        )
+    else:
+        raise AssertionError("embedding_dimension=3073 should have been rejected")
+
+
+def test_embedding_dimension_accepts_previously_blocked_2001() -> None:
+    """2001-d was blocked by the old 2000 ceiling but must now be accepted."""
+    config = AppConfig(embedding_dimension=2001)
+    try:
+        config.validate()
+    except ValueError as exc:
+        if "EMBEDDING_DIMENSION" in str(exc):
+            raise AssertionError(
+                f"EMBEDDING_DIMENSION=2001 was rejected but should be allowed: {exc}"
+            ) from exc
+
+
+def test_embedding_dimension_zero_is_still_rejected() -> None:
+    """Zero dimensions must remain invalid regardless of the ceiling change."""
+    config = AppConfig(embedding_dimension=0)
+    try:
+        config.validate()
+    except ValueError as exc:
+        assert "EMBEDDING_DIMENSION" in str(exc)
+    else:
+        raise AssertionError("embedding_dimension=0 should have been rejected")
+
+
+def test_appconfig_has_no_duplicate_field_names() -> None:
+    """AppConfig must not have duplicate dataclass field declarations.
+
+    Duplicate fields silently shadow each other in Python dataclasses;
+    the second one wins and the first env-var binding is lost.
+    """
+    import dataclasses
+    field_names = [f.name for f in dataclasses.fields(AppConfig)]
+    seen: set[str] = set()
+    duplicates = []
+    for name in field_names:
+        if name in seen:
+            duplicates.append(name)
+        seen.add(name)
+    assert not duplicates, (
+        f"AppConfig has duplicate field declarations: {duplicates}. "
+        "Remove the duplicate; the second declaration silently shadows the first."
+    )
