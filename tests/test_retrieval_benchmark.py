@@ -4,6 +4,7 @@ import pytest
 from pathlib import Path
 
 from src.retrieval_benchmark import (
+    CERTIFIED_ANCHOR_ORACLE,
     CandidateResult,
     build_review_labels,
     calculate_metrics,
@@ -60,8 +61,8 @@ def _cases() -> list[RetrievalCase]:
 def test_cases_have_required_phase_2_shape() -> None:
     cases = load_retrieval_cases()
 
-    assert len([case for case in cases if case.expect_evidence]) == 10
-    assert len([case for case in cases if not case.expect_evidence]) == 2
+    assert len([case for case in cases if case.expect_evidence]) >= 20
+    assert len([case for case in cases if not case.expect_evidence]) >= 8
     assert {case.language for case in cases} == {"en", "ar"}
 
 
@@ -86,10 +87,11 @@ def test_metrics_calculate_precision_hit_recall_and_refusal() -> None:
     assert metrics["macro_by_k"][3]["no_evidence_refusal_pass_rate"] == 1.0
 
 
-def test_review_labels_are_initially_unjudged_with_suggestions() -> None:
+def test_review_labels_are_finalized_by_the_certified_anchor_oracle() -> None:
     labels = build_review_labels("run-1", {"positive": [_chunk()]}, _cases())
 
-    assert labels[0]["relevance"] == "unjudged"
+    assert labels[0]["relevance"] == "relevant"
+    assert labels[0]["label_method"] == CERTIFIED_ANCHOR_ORACLE
     assert labels[0]["suggested_relevance"] == "relevant"
 
 

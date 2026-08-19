@@ -135,6 +135,94 @@
       "category": "all",
       "expect_evidence": false,
       "text_anchors": []
+    },
+    {
+      "case_id": "idf_en_prevalence_rephrased",
+      "query": "What was the worldwide number of adults aged 20–79 living with diabetes in 2024?",
+      "language": "en", "category": "all", "expect_evidence": true,
+      "expected_source_id": "idf_diabetes_atlas_2025", "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+      "expected_page": 46, "expected_section": "Key messages", "text_anchors": ["589 million adults aged 20"]
+    },
+    {
+      "case_id": "idf_ar_prevalence_rephrased",
+      "query": "كم بلغ عدد البالغين بين 20 و79 عاماً الذين يعيشون مع السكري في 2024؟",
+      "language": "ar", "category": "all", "expect_evidence": true,
+      "expected_source_id": "idf_diabetes_atlas_2025", "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+      "expected_page": 46, "expected_section": "Key messages", "text_anchors": ["589 million adults aged 20"]
+    },
+    {
+      "case_id": "idf_ar_undiagnosed",
+      "query": "كم عدد البالغين المصابين بالسكري الذين لا يعلمون بإصابتهم؟",
+      "language": "ar", "category": "all", "expect_evidence": true,
+      "expected_source_id": "idf_diabetes_atlas_2025", "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+      "expected_page": 46, "expected_section": "Key messages", "text_anchors": ["252 million adults living with diabetes are unaware"]
+    },
+    {
+      "case_id": "idf_en_expenditure_rephrased",
+      "query": "What was global diabetes-related health spending in 2024?",
+      "language": "en", "category": "all", "expect_evidence": true,
+      "expected_source_id": "idf_diabetes_atlas_2025", "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+      "expected_page": 66, "expected_section": "In 2024, the total global diabetes-related health expenditure", "text_anchors": ["total global diabetes-related health expenditure"]
+    },
+    {
+      "case_id": "idf_ar_regions",
+      "query": "إلى كم إقليماً يقسم الاتحاد الدولي للسكري تقديرات عام 2024؟",
+      "language": "ar", "category": "all", "expect_evidence": true,
+      "expected_source_id": "idf_diabetes_atlas_2025", "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+      "expected_page": 47, "expected_section": "3.1 Diabetes prevalence in 2024", "text_anchors": ["grouped into the seven IDF Regions"]
+    },
+    {
+      "case_id": "who_en_recommendation_count",
+      "query": "How many recommendations did the guideline development group issue for diabetes care during pregnancy?",
+      "language": "en", "category": "treatment", "expect_evidence": true,
+      "expected_source_id": "who_diabetes_pregnancy_2025", "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+      "expected_page": 27, "expected_section": "3", "text_anchors": ["GDG issued 27 recommendations"]
+    },
+    {
+      "case_id": "who_ar_monitoring_scope",
+      "query": "كم توصية من توصيات منظمة الصحة العالمية تتعلق بمراقبة الغلوكوز أثناء الحمل؟",
+      "language": "ar", "category": "treatment", "expect_evidence": true,
+      "expected_source_id": "who_diabetes_pregnancy_2025", "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+      "expected_page": 27, "expected_section": "3", "text_anchors": ["six on glucose monitoring"]
+    },
+    {
+      "case_id": "who_en_individualized_care",
+      "query": "What approach does WHO encourage when setting an individual glucose-control target during pregnancy?",
+      "language": "en", "category": "treatment", "expect_evidence": true,
+      "expected_source_id": "who_diabetes_pregnancy_2025", "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+      "expected_page": 38, "expected_section": "3.1.2 Glucose monitoring", "text_anchors": ["individualized approach is encouraged"]
+    },
+    {
+      "case_id": "who_ar_lifestyle_trial",
+      "query": "ما التجربة التي تُجرى عادة قبل التفكير في أدوية خفض الغلوكوز لسكر الحمل؟",
+      "language": "ar", "category": "treatment", "expect_evidence": true,
+      "expected_source_id": "who_diabetes_pregnancy_2025", "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+      "expected_page": 44, "expected_section": "3.1.3 Pharmacological treatment", "text_anchors": ["two-week trial of diet and physical activity"]
+    },
+    {
+      "case_id": "who_en_care_actions",
+      "query": "What support should be offered to a woman with diabetes during pregnancy for blood-glucose monitoring?",
+      "language": "en", "category": "treatment", "expect_evidence": true,
+      "expected_source_id": "who_diabetes_pregnancy_2025", "expected_document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+      "expected_page": 34, "expected_section": "3.1.2 Glucose monitoring", "text_anchors": ["support the woman in monitoring blood glucose"]
+    },
+    {
+      "case_id": "no_evidence_en_vague", "query": "Tell me more", "language": "en", "category": "all", "expect_evidence": false, "text_anchors": []
+    },
+    {
+      "case_id": "no_evidence_ar_vague", "query": "أخبرني المزيد", "language": "ar", "category": "all", "expect_evidence": false, "text_anchors": []
+    },
+    {
+      "case_id": "no_evidence_en_type2_cross_condition", "query": "What are the main risk factors for type 2 diabetes?", "language": "en", "category": "all", "expect_evidence": false, "text_anchors": []
+    },
+    {
+      "case_id": "no_evidence_ar_type1_cross_condition", "query": "ما جرعة الإنسولين المناسبة لسكري النوع الأول؟", "language": "ar", "category": "all", "expect_evidence": false, "text_anchors": []
+    },
+    {
+      "case_id": "no_evidence_en_football", "query": "Who won the football World Cup in 2022?", "language": "en", "category": "all", "expect_evidence": false, "text_anchors": []
+    },
+    {
+      "case_id": "no_evidence_ar_out_of_scope", "query": "ما هي عاصمة كندا؟", "language": "ar", "category": "all", "expect_evidence": false, "text_anchors": []
     }
   ]
 }

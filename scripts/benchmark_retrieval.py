@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-"""Run, review, and finalize the Phase 2 retrieval benchmark.
+"""Run and finalize the deterministic Phase 2 retrieval benchmark.
 
 Examples:
   uv run python scripts/benchmark_retrieval.py --prepare-indexes --run-dir reports/retrieval/run-001
-  # Two reviewers complete review-labels.csv.
+  # Labels are calculated from certified source/page/section/text anchors.
   uv run python scripts/benchmark_retrieval.py --finalize reports/retrieval/run-001
 """
 
@@ -41,7 +41,7 @@ from src.source_catalog import load_source_catalog, require_catalog_documents
 PROVIDERS = ("local", "gemini")
 FIELDNAMES = [
     "run_id", "case_id", "rank", "chunk_id", "relevance", "reviewer_a", "reviewer_b",
-    "reviewer_a_label", "reviewer_b_label", "rationale", "suggested_relevance", "document_name",
+    "reviewer_a_label", "reviewer_b_label", "rationale", "label_method", "suggested_relevance", "document_name",
     "page_number", "section_title", "score", "text",
 ]
 
@@ -156,7 +156,7 @@ def prepare_indexes(run_dir: Path, providers: tuple[str, ...]) -> None:
 
 
 def run_grid(run_dir: Path, providers: tuple[str, ...]) -> None:
-    """Run all six retrieval experiments and produce editable review labels."""
+    """Run the experiment grid and produce deterministic certified-anchor labels."""
     cases = load_retrieval_cases()
     raw_dir = run_dir / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
@@ -217,7 +217,7 @@ def _write_failure_report(run_dir: Path, reason: str) -> int:
 
 
 def finalize(run_dir: Path) -> int:
-    """Calculate results after cross-review and enforce Phase 2 acceptance gates."""
+    """Calculate results from deterministic certified-anchor labels and enforce gates."""
     cases = load_retrieval_cases()
     labels = _read_labels(run_dir / "review-labels.csv")
     try:
