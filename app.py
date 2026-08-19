@@ -131,8 +131,11 @@ def generate_from_evidence(
             if stage:
                 stage.__exit__(None, None, None)
     except Exception as e:
-        logger.error("Generation failed: %s", e)
         error_info = classify_gemini_error(e)
+        logger.warning(
+            "Generation provider route unavailable; using controlled fallback: code=%s",
+            error_info.code,
+        )
         if error_info.code in {"safety_blocked", "invalid_request"}:
             answer = (
                 response_text("invalid_request", is_arabic=is_ar)
