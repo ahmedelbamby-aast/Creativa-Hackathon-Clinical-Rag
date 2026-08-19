@@ -192,9 +192,12 @@ def health() -> dict[str, object]:
 
 
 @api.get("/api/ready", tags=["operations"])
-def ready(embedding_dimension: EmbeddingDimension | None = None) -> dict[str, object]:
+def ready(embedding_dimension: int | None = None) -> dict[str, object]:
     """Verify pgvector and the selected knowledge-base namespace."""
-    runtime = get_embedding_runtime(embedding_dimension)
+    try:
+        runtime = get_embedding_runtime(embedding_dimension)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     try:
         versions = runtime.vector_store.healthcheck()
         category_counts = runtime.vector_store.collection_stats()

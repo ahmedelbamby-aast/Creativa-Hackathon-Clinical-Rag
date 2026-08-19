@@ -63,6 +63,25 @@ def test_ready_reports_database_metadata(monkeypatch) -> None:
     assert result["pgvector"] == "0.8.6"
 
 
+def test_ready_query_dimension_is_parsed_and_invalid_values_are_rejected(monkeypatch) -> None:
+    runtime = server.get_embedding_runtime(768)
+    monkeypatch.setattr(runtime.vector_store, "healthcheck", lambda: {"postgres": "16", "pgvector": "0.8.6"})
+    monkeypatch.setattr(runtime.vector_store, "collection_stats", lambda: {"treatment": 1})
+    monkeypatch.setattr(
+        runtime.vector_store,
+        "namespace_audit",
+        lambda: {"document_count": 1, "documents": {"a.pdf": {"chunk_count": 1}}},
+    )
+    client = TestClient(server.api)
+
+    valid = client.get("/api/ready?embedding_dimension=768")
+    invalid = client.get("/api/ready?embedding_dimension=512")
+
+    assert valid.status_code == 200
+    assert valid.json()["embedding_dimension"] == 768
+    assert invalid.status_code == 422
+
+
 def test_index_serves_serverless_client() -> None:
     response = server.index()
 
