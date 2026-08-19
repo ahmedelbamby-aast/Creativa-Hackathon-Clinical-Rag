@@ -29,7 +29,7 @@ from src.config import config, CATEGORY_ALL, CATEGORY_TREATMENT, CATEGORY_PREVEN
 from src.memory import ConversationMemory
 from src.safety import classify_safety, get_disclaimer
 from src.prompts import build_user_prompt
-from src.citations import build_citation_list, build_debug_info
+from src.citations import build_citation_list, build_debug_info, normalize_inline_citations
 from src.generator import generator
 from src.extractive import build_extractive_answer
 from src.vector_store import vector_store
@@ -149,6 +149,8 @@ def generate_from_evidence(
             generator.mark_extractive_fallback()
         if trace:
             trace.error = f"generation:{error_info.code}"
+
+    answer = normalize_inline_citations(answer, len(chunks))
 
     # Step 8: Append safety disclaimer
     disclaimer = get_disclaimer(safety_level, is_arabic=is_ar)

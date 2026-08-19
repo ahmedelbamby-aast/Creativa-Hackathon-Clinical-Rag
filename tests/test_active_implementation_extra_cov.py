@@ -9,7 +9,12 @@ from __future__ import annotations
 
 import pytest
 from src.retriever import RetrievedChunk
-from src.citations import label_chunk_for_context, build_citation_list, build_debug_info
+from src.citations import (
+    build_citation_list,
+    build_debug_info,
+    label_chunk_for_context,
+    normalize_inline_citations,
+)
 from src.context_builder import build_context
 
 
@@ -81,6 +86,8 @@ def test_citations_module(sample_chunks):
     # 5. build_citation_list (English vs Arabic)
     assert "Sources:" in build_citation_list(sample_chunks, is_arabic=False)
     assert "المصادر:" in build_citation_list(sample_chunks, is_arabic=True)
+    assert normalize_inline_citations("Fact [ E1 | صفحة 12 ] and 【E2】.", 2) == "Fact [E1] and [E2]."
+    assert normalize_inline_citations("Unknown [E9]", 2) == "Unknown [E9]"
     assert build_citation_list([]) == ""
     
     # 6. build_debug_info

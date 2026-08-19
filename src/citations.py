@@ -10,10 +10,22 @@ Two citation modes:
 """
 
 import logging
+import re
 from src.retriever import RetrievedChunk
 from src.source_catalog import load_source_catalog
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_inline_citations(answer: str, evidence_count: int) -> str:
+    """Canonicalize provider citation variants to clickable ``[E#]`` markers."""
+    pattern = re.compile(r"(?:\[|【)\s*E\s*(\d+)[^\]】]*(?:\]|】)", re.IGNORECASE)
+
+    def replace(match: re.Match[str]) -> str:
+        index = int(match.group(1))
+        return f"[E{index}]" if 1 <= index <= evidence_count else match.group(0)
+
+    return pattern.sub(replace, answer)
 
 
 # ---------------------------------------------------------------------------
