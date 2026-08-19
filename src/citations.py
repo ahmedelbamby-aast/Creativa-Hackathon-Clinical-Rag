@@ -31,6 +31,16 @@ def normalize_inline_citations(answer: str, evidence_count: int) -> str:
     return pattern.sub(replace, answer)
 
 
+def ensure_inline_citations(answer: str, evidence_count: int, *, is_arabic: bool) -> str:
+    """Guarantee that every grounded answer links to its staged evidence cards."""
+    normalized = normalize_inline_citations(answer, evidence_count)
+    if evidence_count <= 0 or re.search(r"\[E\d+\]", normalized):
+        return normalized
+    label = "الأدلة" if is_arabic else "Evidence"
+    markers = " ".join(f"[E{index}]" for index in range(1, evidence_count + 1))
+    return f"{normalized.rstrip()}\n\n{label}: {markers}"
+
+
 # ---------------------------------------------------------------------------
 # Inline context labelling (for the prompt, not shown to user directly)
 # ---------------------------------------------------------------------------

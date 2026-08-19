@@ -12,6 +12,7 @@ from src.retriever import RetrievedChunk
 from src.citations import (
     build_citation_list,
     build_debug_info,
+    ensure_inline_citations,
     label_chunk_for_context,
     normalize_inline_citations,
 )
@@ -89,6 +90,11 @@ def test_citations_module(sample_chunks):
     assert normalize_inline_citations("Fact [ E1 | صفحة 12 ] and 【E2】.", 2) == "Fact [E1] and [E2]."
     assert normalize_inline_citations("حقيقة [إشارة إلى E1]", 2) == "حقيقة [E1]"
     assert normalize_inline_citations("Unknown [E9]", 2) == "Unknown [E9]"
+    assert ensure_inline_citations("Grounded fact.", 2, is_arabic=False).endswith(
+        "Evidence: [E1] [E2]"
+    )
+    assert ensure_inline_citations("حقيقة.", 1, is_arabic=True).endswith("الأدلة: [E1]")
+    assert ensure_inline_citations("Fact [E2]", 2, is_arabic=False) == "Fact [E2]"
     assert build_citation_list([]) == ""
     
     # 6. build_debug_info
