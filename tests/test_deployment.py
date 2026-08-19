@@ -118,6 +118,15 @@ def test_dashboard_has_plain_english_unavailable_reason_rendering() -> None:
     assert "measured_count" in content
 
 
+def test_dashboard_deltas_compare_adjacent_chronological_rows() -> None:
+    content = server.index().body.decode("utf-8")
+    assert "const chronological = traces.slice(-12);" in content
+    assert "const previous = originalIndex > 0 ? chronological[originalIndex - 1] : null;" in content
+    assert "<th>Precision@k</th><th>Recall@k</th>" in content
+    assert "metricValue(trace.quality_metrics?.precision_at_k)" in content
+    assert "metricValue(trace.quality_metrics?.recall_at_k)" in content
+
+
 def test_self_hosted_math_assets_are_served() -> None:
     client = TestClient(server.api)
 

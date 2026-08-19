@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import statistics
 import tempfile
 import threading
@@ -40,7 +41,7 @@ BENCHMARK_FILE = RUNTIME_DIR / "benchmark_history.jsonl"
 METRICS_SCHEMA_PATH = config.project_root / "database" / "metrics_schema.sql"
 
 FOUNDATIONAL_QUALITY_KEYS = ALL_QUALITY_METRICS
-METRIC_IMPLEMENTATION_VERSION = "2.1.0"
+METRIC_IMPLEMENTATION_VERSION = "2.2.0"
 
 
 @dataclass
@@ -340,7 +341,6 @@ class MetricsRepository:
 
     def read(self, limit: int = 200, conversation_id: str = "") -> list[dict[str, Any]]:
         try:
-            self.ensure_schema()
             where = "WHERE conversation_id = %s" if conversation_id else ""
             params: tuple[Any, ...] = (conversation_id, limit) if conversation_id else (limit,)
             with psycopg.connect(self.database_url, row_factory=dict_row) as connection:
@@ -382,7 +382,19 @@ def _percentile(values: list[float], percentile: float) -> float | None:
     if not values:
         return None
     ordered = sorted(values)
-    return round(ordered[round((len(ordered) - 1) * percentile)], 2)
+    rank = max(1, min(len(ordered), math.ceil(percentile * len(ordered))))
+    return round(ordered[rank - 1], 2)
+
+
+def _normalise_report_quality(record: dict[str, Any]) -> dict[str, Any]:
+    """Do not mix legacy unscoped numbers with reviewed v2 metric records."""
+    value = dict(record)
+    quality = dict(value.get("quality_metrics") or {})
+    for key, entry in list(quality.items()):
+        if entry is not None and not isinstance(entry, dict):
+            quality[key] = metric(None, False, "legacy_trace_missing_context")
+    value["quality_metrics"] = quality
+    return value
 
 
 def _metric_value(entry: Any) -> float | None:
@@ -404,7 +416,11 @@ def _metric_reason(entry: Any) -> str:
 
 
 def build_metrics_report(records: list[dict[str, Any]]) -> dict[str, Any]:
-    completed = [item for item in records if item.get("status") != "running"]
+    completed = [
+        _normalise_report_quality(item)
+        for item in records
+        if item.get("status") != "running"
+    ]
     total = len(completed)
     operational_failures = {"infrastructure_failure", "generation_error", "http_error", "timeout"}
     successful = sum(item.get("status") not in operational_failures for item in completed)
@@ -413,7 +429,7 @@ def build_metrics_report(records: list[dict[str, Any]]) -> dict[str, Any]:
             float(item.get("stages_ms", {}).get(name)) for item in completed
             if item.get("stages_ms", {}).get(name) is not None
         ]
-    latencies = [float(item.get("total_ms", 0)) for item in completed]
+    latencies = [float(item["total_ms"]) for item in completed if item.get("total_ms") is not None]
     def distribution(values: list[float]) -> dict[str, float | None]:
         return {"p50": _percentile(values, .5), "p95": _percentile(values, .95), "p99": _percentile(values, .99)}
     quality: dict[str, Any] = {}
@@ -436,7 +452,7 @@ def build_metrics_report(records: list[dict[str, Any]]) -> dict[str, Any]:
             "unavailable_reasons": reasons,
         }
     costs = [float(item["estimated_cost_usd"]) for item in completed if item.get("estimated_cost_usd") is not None]
-    tokens = [float(item.get("total_tokens", 0)) for item in completed]
+    tokens = [float(item["total_tokens"]) for item in completed if item.get("total_tokens") is not None]
     return {
         "summary": {
             "requests": total,

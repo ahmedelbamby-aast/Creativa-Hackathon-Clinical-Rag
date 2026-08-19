@@ -11,7 +11,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from src.config import config
 from src.observability import METRIC_IMPLEMENTATION_VERSION, RequestTrace, metrics_repository
+from src.quality_metrics import retrieval_metrics
 
 
 def backfill_records(records: list[dict], *, dry_run: bool, save=metrics_repository.save) -> dict[str, int | bool]:
@@ -22,6 +24,15 @@ def backfill_records(records: list[dict], *, dry_run: bool, save=metrics_reposit
             skipped += 1
             continue
         trace = RequestTrace.from_record(record)
+        if trace._gold_case is not None:
+            retrieval_values, labels = retrieval_metrics(
+                trace._gold_case,
+                record.get("retrieved_chunks", []),
+                int(record.get("top_k") or config.top_k),
+            )
+            trace.quality_metrics.update(retrieval_values)
+            trace.retrieval_relevance_labels = labels
+        trace.metric_implementation_version = METRIC_IMPLEMENTATION_VERSION
         trace.finish(record.get("status", "ok"), record.get("error", ""))
         patched = trace.serializable()
         patched["backfilled_at"] = datetime.now(timezone.utc).isoformat()

@@ -11,6 +11,7 @@ import json
 import math
 import re
 import unicodedata
+from collections import Counter
 from functools import lru_cache
 from typing import Any, Iterable
 
@@ -121,15 +122,27 @@ def _chunk_identity(chunk: Any) -> tuple[str, str, int, str]:
     return (str(_chunk_value(chunk, "chunk_id")), str(_chunk_value(chunk, "source_id")), int(_chunk_value(chunk, "page_number", 0) or 0), str(_chunk_value(chunk, "document_name")))
 
 
-def _relevance_grade(item: dict[str, Any], chunk: Any) -> int:
+def _relevance_grade(
+    item: dict[str, Any],
+    chunk: Any,
+    text_anchors: Iterable[str] = (),
+) -> int:
     chunk_id, source_id, page, document = _chunk_identity(chunk)
     expected_chunk = str(item.get("chunk_id", ""))
-    if expected_chunk:
-        return int(item.get("relevance_grade", 0) or 0) if chunk_id == expected_chunk else 0
+    grade = int(item.get("relevance_grade", 0) or 0)
+    if expected_chunk and chunk_id == expected_chunk:
+        return grade
     source_ok = not item.get("source_id") or str(item.get("source_id")) == source_id
     document_ok = not item.get("document_name") or str(item.get("document_name")) == document
     page_value = int(item.get("page_number", 0) or 0)
-    return int(item.get("relevance_grade", 0) or 0) if source_ok and document_ok and (not page_value or page_value == page) else 0
+    location_ok = source_ok and document_ok and (not page_value or page_value == page)
+    if not location_ok:
+        return 0
+    anchors = [normalize_text(anchor) for anchor in text_anchors if normalize_text(anchor)]
+    if expected_chunk and anchors:
+        text = normalize_text(str(_chunk_value(chunk, "text", "")))
+        return grade if any(anchor in text for anchor in anchors) else 0
+    return grade if not expected_chunk else 0
 
 
 def retrieval_metrics(case: dict[str, Any] | None, chunks: Iterable[Any], k: int) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
@@ -150,7 +163,13 @@ def retrieval_metrics(case: dict[str, Any] | None, chunks: Iterable[Any], k: int
         if identity in seen:
             continue
         seen.add(identity)
-        grade = max((_relevance_grade(item, chunk) for item in unique_pool.values()), default=0)
+        grade = max(
+            (
+                _relevance_grade(item, chunk, case.get("text_anchors", ()))
+                for item in unique_pool.values()
+            ),
+            default=0,
+        )
         ranked.append((chunk, grade))
         labels.append({"rank": len(ranked), "chunk_id": identity[0], "relevance_grade": grade})
     relevant = [grade > 0 for _, grade in ranked]
@@ -204,7 +223,13 @@ def task_success(case: dict[str, Any] | None, trace: dict[str, Any]) -> tuple[di
             if case.get("expected_status") == "ready":
                 accepted_statuses.update({"ok", "ok_with_fallback"})
             value = status in accepted_statuses
-        elif name == "required_claims_present": value = bool(case.get("required_claims")) and all(normalize_text(claim) in normalize_text(answer) for claim in case["required_claims"])
+        elif name == "required_claims_present":
+            answer_counts = Counter(normalize_text(answer).split())
+            required_claims = list(case.get("required_claims") or [])
+            value = bool(required_claims) and all(
+                not (Counter(normalize_text(claim).split()) - answer_counts)
+                for claim in required_claims
+            )
         elif name == "certified_citation_present":
             # The formatted citation list intentionally contains only human
             # readable document/page labels.  Check the preserved structured

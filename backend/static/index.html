@@ -323,7 +323,7 @@
         <svg id="trend-chart" class="trend-chart" viewBox="0 0 800 150" role="img" aria-label="Total response latency across completed chats"></svg>
       </div>
       <div class="metrics-table-wrap" role="region" tabindex="0" aria-label="Scrollable recent metrics table"><table class="metrics-table">
-        <thead><tr><th>Time</th><th>Chat / turn</th><th>Label match</th><th>Status</th><th>Total</th><th>Retrieval</th><th>Generation</th><th>Tokens</th><th>Hit@k</th><th>Token F1</th><th>Task success</th><th>Metric state</th><th>Δ total</th><th>Δ task</th></tr></thead>
+        <thead><tr><th>Time</th><th>Chat / turn</th><th>Label match</th><th>Status</th><th>Total</th><th>Retrieval</th><th>Generation</th><th>Tokens</th><th>Hit@k</th><th>Precision@k</th><th>Recall@k</th><th>Token F1</th><th>Task success</th><th>Metric state</th><th>Δ total</th><th>Δ task</th></tr></thead>
         <tbody id="metrics-rows"></tbody>
       </table></div>
     </section>
@@ -644,9 +644,10 @@
     }
     function renderMetricRows(traces) {
       const body = $('metrics-rows'); body.replaceChildren();
-      traces.slice(-12).reverse().forEach((trace, reverseIndex, shown) => {
-        const originalIndex = shown.length - 1 - reverseIndex;
-        const previous = originalIndex > 0 ? shown[originalIndex - 1] : null;
+      const chronological = traces.slice(-12);
+      chronological.slice().reverse().forEach((trace, reverseIndex) => {
+        const originalIndex = chronological.length - 1 - reverseIndex;
+        const previous = originalIndex > 0 ? chronological[originalIndex - 1] : null;
         const delta = previous ? Number(trace.total_ms) - Number(previous.total_ms) : null;
         const task = trace.quality_metrics?.task_success;
         const previousTask = previous?.quality_metrics?.task_success;
@@ -664,14 +665,18 @@
           trace.label_case_id ? `${trace.label_case_id} · ${trace.case_match_method || 'legacy'} · ${trace.reference_language || '—'}` : `— · ${trace.case_match_method || 'unlabeled query'}`,
           trace.status, `${Number(trace.total_ms || 0).toFixed(0)} ms`,
           `${Number(trace.stages_ms?.retrieval || 0).toFixed(0)} ms`, `${Number(trace.stages_ms?.generation || 0).toFixed(0)} ms`,
-          trace.total_tokens || 0, metricValue(trace.quality_metrics?.hit_rate_at_k), metricValue(trace.quality_metrics?.token_f1),
+          trace.total_tokens || 0,
+          metricValue(trace.quality_metrics?.hit_rate_at_k),
+          metricValue(trace.quality_metrics?.precision_at_k),
+          metricValue(trace.quality_metrics?.recall_at_k),
+          metricValue(trace.quality_metrics?.token_f1),
           metricValue(task), stateReason, delta === null ? '—' : `${delta >= 0 ? '+' : ''}${delta.toFixed(0)} ms`,
           taskDelta === null ? '—' : `${taskDelta >= 0 ? '+' : ''}${taskDelta.toFixed(3)}`,
         ];
         values.forEach((value, index) => {
           const cell = document.createElement('td'); cell.textContent = value;
-          if (index === 12 && delta !== null) cell.className = delta <= 0 ? 'delta-good' : 'delta-bad';
-          if (index === 13 && taskDelta !== null) cell.className = taskDelta >= 0 ? 'delta-good' : 'delta-bad';
+          if (index === 14 && delta !== null) cell.className = delta <= 0 ? 'delta-good' : 'delta-bad';
+          if (index === 15 && taskDelta !== null) cell.className = taskDelta >= 0 ? 'delta-good' : 'delta-bad';
           row.append(cell);
         });
         body.append(row);
