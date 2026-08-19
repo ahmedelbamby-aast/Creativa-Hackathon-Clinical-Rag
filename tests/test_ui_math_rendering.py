@@ -38,3 +38,16 @@ def test_math_rendering_remains_untrusted_and_has_plain_text_fallback() -> None:
     assert "maxExpand: 1000" in INDEX
     assert "node.textContent = latex.trim()" in INDEX
     assert "container.innerHTML" not in INDEX
+
+
+def test_incomplete_arabic_display_math_is_repaired_before_katex() -> None:
+    assert "function closeUnbalancedLatexBraces(latex)" in INDEX
+    assert "function repairIncompleteDisplayMath(content)" in INDEX
+    assert "closeUnbalancedLatexBraces(trimmed)" in INDEX
+    assert "const repairedContent = repairIncompleteDisplayMath(content)" in INDEX
+    assert "function splitArabicMathLabel(latex)" in INDEX
+    assert "node.dataset.mathLabel = parsed.label" in INDEX
+    assert "label.dir = 'rtl'" in INDEX
+    assert "target.className = 'math-katex'" in INDEX
+    assert "throwOnError: true" in INDEX
+    assert "node.dir = 'ltr'" in INDEX

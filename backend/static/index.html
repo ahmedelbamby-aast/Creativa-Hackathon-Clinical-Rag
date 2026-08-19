@@ -120,11 +120,15 @@
     .bubble a { color: var(--focus); font-weight: 800; text-underline-offset: 3px; }
     .math-display, .math-inline { direction: ltr; unicode-bidi: isolate; color: var(--text); white-space: normal; }
     .math-display {
+      display: flex; align-items: center; justify-content: center; gap: .55rem; flex-wrap: wrap;
       width: 100%; margin: 12px 0; padding: 14px 12px; overflow-x: auto;
       background: rgba(7, 17, 31, .58); border: 1px solid var(--border); border-radius: 11px;
       text-align: center;
     }
     .math-display .katex-display { margin: 0; }
+    .math-display.has-math-label { direction: rtl; }
+    .math-label { direction: rtl; unicode-bidi: isolate; font: inherit; color: var(--text); }
+    .math-katex { direction: ltr; unicode-bidi: isolate; }
     :root[data-theme="light"] .math-display { background: rgba(226,238,250,.7); }
     .math-inline { display: inline-block; max-width: 100%; overflow-x: auto; vertical-align: -.15em; }
     .math-pending, .math-error {
@@ -370,25 +374,68 @@
     }
 
     function isArabic(text) { return /[\u0600-\u06ff]/.test(text); }
+    function closeUnbalancedLatexBraces(latex) {
+      let depth = 0;
+      for (let index = 0; index < latex.length; index += 1) {
+        if (latex[index] === '\\') {
+          index += 1;
+        } else if (latex[index] === '{') {
+          depth += 1;
+        } else if (latex[index] === '}') {
+          if (depth === 0) return latex;
+          depth -= 1;
+        }
+      }
+      return `${latex}${'}'.repeat(depth)}`;
+    }
+    function repairIncompleteDisplayMath(content) {
+      return String(content).replace(
+        /\\\[((?:(?!\\\])[\s\S])*?)(?=\r?\n\s*\r?\n|$)/g,
+        (token, latex) => {
+          const trimmed = latex.trim();
+          const looksLikeMath = /(?:\\(?:frac|dfrac|tfrac|sqrt|text|times|div|cdot)|[=+*/^_{}])/u.test(trimmed);
+          if (!trimmed || !looksLikeMath) return token;
+          return `\\[${closeUnbalancedLatexBraces(trimmed)}\\]`;
+        },
+      );
+    }
+    function splitArabicMathLabel(latex) {
+      const match = latex.match(/^\\text\{([^{}]*[\u0600-\u06ff][^{}]*)\}\s*=\s*/u);
+      return match
+        ? { label: match[1].trim(), latex: latex.slice(match[0].length).trim() }
+        : { label: '', latex };
+    }
     function renderMathNode(node) {
       if (!window.katex) {
         pendingMath.add(node);
         return;
       }
       try {
-        window.katex.render(node.dataset.latex || '', node, {
+        const target = document.createElement('span');
+        target.className = 'math-katex';
+        window.katex.render(node.dataset.latex || '', target, {
           displayMode: node.classList.contains('math-display'),
           output: 'htmlAndMathml',
-          throwOnError: false,
+          throwOnError: true,
           strict: 'error',
           trust: false,
           maxSize: 10,
           maxExpand: 1000,
         });
+        node.replaceChildren();
+        if (node.dataset.mathLabel) {
+          const label = document.createElement('span');
+          label.className = 'math-label';
+          label.dir = 'rtl';
+          label.textContent = `${node.dataset.mathLabel} =`;
+          node.classList.add('has-math-label');
+          node.append(label);
+        }
+        node.append(target);
         node.classList.remove('math-pending', 'math-error');
         pendingMath.delete(node);
       } catch (_) {
-        node.textContent = node.dataset.latex || '';
+        node.textContent = node.dataset.originalLatex || node.dataset.latex || '';
         node.classList.remove('math-pending');
         node.classList.add('math-error');
         pendingMath.delete(node);
@@ -400,10 +447,14 @@
     function appendMath(container, token) {
       const display = token.startsWith('\\[') || token.startsWith('$$');
       const latex = token.startsWith('$$') ? token.slice(2, -2) : token.slice(2, -2);
+      const parsed = splitArabicMathLabel(latex.trim());
       const node = document.createElement(display ? 'div' : 'span');
       node.className = `${display ? 'math-display' : 'math-inline'} math-pending`;
-      node.dataset.latex = latex.trim();
+      node.dataset.latex = parsed.latex;
+      node.dataset.originalLatex = latex.trim();
+      node.dataset.mathLabel = parsed.label;
       node.textContent = latex.trim();
+      node.dir = 'ltr';
       node.setAttribute('aria-label', `${display ? 'Equation' : 'Inline equation'}: ${latex.trim()}`);
       container.append(node);
       renderMathNode(node);
@@ -429,7 +480,8 @@
       });
     }
     function appendRichText(container, content) {
-      const segments = String(content).split(/(\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$\$[\s\S]*?\$\$)/g);
+      const repairedContent = repairIncompleteDisplayMath(content);
+      const segments = repairedContent.split(/(\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$\$[\s\S]*?\$\$)/g);
       segments.forEach((segment) => {
         if (/^(?:\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$\$[\s\S]*?\$\$)$/.test(segment)) {
           appendMath(container, segment);
