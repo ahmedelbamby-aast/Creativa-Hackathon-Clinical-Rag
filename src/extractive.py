@@ -167,9 +167,8 @@ def build_extractive_answer(
             continue
         seen.add(normalized)
         page_label = "صفحة" if is_arabic else "Page"
-        source_label = "المصدر" if is_arabic else "Source"
-        page = f", {page_label} {chunk.page_number}" if chunk.page_number else ""
-        bullets.append(f"- {excerpt} **[{source_label} {index + 1}{page}]**")
+        page = f" ({page_label} {chunk.page_number})" if chunk.page_number else ""
+        bullets.append(f"- {excerpt} [E{index + 1}]{page}")
 
     if not bullets:
         empty = response_text("extractive_empty", is_arabic=is_arabic)

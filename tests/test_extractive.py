@@ -33,7 +33,7 @@ def test_extractive_answer_prefers_query_matching_sentence() -> None:
 
     assert answer.startswith("Based on the most relevant passages")
     assert "excess weight" in answer
-    assert "[Source 1, Page 7]" in answer
+    assert "[E1] (Page 7)" in answer
     assert "report structure" not in answer
 
 
@@ -52,7 +52,7 @@ def test_extractive_answer_expands_arabic_query_terms() -> None:
 
     assert answer.startswith("استنادًا")
     assert "Diabetes prevention" in answer
-    assert "[المصدر 1, صفحة 12]" in answer
+    assert "[E1] (صفحة 12)" in answer
 
 
 def test_extractive_answer_skips_short_duplicate_passages() -> None:
@@ -78,7 +78,7 @@ def test_extractive_answer_skips_fragments_and_uses_later_passage() -> None:
 
     assert "early-onset" not in answer
     assert "Regular physical activity" in answer
-    assert "[Source 2, Page 3]" in answer
+    assert "[E2] (Page 3)" in answer
 
 
 def test_extractive_answer_converts_matching_table_row_to_prose() -> None:
