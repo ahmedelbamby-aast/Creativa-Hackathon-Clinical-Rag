@@ -41,7 +41,7 @@ BENCHMARK_FILE = RUNTIME_DIR / "benchmark_history.jsonl"
 METRICS_SCHEMA_PATH = config.project_root / "database" / "metrics_schema.sql"
 
 FOUNDATIONAL_QUALITY_KEYS = ALL_QUALITY_METRICS
-METRIC_IMPLEMENTATION_VERSION = "2.2.0"
+METRIC_IMPLEMENTATION_VERSION = "2.3.0"
 
 
 @dataclass
@@ -194,7 +194,7 @@ class RequestTrace:
         self.total_ms = round((time.perf_counter() - self._started) * 1000, 2)
         if self._gold_case is None:
             self.attach_gold_case()
-        self.quality_metrics.update(answer_metrics(self.answer, self._gold_case, self.language or "en"))
+        self.quality_metrics.update(answer_metrics(self.answer, self._gold_case, self.language or "en", self.retrieved_chunks))
         task_value, self.task_rule_results = task_success(self._gold_case, self.serializable())
         self.quality_metrics["task_success"] = task_value
         for key in FOUNDATIONAL_QUALITY_KEYS:

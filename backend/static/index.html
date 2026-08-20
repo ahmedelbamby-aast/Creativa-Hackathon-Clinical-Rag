@@ -349,7 +349,7 @@
       </div>
       <div class="metrics-table-heading"><h3>Average metrics across chat sessions</h3><p>Each row adds one completed chat session to the cumulative average. Sessions have equal weight, and unmeasured quality values never count as zero. Green marks improvement; red marks regression.</p></div>
       <div class="metrics-table-wrap" role="region" tabindex="0" aria-label="Scrollable recent metrics table"><table class="metrics-table">
-        <thead><tr><th>Latest turn</th><th>Chat</th><th>Turns</th><th>Last status</th><th>Cumulative total</th><th>Cumulative retrieval</th><th>Cumulative generation</th><th>Cumulative tokens</th><th>Cumulative Hit@k</th><th>Cumulative Precision@k</th><th>Cumulative Recall@k</th><th>Cumulative Token F1</th><th>Cumulative task success</th><th>Measured sessions</th></tr></thead>
+        <thead><tr><th>Latest turn</th><th>Chat</th><th>Turns</th><th>Last status</th><th>Cumulative total</th><th>Cumulative retrieval</th><th>Cumulative generation</th><th>Cumulative tokens</th><th>Cumulative Hit@k</th><th>Cumulative Precision@k</th><th>Cumulative Recall@k</th><th>Cumulative Token F1</th><th>Cumulative Faithfulness</th><th>Cumulative task success</th><th>Measured sessions</th></tr></thead>
         <tbody id="metrics-rows"></tbody>
       </table></div>
     </section>
@@ -704,7 +704,7 @@
         hit_rate_at_k: 'Hit Rate@k', precision_at_k: 'Precision@k', recall_at_k: 'Recall@k',
         reciprocal_rank: 'MRR', average_precision: 'MAP', ndcg_at_k: 'nDCG@k',
         exact_match: 'Exact Match', token_precision: 'Token precision', token_recall: 'Token recall',
-        token_f1: 'Token F1', task_success: 'Task success',
+        token_f1: 'Token F1', faithfulness: 'Faithfulness', task_success: 'Task success',
       };
       const container = $('quality-grid'); container.replaceChildren();
       Object.entries(labels).forEach(([key, label]) => {
@@ -737,7 +737,7 @@
       });
     }
     function buildCumulativeSessionAverages(traces) {
-      const qualityKeys = ['hit_rate_at_k', 'precision_at_k', 'recall_at_k', 'token_f1', 'task_success'];
+      const qualityKeys = ['hit_rate_at_k', 'precision_at_k', 'recall_at_k', 'token_f1', 'faithfulness', 'task_success'];
       const sessions = new Map();
       traces.forEach((trace, index) => {
         const id = trace.conversation_id || `legacy-${trace.trace_id || index}`;
@@ -797,8 +797,9 @@
           cumulativeCell(session.cumulative.precision_at_k, session.deltas.precision_at_k),
           cumulativeCell(session.cumulative.recall_at_k, session.deltas.recall_at_k),
           cumulativeCell(session.cumulative.token_f1, session.deltas.token_f1),
+          cumulativeCell(session.cumulative.faithfulness, session.deltas.faithfulness),
           cumulativeCell(session.cumulative.task_success, session.deltas.task_success),
-          { text: `${session.measured_sessions.task_success}/${rows.indexOf(session) + 1} task · ${session.measured_sessions.hit_rate_at_k}/${rows.indexOf(session) + 1} retrieval`, className: '' },
+          { text: `${session.measured_sessions.task_success}/${rows.indexOf(session) + 1} task · ${session.measured_sessions.hit_rate_at_k}/${rows.indexOf(session) + 1} retrieval · ${session.measured_sessions.faithfulness}/${rows.indexOf(session) + 1} faith`, className: '' },
         ];
         values.forEach((value) => {
           const cell = document.createElement('td'); cell.textContent = value.text; cell.className = value.className;

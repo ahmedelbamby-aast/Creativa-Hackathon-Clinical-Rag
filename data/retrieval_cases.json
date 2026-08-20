@@ -1228,8 +1228,8 @@
       "category": "all",
       "expect_evidence": true,
       "expected_source_id": "idf_diabetes_atlas_2025",
-      "expected_document_name": "IDF Diabetes Atlas 11th Edition 2025.pdf",
-      "expected_page": 25,
+      "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+      "expected_page": 46,
       "text_anchors": [
         "589 million",
         "853 million"
@@ -1281,8 +1281,8 @@
       "category": "all",
       "expect_evidence": true,
       "expected_source_id": "idf_diabetes_atlas_2025",
-      "expected_document_name": "IDF Diabetes Atlas 11th Edition 2025.pdf",
-      "expected_page": 25,
+      "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+      "expected_page": 46,
       "text_anchors": [
         "589 million",
         "853 million"

@@ -240,7 +240,7 @@ def test_backfill_recomputes_reviewed_retrieval_for_rechunked_passage(monkeypatc
     result = backfill_records([record], dry_run=False, save=saved.append)
 
     assert result["updated"] == 1
-    assert saved[0]["metric_implementation_version"] == "2.2.0"
+    assert saved[0]["metric_implementation_version"] == "2.3.0"
     assert saved[0]["quality_metrics"]["hit_rate_at_k"]["value"] == 1.0
 
 
@@ -376,3 +376,63 @@ def test_latency_percentiles_use_nearest_rank_tail_definition():
 def test_public_metrics_api_redacts_chat_and_evidence_content(monkeypatch):
     monkeypatch.setattr(server, "metrics_report", lambda **_: {"summary": {}, "traces": [{"trace_id": "t", "query": "secret", "answer": "secret", "retrieved_chunks": ["secret"], "quality_metrics": {}}]})
     assert server.foundational_metrics()["traces"] == [{"trace_id": "t", "quality_metrics": {}}]
+
+
+# ── Faithfulness Score tests ──────────────────────────────────────────────
+
+
+def test_faithfulness_score_supported_claims_from_context():
+    """When all answer claims are grounded in context, faithfulness should be 1.0."""
+    case = reviewed_case()
+    context_chunks = [chunk("a", 1, text="589 million adults aged 20 to 79 were living with diabetes in 2024.")]
+    answer = "589 million adults aged 20 to 79 were living with diabetes in 2024."
+    values = quality_metrics.answer_metrics(answer, case, "en", context_chunks)
+    assert values["faithfulness"]["applicable"] is True
+    assert values["faithfulness"]["value"] == 1.0
+
+
+def test_faithfulness_score_unsupported_claims_lower_score():
+    """Adding unsupported claims should lower the faithfulness score."""
+    case = reviewed_case()
+    context_chunks = [chunk("a", 1, text="589 million adults aged 20 to 79 were living with diabetes in 2024.")]
+    # The first sentence is grounded; the second is fabricated.
+    answer = "589 million adults were living with diabetes. The moon is made of cheese and has no relation to diabetes."
+    values = quality_metrics.answer_metrics(answer, case, "en", context_chunks)
+    assert values["faithfulness"]["applicable"] is True
+    assert values["faithfulness"]["value"] is not None
+    assert values["faithfulness"]["value"] < 1.0
+
+
+def test_faithfulness_unavailable_for_unlabeled_queries():
+    """Faithfulness must be not-applicable when there is no gold case."""
+    values = quality_metrics.answer_metrics("Some answer.", None, "en", [])
+    assert values["faithfulness"]["applicable"] is False
+    assert values["faithfulness"]["reason"] == "unlabeled_query"
+
+
+def test_faithfulness_unavailable_for_negative_cases():
+    """Faithfulness must be not-applicable for out-of-scope / negative cases."""
+    negative = reviewed_case(expect_evidence=False, expected_status="needs_clarification")
+    values = quality_metrics.answer_metrics("Some answer.", negative, "en", [])
+    assert values["faithfulness"]["applicable"] is False
+    assert values["faithfulness"]["reason"] == "negative_case_not_applicable"
+
+
+def test_faithfulness_included_in_trace_finish(monkeypatch):
+    """The faithfulness metric must appear in the serialised trace after finish()."""
+    case = reviewed_case()
+    monkeypatch.setattr("src.observability.match_case", lambda *_: (case, "explicit_case_id"))
+    monkeypatch.setattr("src.observability.gold_dataset", lambda: {"version": "v2", "cases": [case]})
+    trace = observability.RequestTrace("question", "all", requested_case_id="case-1")
+    trace.capture_retrieval(SimpleNamespace(
+        routed_category="all", namespace="local", index_manifest_hash="h",
+        chunks=(chunk("a", 1, text="The value is 589 million adults aged 20 to 79."),),
+    ))
+    trace.capture_generation("The value is 589 million adults.", "extractive", "", citations="source")
+    trace.finish("ok")
+    record = trace.serializable()
+    assert "faithfulness" in record["quality_metrics"]
+    assert record["quality_metrics"]["faithfulness"]["applicable"] is True
+    assert record["quality_metrics"]["faithfulness"]["value"] is not None
+    assert record["quality_metrics"]["faithfulness"]["value"] > 0.0
+

@@ -19,10 +19,11 @@ from src.config import config
 
 _TOKEN = re.compile(r"\w+", re.UNICODE)
 _EVIDENCE_CITATION = re.compile(r"\[E\d+\]", re.IGNORECASE)
+_SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?؟])\s+|\n+")
 _CASES_PATH = config.project_root / "data" / "retrieval_cases.json"
 GOLD_DATASET_FALLBACK_VERSION = "legacy-1"
 RETRIEVAL_METRICS = ("hit_rate_at_k", "precision_at_k", "recall_at_k", "reciprocal_rank", "average_precision", "ndcg_at_k")
-ANSWER_METRICS = ("exact_match", "token_precision", "token_recall", "token_f1")
+ANSWER_METRICS = ("exact_match", "token_precision", "token_recall", "token_f1", "faithfulness")
 TASK_METRIC = "task_success"
 ALL_QUALITY_METRICS = RETRIEVAL_METRICS + ANSWER_METRICS + (TASK_METRIC,)
 
@@ -84,6 +85,41 @@ def scoreable_answer(answer: str) -> str:
             cleaned = cleaned[: -len(disclaimer)]
             break
     return _EVIDENCE_CITATION.sub("", cleaned).strip()
+
+
+def faithfulness_score(answer: str, chunks: Iterable[Any]) -> float | None:
+    """Deterministic claim-level faithfulness: fraction of answer claims grounded in context.
+
+    Each sentence in the cleaned answer is a claim.  A claim is supported when
+    at least half of its substantive normalised tokens appear somewhere in the
+    concatenated context text.  This avoids LLM-as-a-judge while still giving a
+    meaningful grounding signal.
+
+    Returns ``None`` when the answer or context is empty.
+    """
+    evaluated = scoreable_answer(answer)
+    if not evaluated:
+        return None
+    context_tokens: set[str] = set()
+    for chunk in chunks:
+        text = chunk.get("text", "") if isinstance(chunk, dict) else getattr(chunk, "text", "")
+        context_tokens.update(normalize_text(text).split())
+    if not context_tokens:
+        return None
+    claims = [sentence.strip() for sentence in _SENTENCE_BOUNDARY.split(evaluated) if sentence.strip()]
+    if not claims:
+        # Single non-sentence-terminated answer — treat the whole text as one claim.
+        claims = [evaluated]
+    supported = 0
+    for claim in claims:
+        claim_tokens = normalize_text(claim).split()
+        if not claim_tokens:
+            continue
+        overlap = sum(1 for token in claim_tokens if token in context_tokens)
+        if overlap / len(claim_tokens) >= 0.5:
+            supported += 1
+    total = len(claims)
+    return round(supported / total, 6) if total else None
 
 
 def _legacy_relevant_item(case: dict[str, Any]) -> list[dict[str, Any]]:
@@ -223,7 +259,7 @@ def retrieval_metrics(case: dict[str, Any] | None, chunks: Iterable[Any], k: int
     }, labels
 
 
-def answer_metrics(answer: str, case: dict[str, Any] | None, answer_language: str) -> dict[str, dict[str, Any]]:
+def answer_metrics(answer: str, case: dict[str, Any] | None, answer_language: str, chunks: Iterable[Any] = ()) -> dict[str, dict[str, Any]]:
     if not case:
         return unavailable_metrics(ANSWER_METRICS, "unlabeled_query")
     if not case.get("expect_evidence"):
@@ -238,7 +274,10 @@ def answer_metrics(answer: str, case: dict[str, Any] | None, answer_language: st
     evaluated_answer = scoreable_answer(answer)
     best = max((token_overlap(evaluated_answer, reference) for reference in references), key=lambda value: value["token_f1"])
     exact = float(any(normalize_text(evaluated_answer) == normalize_text(reference) for reference in references))
-    return {"exact_match": metric(exact, True), **{name: metric(value, True) for name, value in best.items()}}
+    faith = faithfulness_score(answer, chunks)
+    result = {"exact_match": metric(exact, True), **{name: metric(value, True) for name, value in best.items()}}
+    result["faithfulness"] = metric(faith, faith is not None, "" if faith is not None else "no_context_for_faithfulness")
+    return result
 
 
 def task_success(case: dict[str, Any] | None, trace: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
