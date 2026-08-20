@@ -353,6 +353,11 @@ class MetricsRepository:
                 for item in [*self._deduplicated_json(), *database_records]
             }
             records = sorted(merged.values(), key=lambda item: item.get("timestamp", ""))
+            if conversation_id:
+                records = [
+                    item for item in records
+                    if item.get("conversation_id") == conversation_id
+                ]
             return records[-limit:]
         except Exception:
             records = self._deduplicated_json()

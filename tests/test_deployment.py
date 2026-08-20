@@ -112,19 +112,40 @@ def test_metrics_guide_serves_plain_english_foundational_definitions() -> None:
 
 def test_dashboard_has_plain_english_unavailable_reason_rendering() -> None:
     content = server.index().body.decode("utf-8")
-    assert "metricReasonText" in content
-    assert "missing_reference_answer" in content
-    assert "Not measured:" in content
     assert "measured_count" in content
+    assert "unavailable_reasons).map" not in content
+    assert "this is a safe refusal case" not in content
+    assert "this older trace lacks evaluation context" not in content
+    assert "this chat has no reviewed label" not in content
 
 
-def test_dashboard_deltas_compare_adjacent_chronological_rows() -> None:
+def test_dashboard_separates_current_chat_from_cumulative_session_averages() -> None:
     content = server.index().body.decode("utf-8")
-    assert "const chronological = traces.slice(-12);" in content
-    assert "const previous = originalIndex > 0 ? chronological[originalIndex - 1] : null;" in content
-    assert "<th>Precision@k</th><th>Recall@k</th>" in content
-    assert "metricValue(trace.quality_metrics?.precision_at_k)" in content
-    assert "metricValue(trace.quality_metrics?.recall_at_k)" in content
+    assert "Current chat quality" in content
+    assert "conversation_id=${encodeURIComponent(state.conversationId)}" in content
+    assert "function buildCumulativeSessionAverages(traces)" in content
+    assert "Average metrics across chat sessions" in content
+    assert "Cumulative Precision@k" in content and "Cumulative Recall@k" in content
+    assert "unmeasured quality values never count as zero" in content
+    assert "improved ? 'delta-good' : 'delta-bad'" in content
+
+
+def test_evidence_and_sources_panels_are_dynamic_and_expandable() -> None:
+    content = server.index().body.decode("utf-8")
+    assert 'id="evidence-panel" class="card panel resizable-panel"' in content
+    assert 'id="sources-panel" class="card panel resizable-panel"' in content
+    assert "function sizeResourcePanel(container, itemCount, pixelsPerItem)" in content
+    assert "function toggleExpandedPanel(panelId)" in content
+    assert "data-expand-panel=\"evidence-panel\"" in content
+    assert "data-expand-panel=\"sources-panel\"" in content
+    assert "if (event.key === 'Escape') closeExpandedPanel()" in content
+
+
+def test_category_and_dimension_selectors_share_the_same_baseline() -> None:
+    content = server.index().body.decode("utf-8")
+    assert ".selector-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: end; }" in content
+    assert ".selector-field select { height: 54px; }" in content
+    assert "Choose once when starting a session. Clear the chat to switch." not in content
 
 
 def test_self_hosted_math_assets_are_served() -> None:

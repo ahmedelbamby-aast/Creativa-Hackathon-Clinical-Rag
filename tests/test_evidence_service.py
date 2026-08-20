@@ -157,6 +157,48 @@ def test_condition_and_intent_guard_rejects_bibliographic_near_match(monkeypatch
     assert not envelope.chunks
 
 
+def test_type_2_risk_factor_guard_rejects_cross_condition_lists(monkeypatch) -> None:
+    _ready_manifest(monkeypatch)
+    chunk = _chunk()
+    chunk.text = "Risk factors for GDM include older age. GDM can predispose to type 2 diabetes."
+    monkeypatch.setattr(evidence_service, "retrieve", lambda *args, **kwargs: [chunk])
+
+    envelope = evidence_service.stage_evidence(
+        "What are the main risk factors for type 2 diabetes?", "all"
+    )
+
+    assert envelope.status == "out_of_scope"
+    assert not envelope.chunks
+
+
+def test_specific_dose_request_is_refused_before_retrieval(monkeypatch) -> None:
+    monkeypatch.setattr(
+        evidence_service,
+        "retrieve",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("retrieval must not run")),
+    )
+
+    envelope = evidence_service.stage_evidence(
+        "ما جرعة الإنسولين المناسبة لسكري النوع الأول؟", "all"
+    )
+
+    assert envelope.status == "out_of_scope"
+    assert not envelope.chunks
+
+
+def test_invented_diabetes_type_is_refused_before_retrieval(monkeypatch) -> None:
+    monkeypatch.setattr(
+        evidence_service,
+        "retrieve",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("retrieval must not run")),
+    )
+
+    envelope = evidence_service.stage_evidence("ما هو سكري النوع التاسع؟", "all")
+
+    assert envelope.status == "out_of_scope"
+    assert not envelope.chunks
+
+
 def test_hosted_index_uses_runtime_fingerprint_without_local_manifest(monkeypatch) -> None:
     monkeypatch.setattr(evidence_service.config, "app_env", "deployment")
     monkeypatch.setattr(evidence_service, "load_index_manifest", lambda _: None)

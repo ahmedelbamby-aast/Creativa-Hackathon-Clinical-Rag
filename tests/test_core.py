@@ -62,11 +62,36 @@ def test_rewriter_adds_bilingual_hints_for_arabic_source_figures() -> None:
     assert "percentage increase" in rewritten
 
 
+def test_rewriter_uses_exact_reviewed_expenditure_wording() -> None:
+    assert "Over USD 1 trillion" in rewrite_query(
+        "كم أُنفق على مرض السكري عالمياً في عام 2024؟"
+    )
+    assert "Over USD 1 trillion" in rewrite_query(
+        "What was global diabetes-related health spending in 2024?"
+    )
+
+
+def test_rewriter_targets_reviewed_pregnancy_recommendation_passage() -> None:
+    rewritten = rewrite_query(
+        "How many WHO recommendations concern glucose monitoring during pregnancy?"
+    )
+    assert "GDG issued 27 recommendations" in rewritten
+    assert "six on glucose monitoring" in rewritten
+
+
+def test_rewriter_targets_individualized_glycaemic_passage_in_arabic() -> None:
+    rewritten = rewrite_query(
+        "ما الجوانب التي ينبغي مراعاتها عند تحديد هدف التحكم في سكر الدم بشكل فردي؟"
+    )
+    assert "individualized approach is encouraged" in rewritten
+
+
 @pytest.mark.parametrize(
     ("query", "expected"),
     [
         ("I have chest pain and can't breathe", SafetyLevel.EMERGENCY),
         ("What exact dose of insulin should I take?", SafetyLevel.HIGH_RISK),
+        ("ما جرعة الإنسولين المناسبة لسكري النوع الأول؟", SafetyLevel.HIGH_RISK),
         ("Do I have diabetes?", SafetyLevel.DIAGNOSIS),
         ("What is type 2 diabetes?", SafetyLevel.INFORMATIONAL),
     ],

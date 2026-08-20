@@ -96,9 +96,9 @@
     .card { background: color-mix(in srgb, var(--surface) 94%, transparent); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
     .chat-card { min-width: 0; overflow: hidden; }
     .toolbar { display: grid; gap: 8px; padding: 18px 18px 0; }
-    .selector-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-    .selector-field { display: grid; gap: 8px; }
-    .dimension-note { color: var(--muted); font-size: .78rem; margin: 0; }
+    .selector-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: end; }
+    .selector-field { display: grid; grid-template-rows: auto 54px; gap: 8px; }
+    .selector-field select { height: 54px; }
     label, .label { color: var(--muted); font-size: .88rem; font-weight: 700; }
     input, select, textarea {
       width: 100%; color: var(--text); background: var(--surface-soft);
@@ -150,9 +150,25 @@
     button:disabled { cursor: not-allowed; opacity: .46; }
     .feedback { min-height: 26px; color: var(--muted); }
     .feedback.error { color: var(--danger); }
-    .sidebar { display: grid; gap: 18px; }
+    .sidebar {
+      display: grid; gap: 18px; width: clamp(340px, 32vw, 520px); min-width: 300px;
+      max-width: min(70vw, 860px); resize: horizontal; overflow: auto;
+    }
     .panel { padding: 18px; }
     .panel h2 { margin: 0 0 12px; font-size: 1rem; }
+    .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .panel-heading h2 { margin: 0; }
+    .panel-expand { min-height: 36px; padding: 5px 10px; font-size: .74rem; }
+    .resize-hint { margin: 0 0 10px; color: var(--muted); font-size: .72rem; }
+    .resizable-panel { min-height: 150px; max-height: 85dvh; resize: vertical; overflow: auto; }
+    .resizable-content { min-height: 54px; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+    body.has-expanded-panel { overflow: hidden; }
+    body.has-expanded-panel::before { content: ''; position: fixed; inset: 0; z-index: 40; background: rgba(2, 8, 20, .72); backdrop-filter: blur(5px); }
+    .resizable-panel.panel-expanded {
+      position: fixed; inset: clamp(12px, 4vw, 46px); z-index: 50; width: auto !important; height: auto !important;
+      max-width: none; max-height: none; resize: none; overflow: auto; box-shadow: 0 28px 90px rgba(0,0,0,.5);
+    }
+    .resizable-panel.panel-expanded .resizable-content { max-height: calc(100dvh - 170px) !important; }
     .sources, .evidence { color: var(--muted); overflow-wrap: anywhere; }
     .evidence { max-height: 440px; overflow: auto; font-size: .86rem; }
     .evidence-card, .source-card {
@@ -192,8 +208,11 @@
     .trend-chart { width: 100%; min-width: 560px; height: 150px; display: block; background: var(--surface-soft); border: 1px solid var(--border); border-radius: 12px; }
     .trend-line { fill: none; stroke: var(--accent); stroke-width: 3; vector-effect: non-scaling-stroke; }
     .trend-dot { fill: var(--focus); }
-    .metrics-table-wrap { margin-top: 14px; overflow-x: auto; }
-    .metrics-table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: .8rem; }
+    .metrics-table-heading { margin-top: 20px; }
+    .metrics-table-heading h3 { margin: 0; font-size: 1rem; }
+    .metrics-table-heading p { margin: 5px 0 0; color: var(--muted); font-size: .8rem; }
+    .metrics-table-wrap { margin-top: 10px; overflow-x: auto; }
+    .metrics-table { width: 100%; min-width: 1160px; border-collapse: collapse; font-size: .8rem; }
     .metrics-table th, .metrics-table td { padding: 9px; text-align: start; border-bottom: 1px solid var(--border); }
     .metrics-table th { color: var(--muted); }
     .delta-good { color: var(--success); } .delta-bad { color: var(--danger); }
@@ -206,7 +225,8 @@
     @media (max-width: 780px) {
       .shell { width: min(100% - 24px, 680px); padding-top: 24px; }
       .workspace { grid-template-columns: 1fr; }
-      .sidebar { grid-template-columns: 1fr; }
+      .sidebar { grid-template-columns: 1fr; width: 100%; min-width: 0; max-width: none; resize: none; overflow: visible; }
+      .resizable-panel { width: 100%; min-width: 0; resize: vertical; }
       .conversation { max-height: none; }
       .selector-grid { grid-template-columns: 1fr; }
       .bubble { max-width: 92%; }
@@ -275,7 +295,6 @@
               <select id="embedding-dimension" disabled>
                 <option value="">Loading indexed dimensions…</option>
               </select>
-              <p class="dimension-note">Choose once when starting a session. Clear the chat to switch.</p>
             </div>
           </div>
         </div>
@@ -294,13 +313,15 @@
       </section>
 
       <aside class="sidebar" aria-label="Sources and examples">
-        <section class="card panel">
-          <h2>Retrieved evidence</h2>
-          <div id="evidence" class="evidence">Evidence will appear here before an answer is generated.</div>
+        <section id="evidence-panel" class="card panel resizable-panel">
+          <div class="panel-heading"><h2>Retrieved evidence</h2><button class="panel-expand" type="button" data-expand-panel="evidence-panel" aria-expanded="false">Expand</button></div>
+          <p class="resize-hint">Auto-sizes to the evidence. Drag the panel edge or expand for a larger reading view.</p>
+          <div id="evidence" class="evidence resizable-content">Evidence will appear here before an answer is generated.</div>
         </section>
-        <section class="card panel">
-          <h2>Sources</h2>
-          <div id="sources" class="sources">Sources will appear after your first question.</div>
+        <section id="sources-panel" class="card panel resizable-panel">
+          <div class="panel-heading"><h2>Sources</h2><button class="panel-expand" type="button" data-expand-panel="sources-panel" aria-expanded="false">Expand</button></div>
+          <p class="resize-hint">Auto-sizes to the source list. Drag vertically or open the expanded view.</p>
+          <div id="sources" class="sources resizable-content">Sources will appear after your first question.</div>
           <details id="debug-wrap" hidden>
             <summary>Developer diagnostics</summary>
             <pre id="debug"></pre>
@@ -316,8 +337,8 @@
     <section id="metrics-section" class="card metrics-panel" aria-labelledby="metrics-heading">
       <div class="metrics-header">
         <div>
-          <div class="metrics-title-row"><h2 id="metrics-heading">Foundational quality over time</h2><span class="live-badge">Live telemetry</span></div>
-          <p class="metrics-copy">Operational metrics cover every chat. Retrieval and answer quality are shown only for matched gold cases; “Not measured” is never treated as zero.</p>
+          <div class="metrics-title-row"><h2 id="metrics-heading">Current chat quality</h2><span class="live-badge">Live telemetry</span></div>
+          <p class="metrics-copy">These cards and the latency trend cover only this browser chat session. Quality is shown only for matched gold cases; “Not measured” is never treated as zero.</p>
         </div>
         <button id="refresh-metrics" type="button">Refresh metrics</button>
       </div>
@@ -326,8 +347,9 @@
       <div class="trend-wrap" role="region" tabindex="0" aria-label="Scrollable latency trend chart">
         <svg id="trend-chart" class="trend-chart" viewBox="0 0 800 150" role="img" aria-label="Total response latency across completed chats"></svg>
       </div>
+      <div class="metrics-table-heading"><h3>Average metrics across chat sessions</h3><p>Each row adds one completed chat session to the cumulative average. Sessions have equal weight, and unmeasured quality values never count as zero. Green marks improvement; red marks regression.</p></div>
       <div class="metrics-table-wrap" role="region" tabindex="0" aria-label="Scrollable recent metrics table"><table class="metrics-table">
-        <thead><tr><th>Time</th><th>Chat / turn</th><th>Label match</th><th>Status</th><th>Total</th><th>Retrieval</th><th>Generation</th><th>Tokens</th><th>Hit@k</th><th>Precision@k</th><th>Recall@k</th><th>Token F1</th><th>Task success</th><th>Metric state</th><th>Δ total</th><th>Δ task</th></tr></thead>
+        <thead><tr><th>Latest turn</th><th>Chat</th><th>Turns</th><th>Last status</th><th>Cumulative total</th><th>Cumulative retrieval</th><th>Cumulative generation</th><th>Cumulative tokens</th><th>Cumulative Hit@k</th><th>Cumulative Precision@k</th><th>Cumulative Recall@k</th><th>Cumulative Token F1</th><th>Cumulative task success</th><th>Measured sessions</th></tr></thead>
         <tbody id="metrics-rows"></tbody>
       </table></div>
     </section>
@@ -350,18 +372,6 @@
     const send = $('send');
     const conversation = $('conversation');
     const pendingMath = new Set();
-    const metricReasonText = {
-      unlabeled_query: 'this chat has no reviewed label',
-      missing_relevance_judgments: 'the reviewed relevance labels are incomplete',
-      missing_reference_answer: 'this chat has no reviewed reference answer',
-      missing_required_claims: 'the reviewed required claims are incomplete',
-      reference_language_mismatch: 'the reviewed reference is in another language',
-      negative_case_not_applicable: 'this is a safe refusal case',
-      legacy_trace_missing_context: 'this older trace lacks evaluation context',
-      pricing_not_configured: 'pricing has not been configured',
-      stage_not_present: 'that pipeline stage did not run',
-      reranker_not_configured: 'no reranker is configured',
-    };
 
     function applyTheme(theme, persist = false) {
       const resolved = theme === 'light' ? 'light' : 'dark';
@@ -530,9 +540,33 @@
         return url.protocol === 'https:' ? url.href : '';
       } catch (_) { return ''; }
     }
+    function sizeResourcePanel(container, itemCount, pixelsPerItem) {
+      const target = Math.min(Math.max(120, 92 + itemCount * pixelsPerItem), Math.round(window.innerHeight * 0.68));
+      container.style.maxHeight = `${target}px`;
+    }
+    function closeExpandedPanel() {
+      const panel = document.querySelector('.resizable-panel.panel-expanded');
+      if (!panel) return;
+      panel.classList.remove('panel-expanded');
+      document.body.classList.remove('has-expanded-panel');
+      const button = panel.querySelector('.panel-expand');
+      if (button) { button.textContent = 'Expand'; button.setAttribute('aria-expanded', 'false'); button.focus(); }
+    }
+    function toggleExpandedPanel(panelId) {
+      const panel = $(panelId);
+      if (!panel) return;
+      const alreadyExpanded = panel.classList.contains('panel-expanded');
+      closeExpandedPanel();
+      if (alreadyExpanded) return;
+      panel.classList.add('panel-expanded');
+      document.body.classList.add('has-expanded-panel');
+      const button = panel.querySelector('.panel-expand');
+      if (button) { button.textContent = 'Close'; button.setAttribute('aria-expanded', 'true'); }
+    }
     function renderEvidence(chunks) {
       const container = $('evidence');
       container.replaceChildren();
+      sizeResourcePanel(container, chunks.length, 112);
       if (!chunks.length) {
         container.textContent = 'No usable evidence was retrieved for this question.';
         return;
@@ -561,6 +595,7 @@
     function renderSources(sources, fallback = '') {
       const container = $('sources');
       container.replaceChildren();
+      sizeResourcePanel(container, sources.length, 88);
       if (!sources.length) {
         container.textContent = fallback || 'No sources were used for this response.';
         return;
@@ -631,11 +666,21 @@
       if (kind === 'percent') return `${(Number(value) * 100).toFixed(1)}%`;
       if (kind === 'ms') return `${Number(value).toFixed(0)} ms`;
       if (kind === 'usd') return `$${Number(value).toFixed(6)}`;
+      if (kind === 'count') return Number(value).toFixed(0);
       return Number(value).toFixed(3);
+    }
+    function measuredMetricValue(entry) {
+      if (entry && typeof entry === 'object') {
+        return entry.applicable && entry.value !== null && entry.value !== undefined ? Number(entry.value) : null;
+      }
+      return entry === null || entry === undefined ? null : Number(entry);
+    }
+    function average(values) {
+      return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
     }
     function renderMetricCards(summary) {
       const values = [
-        ['Chats', summary.conversations], ['Requests', summary.requests],
+        ['Current chat', summary.requests ? 'Active' : 'No turns yet'], ['Turns', summary.requests],
         ['Availability', metricValue(summary.availability, 'percent')],
         ['Error rate', metricValue(summary.error_rate, 'percent')],
         ['Total p50', metricValue(summary.latency_ms.total.p50, 'ms')],
@@ -666,10 +711,7 @@
         const metric = quality[key] || { mean: null, measured_count: 0 };
         const item = document.createElement('div'); item.className = 'quality-item';
         const value = document.createElement('strong'); value.textContent = metricValue(metric.mean);
-        const suffix = metric.unavailable_reasons && Object.keys(metric.unavailable_reasons).length
-          ? ` · ${Object.entries(metric.unavailable_reasons).map(([reason, count]) => `${count}: ${metricReasonText[reason] || reason.replaceAll('_', ' ')}`).join(', ')}`
-          : '';
-        item.append(value, document.createTextNode(`${label} · ${metric.measured_count}/${metric.eligible_count ?? metric.measured_count} measured${suffix}`));
+        item.append(value, document.createTextNode(`${label} · ${metric.measured_count}/${metric.eligible_count ?? metric.measured_count} measured`));
         container.append(item);
       });
     }
@@ -694,41 +736,72 @@
         const title = document.createElementNS('http://www.w3.org/2000/svg', 'title'); title.textContent = `${values[index].toFixed(0)} ms`; dot.append(title); svg.append(dot);
       });
     }
+    function buildCumulativeSessionAverages(traces) {
+      const qualityKeys = ['hit_rate_at_k', 'precision_at_k', 'recall_at_k', 'token_f1', 'task_success'];
+      const sessions = new Map();
+      traces.forEach((trace, index) => {
+        const id = trace.conversation_id || `legacy-${trace.trace_id || index}`;
+        if (!sessions.has(id)) sessions.set(id, { id, traces: [] });
+        sessions.get(id).traces.push(trace);
+      });
+      const chronological = Array.from(sessions.values()).map((session) => {
+        session.traces.sort((left, right) => String(left.timestamp).localeCompare(String(right.timestamp)));
+        const last = session.traces[session.traces.length - 1];
+        const stageAverage = (name) => average(session.traces.map((trace) => trace.stages_ms?.[name]).filter((value) => value !== null && value !== undefined).map(Number));
+        const quality = Object.fromEntries(qualityKeys.map((key) => [key, average(session.traces.map((trace) => measuredMetricValue(trace.quality_metrics?.[key])).filter((value) => value !== null))]));
+        return {
+          id: session.id, turns: session.traces.length, timestamp: last.timestamp, status: last.status,
+          total_ms: average(session.traces.map((trace) => Number(trace.total_ms || 0))),
+          retrieval_ms: stageAverage('retrieval'), generation_ms: stageAverage('generation'),
+          tokens: average(session.traces.map((trace) => Number(trace.total_tokens || 0))), quality,
+        };
+      }).sort((left, right) => String(left.timestamp).localeCompare(String(right.timestamp)));
+      const keys = ['total_ms', 'retrieval_ms', 'generation_ms', 'tokens', ...qualityKeys];
+      const sums = Object.fromEntries(keys.map((key) => [key, 0]));
+      const counts = Object.fromEntries(keys.map((key) => [key, 0]));
+      let previous = null;
+      return chronological.map((session) => {
+        const values = { total_ms: session.total_ms, retrieval_ms: session.retrieval_ms, generation_ms: session.generation_ms, tokens: session.tokens, ...session.quality };
+        Object.entries(values).forEach(([key, value]) => {
+          if (value !== null && value !== undefined) { sums[key] += Number(value); counts[key] += 1; }
+        });
+        const cumulative = Object.fromEntries(keys.map((key) => [key, counts[key] ? sums[key] / counts[key] : null]));
+        const deltas = Object.fromEntries(keys.map((key) => [key, previous && cumulative[key] !== null && previous[key] !== null ? cumulative[key] - previous[key] : null]));
+        const result = { ...session, cumulative, deltas, measured_sessions: { ...counts } };
+        previous = { ...cumulative };
+        return result;
+      });
+    }
+    function cumulativeCell(value, delta, kind = 'score', lowerIsBetter = false) {
+      if (value === null || value === undefined) return { text: 'Not measured', className: '' };
+      const threshold = kind === 'ms' ? 0.5 : kind === 'tokens' ? 0.5 : 0.0005;
+      if (delta === null || delta === undefined || Math.abs(delta) < threshold) return { text: metricValue(value, kind === 'tokens' ? 'count' : kind), className: '' };
+      const improved = lowerIsBetter ? delta < 0 : delta > 0;
+      const arrow = delta > 0 ? '↑' : '↓';
+      const renderedDelta = kind === 'ms' ? `${Math.abs(delta).toFixed(0)} ms` : kind === 'tokens' ? Math.abs(delta).toFixed(0) : Math.abs(delta).toFixed(3);
+      return { text: `${metricValue(value, kind === 'tokens' ? 'count' : kind)} ${arrow} ${renderedDelta}`, className: improved ? 'delta-good' : 'delta-bad' };
+    }
     function renderMetricRows(traces) {
       const body = $('metrics-rows'); body.replaceChildren();
-      const chronological = traces.slice(-12);
-      chronological.slice().reverse().forEach((trace, reverseIndex) => {
-        const originalIndex = chronological.length - 1 - reverseIndex;
-        const previous = originalIndex > 0 ? chronological[originalIndex - 1] : null;
-        const delta = previous ? Number(trace.total_ms) - Number(previous.total_ms) : null;
-        const task = trace.quality_metrics?.task_success;
-        const previousTask = previous?.quality_metrics?.task_success;
-        const taskValue = task && typeof task === 'object' ? task.value : task;
-        const previousTaskValue = previousTask && typeof previousTask === 'object' ? previousTask.value : previousTask;
-        const taskDelta = taskValue !== null && taskValue !== undefined && previousTaskValue !== null && previousTaskValue !== undefined ? Number(taskValue) - Number(previousTaskValue) : null;
-        const stateReason = !task
-          ? 'Not measured: this older trace lacks evaluation context'
-          : (typeof task === 'object' && !task.applicable
-            ? `Not measured: ${metricReasonText[task.reason] || String(task.reason || 'unlabeled query').replaceAll('_', ' ')}`
-            : 'Measured');
+      const rows = buildCumulativeSessionAverages(traces);
+      rows.slice(-12).reverse().forEach((session) => {
         const row = document.createElement('tr');
         const values = [
-          new Date(trace.timestamp).toLocaleString(), `${String(trace.conversation_id || 'legacy').slice(0, 8)} / ${trace.turn_index || 0}`,
-          trace.label_case_id ? `${trace.label_case_id} · ${trace.case_match_method || 'legacy'} · ${trace.reference_language || '—'}` : `— · ${trace.case_match_method || 'unlabeled query'}`,
-          trace.status, `${Number(trace.total_ms || 0).toFixed(0)} ms`,
-          `${Number(trace.stages_ms?.retrieval || 0).toFixed(0)} ms`, `${Number(trace.stages_ms?.generation || 0).toFixed(0)} ms`,
-          trace.total_tokens || 0,
-          metricValue(trace.quality_metrics?.hit_rate_at_k),
-          metricValue(trace.quality_metrics?.precision_at_k),
-          metricValue(trace.quality_metrics?.recall_at_k),
-          metricValue(trace.quality_metrics?.token_f1),
-          metricValue(task), stateReason, delta === null ? '—' : `${delta >= 0 ? '+' : ''}${delta.toFixed(0)} ms`,
-          taskDelta === null ? '—' : `${taskDelta >= 0 ? '+' : ''}${taskDelta.toFixed(3)}`,
+          { text: new Date(session.timestamp).toLocaleString(), className: '' },
+          { text: String(session.id).slice(0, 8), className: '' }, { text: String(session.turns), className: '' }, { text: session.status, className: '' },
+          cumulativeCell(session.cumulative.total_ms, session.deltas.total_ms, 'ms', true),
+          cumulativeCell(session.cumulative.retrieval_ms, session.deltas.retrieval_ms, 'ms', true),
+          cumulativeCell(session.cumulative.generation_ms, session.deltas.generation_ms, 'ms', true),
+          cumulativeCell(session.cumulative.tokens, session.deltas.tokens, 'tokens', true),
+          cumulativeCell(session.cumulative.hit_rate_at_k, session.deltas.hit_rate_at_k),
+          cumulativeCell(session.cumulative.precision_at_k, session.deltas.precision_at_k),
+          cumulativeCell(session.cumulative.recall_at_k, session.deltas.recall_at_k),
+          cumulativeCell(session.cumulative.token_f1, session.deltas.token_f1),
+          cumulativeCell(session.cumulative.task_success, session.deltas.task_success),
+          { text: `${session.measured_sessions.task_success}/${rows.indexOf(session) + 1} task · ${session.measured_sessions.hit_rate_at_k}/${rows.indexOf(session) + 1} retrieval`, className: '' },
         ];
-        values.forEach((value, index) => {
-          const cell = document.createElement('td'); cell.textContent = value;
-          if (index === 14 && delta !== null) cell.className = delta <= 0 ? 'delta-good' : 'delta-bad';
-          if (index === 15 && taskDelta !== null) cell.className = taskDelta >= 0 ? 'delta-good' : 'delta-bad';
+        values.forEach((value) => {
+          const cell = document.createElement('td'); cell.textContent = value.text; cell.className = value.className;
           row.append(cell);
         });
         body.append(row);
@@ -736,11 +809,12 @@
     }
     async function loadMetrics() {
       try {
-        const response = await fetch('/api/metrics?limit=200');
-        if (!response.ok) throw new Error('Metrics unavailable');
-        const report = await response.json();
-        renderMetricCards(report.summary); renderQualityMetrics(report.summary.quality);
-        renderTrend(report.traces || []); renderMetricRows(report.traces || []);
+        const sessionUrl = `/api/metrics?limit=200&conversation_id=${encodeURIComponent(state.conversationId)}`;
+        const [sessionResponse, historyResponse] = await Promise.all([fetch(sessionUrl), fetch('/api/metrics?limit=200')]);
+        if (!sessionResponse.ok || !historyResponse.ok) throw new Error('Metrics unavailable');
+        const [sessionReport, historyReport] = await Promise.all([sessionResponse.json(), historyResponse.json()]);
+        renderMetricCards(sessionReport.summary); renderQualityMetrics(sessionReport.summary.quality);
+        renderTrend(sessionReport.traces || []); renderMetricRows(historyReport.traces || []);
       } catch (_) {
         $('metric-cards').textContent = 'Historical metrics are temporarily unavailable.';
       }
@@ -917,11 +991,16 @@
       $('debug-wrap').hidden = true;
       setFeedback('Conversation cleared.');
       setBusy(false);
+      loadMetrics();
       input.focus();
     });
     input.addEventListener('input', () => { input.dir = isArabic(input.value) ? 'rtl' : 'ltr'; state.selectedCaseId = ''; });
     $('refresh-metrics').addEventListener('click', loadMetrics);
     $('load-ops').addEventListener('click', loadEmbeddingOperations);
+    document.querySelectorAll('[data-expand-panel]').forEach((button) => {
+      button.addEventListener('click', () => toggleExpandedPanel(button.dataset.expandPanel));
+    });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeExpandedPanel(); });
     $('embedding-dimension').addEventListener('change', () => {
       if (!state.dimensionLocked) {
         refreshSelectedProfileStatus();

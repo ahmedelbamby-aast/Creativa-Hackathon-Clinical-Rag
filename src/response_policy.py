@@ -101,7 +101,9 @@ _DOMAIN_ANCHORS = {
     "diabetes", "diabetic", "insulin", "glucose", "hba1c", "a1c",
     "سكري", "السكري", "أنسولين", "الأنسولين", "جلوكوز", "السكر",
 }
-_ARABIC_DOMAIN_FRAGMENTS = ("سكري", "السكر", "جلوكوز", "غلوكوز", "أنسولين", "انسولين")
+_ARABIC_DOMAIN_FRAGMENTS = (
+    "سكري", "السكر", "سكر الدم", "جلوكوز", "غلوكوز", "أنسولين", "انسولين",
+)
 _VAGUE_QUESTIONS = {
     "tell me more", "explain more", "more details", "what about it",
     "what is this", "can you explain", "help me", "and then",

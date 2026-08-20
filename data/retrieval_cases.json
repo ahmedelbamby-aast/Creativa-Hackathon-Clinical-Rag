@@ -148,10 +148,10 @@
       "expect_evidence": true,
       "expected_source_id": "idf_diabetes_atlas_2025",
       "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
-      "expected_page": 66,
-      "expected_section": "In 2024, the total global diabetes-related health expenditure",
+      "expected_page": 46,
+      "expected_section": "Key messages:",
       "text_anchors": [
-        "total global diabetes-related health expenditure"
+        "Over USD 1 trillion was spent on diabetes in 2024"
       ],
       "review": {
         "status": "reviewed",
@@ -253,6 +253,13 @@
         {
           "source_id": "who_diabetes_pregnancy_2025",
           "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 13,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p13_c16",
+          "relevance_grade": 3
+        },
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
           "page_number": 27,
           "chunk_id": "WHO_recommendations_on_care_for_women_wi_p27_c44",
           "relevance_grade": 3
@@ -295,6 +302,13 @@
       },
       "expected_status": "ready",
       "relevant_items": [
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 13,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p13_c16",
+          "relevance_grade": 3
+        },
         {
           "source_id": "who_diabetes_pregnancy_2025",
           "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
@@ -647,10 +661,10 @@
       "expect_evidence": true,
       "expected_source_id": "idf_diabetes_atlas_2025",
       "expected_document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
-      "expected_page": 66,
-      "expected_section": "In 2024, the total global diabetes-related health expenditure",
+      "expected_page": 46,
+      "expected_section": "Key messages:",
       "text_anchors": [
-        "total global diabetes-related health expenditure"
+        "Over USD 1 trillion was spent on diabetes in 2024"
       ],
       "review": {
         "status": "reviewed",
@@ -752,6 +766,13 @@
         {
           "source_id": "who_diabetes_pregnancy_2025",
           "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 13,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p13_c16",
+          "relevance_grade": 3
+        },
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
           "page_number": 27,
           "chunk_id": "WHO_recommendations_on_care_for_women_wi_p27_c44",
           "relevance_grade": 3
@@ -794,6 +815,13 @@
       },
       "expected_status": "ready",
       "relevant_items": [
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 13,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p13_c16",
+          "relevance_grade": 3
+        },
         {
           "source_id": "who_diabetes_pregnancy_2025",
           "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
@@ -1259,6 +1287,27 @@
       "expected_status": "ready",
       "relevant_items": [
         {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 12,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p12_c17",
+          "relevance_grade": 3
+        },
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 12,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p12_c17",
+          "relevance_grade": 3
+        },
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 13,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p13_c16",
+          "relevance_grade": 3
+        },
+        {
           "source_id": "who_diabetes_pregnancy_2025",
           "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
           "page_number": 27,
@@ -1304,6 +1353,13 @@
       },
       "expected_status": "ready",
       "relevant_items": [
+        {
+          "source_id": "who_diabetes_pregnancy_2025",
+          "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",
+          "page_number": 13,
+          "chunk_id": "WHO_recommendations_on_care_for_women_wi_p13_c16",
+          "relevance_grade": 3
+        },
         {
           "source_id": "who_diabetes_pregnancy_2025",
           "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",

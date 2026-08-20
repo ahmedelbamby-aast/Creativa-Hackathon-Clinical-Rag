@@ -42,6 +42,7 @@ def test_obviously_non_diabetes_question_is_rejected_but_contextual_follow_up_is
     assert is_out_of_domain("What is the treatment for malaria?") is True
     assert is_out_of_domain("How many adults are living with diabetes?") is False
     assert is_out_of_domain("كم عدد البالغين المصابين بالسكري؟") is False
+    assert is_out_of_domain("ما هدف التحكم في سكر الدم بشكل فردي؟") is False
     assert is_out_of_domain(
         "What about the 2050 figure?",
         [{"role": "user", "content": "How many adults are living with diabetes?"}],

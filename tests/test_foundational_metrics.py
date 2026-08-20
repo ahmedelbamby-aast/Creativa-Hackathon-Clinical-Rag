@@ -261,6 +261,35 @@ def test_metrics_read_path_never_runs_schema_ddl(monkeypatch, tmp_path):
     assert repository.read(limit=10) == []
 
 
+def test_metrics_read_filters_json_and_database_records_by_conversation(monkeypatch, tmp_path):
+    store = observability.JsonlStore(tmp_path / "metrics.jsonl")
+    store.append({
+        "trace_id": "00000000-0000-0000-0000-000000000201",
+        "conversation_id": "other-chat",
+        "timestamp": "2026-01-01T00:00:00+00:00",
+    })
+    repository = observability.MetricsRepository(store, "postgresql://test")
+
+    class Result:
+        def fetchall(self):
+            return [{"payload": {
+                "trace_id": "00000000-0000-0000-0000-000000000202",
+                "conversation_id": "current-chat",
+                "timestamp": "2026-01-02T00:00:00+00:00",
+            }}]
+
+    class Connection:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def execute(self, *_args, **_kwargs): return Result()
+
+    monkeypatch.setattr(observability.psycopg, "connect", lambda *args, **kwargs: Connection())
+
+    records = repository.read(limit=10, conversation_id="current-chat")
+
+    assert [item["conversation_id"] for item in records] == ["current-chat"]
+
+
 def test_metrics_report_aggregates_new_and_legacy_metric_shapes():
     records = [
         {"status": "ok", "total_ms": 10, "total_tokens": 3, "quality_metrics": {"task_success": {"value": 0.0, "applicable": True, "reason": ""}}},

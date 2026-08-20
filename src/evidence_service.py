@@ -39,7 +39,15 @@ def _directly_matching_chunks(query: str, chunks: list[RetrievedChunk]) -> list[
         if any(term in normalized_query for term in query_terms):
             required_groups.append(evidence_terms)
             break
-    if "risk factor" in normalized_query or "عوامل الخطر" in normalized_query:
+    asks_type_2_risk_factors = (
+        any(term in normalized_query for term in ("type 2", "type ii", "النوع الثاني"))
+        and any(term in normalized_query for term in ("risk factor", "عوامل الخطر"))
+    )
+    if asks_type_2_risk_factors:
+        # Do not answer with GDM risk factors or cardiovascular risks among
+        # people who already have T2D. The evidence must label this exact list.
+        required_groups.append(("risk factors for type 2 diabetes", "type 2 diabetes risk factors"))
+    elif "risk factor" in normalized_query or "عوامل الخطر" in normalized_query:
         required_groups.append(("risk factor",))
     if "preventive cardiolog" in normalized_query or "طبيب القلب الوقائي" in normalized_query:
         required_groups.append(("preventive cardiolog",))
@@ -54,6 +62,21 @@ def _directly_matching_chunks(query: str, chunks: list[RetrievedChunk]) -> list[
         if all(any(term in evidence for term in group) for group in required_groups):
             matching.append(chunk)
     return matching
+
+
+def _unsupported_diabetes_type(query: str) -> bool:
+    """Reject invented diabetes type numbers before semantic retrieval can near-match them."""
+    normalized = " ".join(query.casefold().split())
+    numeric = re.search(r"\btype\s+(\d+)\b", normalized)
+    if numeric and numeric.group(1) not in {"1", "2"}:
+        return True
+    return any(
+        term in normalized
+        for term in (
+            "النوع الثالث", "النوع الرابع", "النوع الخامس", "النوع السادس",
+            "النوع السابع", "النوع الثامن", "النوع التاسع", "النوع العاشر",
+        )
+    )
 
 
 def is_arabic(text: str) -> bool:
@@ -120,6 +143,13 @@ def stage_evidence(
             rewritten_query=query,
             status="safety_blocked",
             user_message=get_emergency_response(is_arabic=arabic),
+        )
+    if safety == SafetyLevel.HIGH_RISK or _unsupported_diabetes_type(query):
+        return RetrievalEnvelope(
+            **common,
+            rewritten_query=query,
+            status="out_of_scope",
+            user_message=response_text("out_of_scope", is_arabic=arabic),
         )
     if needs_clarification(query, conversation_history):
         return RetrievalEnvelope(

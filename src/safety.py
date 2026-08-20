@@ -42,7 +42,8 @@ _HIGH_RISK_SIGNALS: list[str] = [
     "what dose", "how much insulin", "how many units", "dosage for me",
     "my insulin dose", "how much metformin", "what medication should i take",
     "which medication should i", "should i take", "prescribe",
-    "كم جرعة", "كم وحدة", "جرعتي", "ماذا آخذ", "هل آخذ", "الجرعة المناسبة لي",
+    "كم جرعة", "ما جرعة", "جرعة الإنسولين المناسبة", "جرعة الانسولين المناسبة",
+    "كم وحدة", "جرعتي", "ماذا آخذ", "هل آخذ", "الجرعة المناسبة لي",
 ]
 
 _DIAGNOSIS_SIGNALS: list[str] = [
