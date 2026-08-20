@@ -84,7 +84,9 @@ class GeminiGenerator:
 
         try:
             if provider == "vercel_gateway":
-                gateway_token = config.ai_gateway_api_key or config.vercel_oidc_token
+                # Vercel's short-lived deployment identity takes precedence over
+                # an older static gateway key that may have been revoked or moved.
+                gateway_token = config.vercel_oidc_token or config.ai_gateway_api_key
                 if not gateway_token:
                     raise RuntimeError(
                         "Vercel AI Gateway requires AI_GATEWAY_API_KEY or VERCEL_OIDC_TOKEN"

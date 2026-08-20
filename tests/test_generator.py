@@ -8,6 +8,22 @@ from src.generator import GeminiGenerator, _is_rate_limited, _is_retryable
 from src.gemini_errors import GeminiResponseError
 
 
+def test_vercel_gateway_prefers_deployment_oidc_over_static_key(monkeypatch) -> None:
+    captured = {}
+
+    class Client:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr("openai.OpenAI", Client)
+    monkeypatch.setattr("src.generator.config.vercel_oidc_token", "deployment-oidc")
+    monkeypatch.setattr("src.generator.config.ai_gateway_api_key", "stale-static-key")
+
+    GeminiGenerator()._initialise("vercel_gateway")
+
+    assert captured["api_key"] == "deployment-oidc"
+
+
 def test_rate_limit_detection_does_not_match_generate() -> None:
     assert _is_rate_limited("401 UNAUTHENTICATED GenerateContent") is False
     assert _is_rate_limited("429 RESOURCE_EXHAUSTED") is True
