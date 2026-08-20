@@ -21,8 +21,22 @@
         {
           "source_id": "idf_diabetes_atlas_2025",
           "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 12,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p12_c17",
+          "relevance_grade": 3
+        },
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
           "page_number": 46,
           "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p46_c77",
+          "relevance_grade": 3
+        },
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 47,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p47_c78",
           "relevance_grade": 3
         }
       ],
@@ -31,7 +45,9 @@
       ],
       "required_claims": [
         "589 million",
-        "adults aged 20 to 79",
+        "adults aged",
+        "20",
+        "79",
         "2024"
       ],
       "accepted_aliases": [
@@ -539,8 +555,22 @@
         {
           "source_id": "idf_diabetes_atlas_2025",
           "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 12,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p12_c17",
+          "relevance_grade": 3
+        },
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
           "page_number": 46,
           "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p46_c77",
+          "relevance_grade": 3
+        },
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 47,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p47_c78",
           "relevance_grade": 3
         }
       ],
@@ -549,7 +579,9 @@
       ],
       "required_claims": [
         "589 million",
-        "adults aged 20 to 79",
+        "adults aged",
+        "20",
+        "79",
         "2024"
       ],
       "accepted_aliases": [
@@ -585,8 +617,22 @@
         {
           "source_id": "idf_diabetes_atlas_2025",
           "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 12,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p12_c17",
+          "relevance_grade": 3
+        },
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
           "page_number": 46,
           "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p46_c77",
+          "relevance_grade": 3
+        },
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 47,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p47_c78",
           "relevance_grade": 3
         }
       ],
@@ -595,7 +641,8 @@
       ],
       "required_claims": [
         "589 مليون",
-        "20 و79",
+        "20",
+        "79",
         "2024"
       ],
       "accepted_aliases": [
@@ -1197,21 +1244,28 @@
         {
           "source_id": "idf_diabetes_atlas_2025",
           "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 12,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p12_c17",
+          "relevance_grade": 3
+        },
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
           "page_number": 46,
           "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p46_c77",
           "relevance_grade": 3
         }
       ],
       "reference_answers": [
-        "The projected increase is approximately 41.4%, from 589 million in 2024 to 853 million in 2050."
+        "The projected increase is approximately 44.8%, from 589 million in 2024 to 853 million in 2050."
       ],
       "required_claims": [
-        "41.4",
+        "44.8",
         "589 million",
         "853 million"
       ],
       "accepted_aliases": [
-        "about 41%"
+        "about 45%"
       ],
       "query_variants": [],
       "task_pass_rules": [
@@ -1243,21 +1297,28 @@
         {
           "source_id": "idf_diabetes_atlas_2025",
           "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
+          "page_number": 12,
+          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p12_c17",
+          "relevance_grade": 3
+        },
+        {
+          "source_id": "idf_diabetes_atlas_2025",
+          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
           "page_number": 46,
           "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p46_c77",
           "relevance_grade": 3
         }
       ],
       "reference_answers": [
-        "الزيادة المتوقعة تقارب 41.4%، من 589 مليوناً في 2024 إلى 853 مليوناً في 2050."
+        "الزيادة المتوقعة تقارب 44.8%، من 589 مليوناً في 2024 إلى 853 مليوناً في 2050."
       ],
       "required_claims": [
-        "41.4",
+        "44.8",
         "589 مليون",
         "853 مليون"
       ],
       "accepted_aliases": [
-        "نحو 41%"
+        "نحو 45%"
       ],
       "query_variants": [],
       "task_pass_rules": [
@@ -1286,20 +1347,6 @@
       },
       "expected_status": "ready",
       "relevant_items": [
-        {
-          "source_id": "idf_diabetes_atlas_2025",
-          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
-          "page_number": 12,
-          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p12_c17",
-          "relevance_grade": 3
-        },
-        {
-          "source_id": "idf_diabetes_atlas_2025",
-          "document_name": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf",
-          "page_number": 12,
-          "chunk_id": "IDF_Diabetes_Atlas_11th_Edition_2025_WEB_p12_c17",
-          "relevance_grade": 3
-        },
         {
           "source_id": "who_diabetes_pregnancy_2025",
           "document_name": "WHO recommendations on care for women with diabetes during pregnancy.pdf",

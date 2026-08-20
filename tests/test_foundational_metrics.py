@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import math
 from types import SimpleNamespace
 
 import pytest
@@ -27,6 +28,26 @@ def reviewed_case(**overrides):
     }
     value.update(overrides)
     return value
+
+
+def test_reviewed_relevance_pools_are_source_consistent_unique_and_arithmetically_correct():
+    cases = quality_metrics.gold_dataset()["cases"]
+    for case in cases:
+        items = case.get("relevant_items", [])
+        identities = [
+            (item.get("source_id"), item.get("page_number"), item.get("chunk_id"))
+            for item in items
+        ]
+        assert len(identities) == len(set(identities)), case["case_id"]
+        assert all(
+            item.get("source_id") == case.get("expected_source_id") for item in items
+        ), case["case_id"]
+
+    for case_id in ("idf_en_projection_increase", "idf_ar_projection_increase"):
+        projection = next(case for case in cases if case["case_id"] == case_id)
+        assert "44.8" in projection["reference_answers"][0]
+        assert "44.8" in projection["required_claims"]
+    assert math.isclose((853 - 589) / 589 * 100, 44.8, abs_tol=0.05)
 
 
 def chunk(chunk_id: str, page: int, *, source="source", text=""):
