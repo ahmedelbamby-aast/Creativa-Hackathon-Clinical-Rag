@@ -166,3 +166,4 @@ def test_retrieve_uses_lexical_database_fallback_when_embedding_fails(monkeypatc
     chunks = retrieve("589 million adults with diabetes in 2024", similarity_threshold=0.0)
 
     assert [chunk.chunk_id for chunk in chunks] == ["lexical-1"]
+    assert chunks[0].retrieval_mode == "lexical"

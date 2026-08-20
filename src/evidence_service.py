@@ -202,6 +202,7 @@ def stage_evidence(
                 source_url=chunk.source_url,
                 publisher=chunk.publisher,
                 publication_date=chunk.publication_date,
+                retrieval_mode=chunk.retrieval_mode,
             )
             for chunk in certified_chunks
         )
@@ -241,6 +242,7 @@ def envelope_chunks(envelope: RetrievalEnvelope) -> list[RetrievedChunk]:
             source_url=item.source_url,
             publisher=item.publisher,
             publication_date=item.publication_date,
+            retrieval_mode=item.retrieval_mode,
         )
         for item in envelope.chunks
     ]
@@ -302,6 +304,7 @@ def rehydrate_evidence(
                 source_url=item["metadata"].get("source_url", ""),
                 publisher=item["metadata"].get("publisher", ""),
                 publication_date=item["metadata"].get("publication_date", ""),
+                retrieval_mode="rehydrated",
             )
             for item in raw_chunks
         )

@@ -1,0 +1,9 @@
+{
+  "dimension": 1024,
+  "namespace": "gemini_1024",
+  "expected_documents": 12,
+  "verified_documents": 12,
+  "verified_chunks": 946,
+  "checksums_match": true,
+  "invalid_vector_count": 0
+}

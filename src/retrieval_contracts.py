@@ -110,6 +110,7 @@ class EvidenceChunk:
     source_url: str
     publisher: str = ""
     publication_date: str = ""
+    retrieval_mode: str = "vector"
 
 
 @dataclass(frozen=True)

@@ -56,6 +56,7 @@ class RetrievedChunk:
     publication_date: str = ""
     source_checksum: str = ""
     chunk_profile: str = ""
+    retrieval_mode: str = "vector"
 
 
 def retrieve(
@@ -92,6 +93,7 @@ def retrieve(
     try:
         query_vector = selected_embedder.embed_query(query.strip())
     except Exception as e:
+        retrieval_mode = "lexical"
         logger.warning(
             "Embedding retrieval unavailable; using PostgreSQL lexical fallback: type=%s",
             type(e).__name__,
@@ -105,6 +107,7 @@ def retrieve(
         except Exception as fallback_error:
             raise RetrievalProviderError("query_embedding_and_lexical_search_failed") from fallback_error
     else:
+        retrieval_mode = "vector"
         raw_results = selected_store.query(
             query_embedding=query_vector,
             category=category,
@@ -148,6 +151,7 @@ def retrieve(
             publication_date=meta.get("publication_date", ""),
             source_checksum=meta.get("source_checksum", ""),
             chunk_profile=meta.get("chunk_profile", ""),
+            retrieval_mode=retrieval_mode,
         )
         chunks.append(chunk)
 
