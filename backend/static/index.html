@@ -798,6 +798,8 @@
           ? `${profile.dimension} dimensions · ${profile.indexed_chunks} passages`
           : profile.index_status === 'ingesting'
             ? `${profile.dimension} dimensions · ingesting ${profile.document_count}/${profile.expected_document_count}`
+            : profile.index_status === 'awaiting_acceptance'
+              ? `${profile.dimension} dimensions · validation pending`
             : `${profile.dimension} dimensions · coming soon`;
         select.append(option);
       });

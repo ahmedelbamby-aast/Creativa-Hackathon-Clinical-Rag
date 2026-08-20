@@ -30,6 +30,14 @@ def _resolve_app_environment() -> str:
     return "development"
 
 
+def _integer_tuple_from_environment(name: str, default: str) -> tuple[int, ...]:
+    raw = os.environ.get(name, default)
+    try:
+        return tuple(dict.fromkeys(int(value.strip()) for value in raw.split(",") if value.strip()))
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a comma-separated list of integers") from exc
+
+
 _APP_ENV = _resolve_app_environment()
 _ENV_FILE = (
     _PROJECT_ROOT / ".env.deployment"
@@ -262,6 +270,11 @@ class AppConfig:
     embedding_expected_document_count: int = field(
         default_factory=lambda: int(os.environ.get("EMBEDDING_EXPECTED_DOCUMENT_COUNT", "12"))
     )
+    embedding_accepted_dimensions: tuple[int, ...] = field(
+        default_factory=lambda: _integer_tuple_from_environment(
+            "EMBEDDING_ACCEPTED_DIMENSIONS", "384,768"
+        )
+    )
 
     # ── Derived ────────────────────────────────────────────────────────────
     project_root: Path = field(default_factory=lambda: _PROJECT_ROOT)
@@ -323,6 +336,11 @@ class AppConfig:
             raise ValueError("GEMINI_EMBEDDING_SAFETY_FACTOR must be greater than 0 and at most 1")
         if self.embedding_expected_document_count < 1:
             raise ValueError("EMBEDDING_EXPECTED_DOCUMENT_COUNT must be at least 1")
+        supported_dimensions = {384, 768, 1024, 2048, 3072}
+        if not self.embedding_accepted_dimensions:
+            raise ValueError("EMBEDDING_ACCEPTED_DIMENSIONS must contain at least one dimension")
+        if not set(self.embedding_accepted_dimensions).issubset(supported_dimensions):
+            raise ValueError("EMBEDDING_ACCEPTED_DIMENSIONS contains an unsupported dimension")
         if self.retrieval_profile not in CHUNK_PROFILES:
             raise ValueError(
                 "RETRIEVAL_PROFILE must be one of "

@@ -1,0 +1,43 @@
+{
+  "char_chunk_overlap": 300,
+  "char_chunk_size": 3000,
+  "chunk_profile": "large",
+  "corpus_hash": "5db1c0b8ba73de3ed1be48cdd3fd8a72eec55e1a076ff23677fe0e557b68c537",
+  "created_at": "2026-08-20T00:42:53.229811+00:00",
+  "dimension": 1024,
+  "document_checksums": {
+    "An Overview of Diabetes Mellitus in Egypt and the Significance of Integrating Preventive Cardiology in Diabetes Management.pdf": "23a70258c6717c33881ac660c874c4dff8254d77ae763a093bc960e5d486be1d",
+    "Availability, price and affordability of health technologies for the management of diabetes.pdf": "c9430090d4ac12009afd4ba032982a79016f38342a417780d1d05882c7d8b1f0",
+    "EJOS_Volume 4_Issue 13_Pages 5-24.pdf": "21a723166f1b81db7a83219042a722923f212b05a8b866b2360c785fc2cc55a0",
+    "Guidance on global monitoring for diabetes prevention and control Framework, indicators and application.pdf": "fc0497a3c5d84903b6d0c3d51e02d4fc89780e8ad6e8bb4953bf624aaab1c49b",
+    "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf": "81d01e73d486adbe7d4f14752644e109ed43151738e3e852303ebd3967a81d0d",
+    "Prevention and control of diabetes mellitus Lessons for service delivery from countries in the WHO South-East Asia Region.pdf": "daf10f5fb0912a14a3c4c9aeef53e4439bccbf03927695b3c226e5a2563762af",
+    "Regional Commemoration of World Diabetes Day 2024.pdf": "e444e8a27015fd93eab7eb74dd6a5343f2403a405c1ab490deecbb8dc6ec782e",
+    "Story_case_1.pdf": "83135199612a64efc054d23fc1535825deff36eeaeb233bc1735e50e92e26171",
+    "Story_case_2.pdf": "a6dca195e08a964af1c7c61e16a434417830467edc61fa9c30b7e3f07a19939d",
+    "The Global Diabetes Compact progress in supporting its workstreams technical report.pdf": "a6f6d607a072cea707b5ed87f3180cf5c5ede0481a220adf613f181826f6c42d",
+    "WHO recommendations on care for women with diabetes during pregnancy.pdf": "fb0dcf418df0757764bd6fd2d142c8d7e2690d6659ef67d049db39ac4537c606",
+    "WHO_Test.pdf": "e3e9b1479f03fac078b90f7ca25a3c2686e656a62ad9d83e7413dcfd7c728fa1"
+  },
+  "document_chunk_counts": {
+    "An Overview of Diabetes Mellitus in Egypt and the Significance of Integrating Preventive Cardiology in Diabetes Management.pdf": 14,
+    "Availability, price and affordability of health technologies for the management of diabetes.pdf": 120,
+    "EJOS_Volume 4_Issue 13_Pages 5-24.pdf": 24,
+    "Guidance on global monitoring for diabetes prevention and control Framework, indicators and application.pdf": 167,
+    "IDF_Diabetes_Atlas_11th_Edition_2025_WEB.pdf": 219,
+    "Prevention and control of diabetes mellitus Lessons for service delivery from countries in the WHO South-East Asia Region.pdf": 178,
+    "Regional Commemoration of World Diabetes Day 2024.pdf": 79,
+    "Story_case_1.pdf": 8,
+    "Story_case_2.pdf": 9,
+    "The Global Diabetes Compact progress in supporting its workstreams technical report.pdf": 17,
+    "WHO recommendations on care for women with diabetes during pregnancy.pdf": 106,
+    "WHO_Test.pdf": 5
+  },
+  "embedding_model": "gemini-embedding-2",
+  "embedding_provider": "gemini",
+  "hnsw_ef_construction": 64,
+  "hnsw_m": 16,
+  "namespace": "gemini_1024",
+  "source_catalog_hash": "ef29be57d244641f061e9409a6fa3e6d770d4cfdb2f8bd49e7122078bd7c3434",
+  "token_count": 208936
+}

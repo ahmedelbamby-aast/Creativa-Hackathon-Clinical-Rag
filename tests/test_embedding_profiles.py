@@ -77,3 +77,27 @@ def test_partial_dimension_is_not_selectable(monkeypatch) -> None:
     assert partial["expected_document_count"] == 12
     assert partial["index_status"] == "ingesting"
     assert partial["available"] is False
+
+
+def test_complete_but_unaccepted_dimension_is_not_selectable(monkeypatch) -> None:
+    class Connection:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def execute(self, query, params=None):
+            class Result:
+                def fetchone(self):
+                    if "to_regclass" in str(query):
+                        return ("present",)
+                    return (946, 12)
+            return Result()
+
+    monkeypatch.setattr(embedding_profiles.psycopg, "connect", lambda *_: Connection())
+    monkeypatch.setattr(embedding_profiles.config, "embedding_accepted_dimensions", (384, 768))
+    catalog = embedding_profiles.embedding_profile_catalog()
+    candidate = next(profile for profile in catalog["profiles"] if profile["dimension"] == 1024)
+
+    assert catalog["accepted_dimensions"] == [384, 768]
+    assert candidate["document_count"] == 12
+    assert candidate["accepted"] is False
+    assert candidate["index_status"] == "awaiting_acceptance"
+    assert candidate["available"] is False
