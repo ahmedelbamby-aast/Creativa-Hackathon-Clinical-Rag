@@ -7,6 +7,7 @@ import pytest
 
 from backend import server
 from src import observability, quality_metrics
+from src.safety import GENERAL_DISCLAIMER_EN
 from scripts.backfill_metrics import backfill_records
 from scripts import review_gold_cases
 
@@ -95,6 +96,25 @@ def test_answer_metrics_use_accepted_aliases_and_language():
     assert values["token_f1"]["applicable"] is True
     arabic = quality_metrics.answer_metrics("589 مليون بالغ", reviewed_case(language="ar"), "en")
     assert arabic["exact_match"] == {"value": None, "applicable": False, "reason": "reference_language_mismatch"}
+
+
+def test_answer_metrics_ignore_only_fixed_disclaimer_and_citation_boilerplate():
+    case = reviewed_case(reference_answers=["589 million adults in 2024"])
+    clean = quality_metrics.answer_metrics(
+        "589 million adults in 2024 [E1]" + GENERAL_DISCLAIMER_EN,
+        case,
+        "en",
+    )
+    verbose = quality_metrics.answer_metrics(
+        "589 million adults in 2024 [E1]. Unrequested unrelated material remains."
+        + GENERAL_DISCLAIMER_EN,
+        case,
+        "en",
+    )
+
+    assert clean["token_precision"]["value"] == 1.0
+    assert clean["token_recall"]["value"] == 1.0
+    assert verbose["token_precision"]["value"] < 1.0
 
 
 def test_task_rules_cover_positive_and_negative_outcomes():

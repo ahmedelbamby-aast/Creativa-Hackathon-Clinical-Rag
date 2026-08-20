@@ -18,6 +18,7 @@ from typing import Any, Iterable
 from src.config import config
 
 _TOKEN = re.compile(r"\w+", re.UNICODE)
+_EVIDENCE_CITATION = re.compile(r"\[E\d+\]", re.IGNORECASE)
 _CASES_PATH = config.project_root / "data" / "retrieval_cases.json"
 GOLD_DATASET_FALLBACK_VERSION = "legacy-1"
 RETRIEVAL_METRICS = ("hit_rate_at_k", "precision_at_k", "recall_at_k", "reciprocal_rank", "average_precision", "ndcg_at_k")
@@ -52,6 +53,37 @@ def token_overlap(prediction: str, reference: str) -> dict[str, float]:
     precision, recall = overlap / len(predicted), overlap / len(expected)
     f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
     return {"token_precision": round(precision, 6), "token_recall": round(recall, 6), "token_f1": round(f1, 6)}
+
+
+def scoreable_answer(answer: str) -> str:
+    """Remove fixed presentation boilerplate while retaining all answer prose.
+
+    Citation labels and the application's exact safety disclaimers are not answer
+    claims, so including them would make token precision depend on UI policy.
+    Unrequested or unsupported prose remains and still lowers precision.
+    """
+    from src.safety import (
+        DIAGNOSIS_DISCLAIMER_AR,
+        DIAGNOSIS_DISCLAIMER_EN,
+        GENERAL_DISCLAIMER_AR,
+        GENERAL_DISCLAIMER_EN,
+        HIGH_RISK_DISCLAIMER_AR,
+        HIGH_RISK_DISCLAIMER_EN,
+    )
+
+    cleaned = answer
+    for disclaimer in (
+        HIGH_RISK_DISCLAIMER_EN,
+        HIGH_RISK_DISCLAIMER_AR,
+        DIAGNOSIS_DISCLAIMER_EN,
+        DIAGNOSIS_DISCLAIMER_AR,
+        GENERAL_DISCLAIMER_EN,
+        GENERAL_DISCLAIMER_AR,
+    ):
+        if cleaned.endswith(disclaimer):
+            cleaned = cleaned[: -len(disclaimer)]
+            break
+    return _EVIDENCE_CITATION.sub("", cleaned).strip()
 
 
 def _legacy_relevant_item(case: dict[str, Any]) -> list[dict[str, Any]]:
@@ -203,8 +235,9 @@ def answer_metrics(answer: str, case: dict[str, Any] | None, answer_language: st
     references = [str(item) for item in [*case.get("reference_answers", []), *case.get("accepted_aliases", [])] if str(item).strip()]
     if not references:
         return unavailable_metrics(ANSWER_METRICS, "missing_reference_answer")
-    best = max((token_overlap(answer, reference) for reference in references), key=lambda value: value["token_f1"])
-    exact = float(any(normalize_text(answer) == normalize_text(reference) for reference in references))
+    evaluated_answer = scoreable_answer(answer)
+    best = max((token_overlap(evaluated_answer, reference) for reference in references), key=lambda value: value["token_f1"])
+    exact = float(any(normalize_text(evaluated_answer) == normalize_text(reference) for reference in references))
     return {"exact_match": metric(exact, True), **{name: metric(value, True) for name, value in best.items()}}
 
 

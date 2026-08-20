@@ -64,6 +64,8 @@ def test_grounded_prompt_contains_only_supplied_evidence_and_history_is_not_evid
     assert "Do not use your own training knowledge" in SYSTEM_PROMPT
     assert "Never reuse a list from a related condition" in SYSTEM_PROMPT
     assert "transparent arithmetic" in SYSTEM_PROMPT
+    assert "Do not add related statistics" in SYSTEM_PROMPT
+    assert "prefer one direct sentence" in SYSTEM_PROMPT
     assert "display equations between \\[ and \\]" in SYSTEM_PROMPT
     assert "cite evidence inline as [E1]" in prompt
     assert "format it as valid LaTeX" in prompt
