@@ -348,17 +348,10 @@ class MetricsRepository:
                     f"SELECT payload FROM rag_metric_events {where} ORDER BY recorded_at DESC LIMIT %s", params
                 ).fetchall()
             database_records = [row["payload"] for row in reversed(rows)]
-            merged = {
-                str(item.get("trace_id")): item
-                for item in [*self._deduplicated_json(), *database_records]
-            }
-            records = sorted(merged.values(), key=lambda item: item.get("timestamp", ""))
-            if conversation_id:
-                records = [
-                    item for item in records
-                    if item.get("conversation_id") == conversation_id
-                ]
-            return records[-limit:]
+            # PostgreSQL is authoritative whenever it is reachable. The JSONL
+            # file is a write/read fallback only; merging it here would revive
+            # deleted history from a warm serverless instance after a TRUNCATE.
+            return database_records[-limit:]
         except Exception:
             records = self._deduplicated_json()
             if conversation_id:

@@ -306,7 +306,7 @@ def test_metrics_read_filters_json_and_database_records_by_conversation(monkeypa
     store = observability.JsonlStore(tmp_path / "metrics.jsonl")
     store.append({
         "trace_id": "00000000-0000-0000-0000-000000000201",
-        "conversation_id": "other-chat",
+        "conversation_id": "current-chat",
         "timestamp": "2026-01-01T00:00:00+00:00",
     })
     repository = observability.MetricsRepository(store, "postgresql://test")
@@ -328,7 +328,9 @@ def test_metrics_read_filters_json_and_database_records_by_conversation(monkeypa
 
     records = repository.read(limit=10, conversation_id="current-chat")
 
-    assert [item["conversation_id"] for item in records] == ["current-chat"]
+    assert [item["trace_id"] for item in records] == [
+        "00000000-0000-0000-0000-000000000202"
+    ]
 
 
 def test_metrics_report_aggregates_new_and_legacy_metric_shapes():
